@@ -1,5 +1,7 @@
+import React from 'react';
 import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars, Grid, GizmoHelper, GizmoViewport } from '@react-three/drei';
+import { Vector3 } from 'three';
 import { usePhysicsStore } from '../../store/physicsStore';
 import { CelestialBody } from './CelestialBody';
 import { usePhysicsLoop } from '../../hooks/usePhysicsLoop';
@@ -14,26 +16,39 @@ const OrbitPredictionWrapper = () => {
 
 // Internal component to hook into the R3F context
 // Handles Camera Follow logic
+// Handles Camera Follow logic
 const CameraController = () => {
     const bodies = usePhysicsStore((state) => state.bodies);
     const followingBodyId = usePhysicsStore((state) => state.followingBodyId);
 
-    // We need access to controls
-    // Using Drei's OrbitControls with makeDefault puts it in the `controls` field of Three state?
-    // Actually, we can just grab the controls via useThree() if makeDefault is used, or pass ref.
-    // Easier way: useFrame and state.controls
+    // Store previous target position to calculate delta
+    const prevTargetPos = React.useRef<Vector3 | null>(null);
 
     useFrame((state) => {
-        if (!followingBodyId) return;
+        if (!followingBodyId) {
+            prevTargetPos.current = null;
+            return;
+        }
 
         const body = bodies.find(b => b.id === followingBodyId);
         if (body && state.controls) {
             const controls = state.controls as any;
+            const currentTargetPos = new Vector3(body.position.x, body.position.y, body.position.z);
 
-            // Smoothly interpolate target? Or hard set?
-            // Hard set is better for exact following to prevent jitter
-            controls.target.set(body.position.x, body.position.y, body.position.z);
+            if (prevTargetPos.current) {
+                // Calculate how much the target moved
+                const delta = currentTargetPos.clone().sub(prevTargetPos.current);
+
+                // Move camera by same delta to maintain relative position
+                state.camera.position.add(delta);
+            }
+
+            // Update controls target to center on body
+            controls.target.copy(currentTargetPos);
             controls.update();
+
+            // Update ref for next frame
+            prevTargetPos.current = currentTargetPos;
         }
     });
 
@@ -81,6 +96,7 @@ export const Scene = () => {
                         cellColor="rgba(255, 255, 255, 0.2)"
                         sectionSize={20}
                         cellSize={10}
+                        // @ts-ignore
                         depthWrite={false}
                         // @ts-ignore
                         side={2}
