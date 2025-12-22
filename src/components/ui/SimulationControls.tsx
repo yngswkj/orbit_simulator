@@ -100,6 +100,36 @@ export const SimulationControls: React.FC = () => {
                     />
                     Show Grid & Axes
                 </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
+                    <input
+                        type="checkbox"
+                        onChange={() => usePhysicsStore.getState().toggleRealisticVisuals()}
+                        checked={usePhysicsStore(s => s.showRealisticVisuals)}
+                    />
+                    Show Realistic Textures
+                </label>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>Camera Follow</label>
+                <select
+                    style={{
+                        padding: '6px',
+                        borderRadius: '4px',
+                        background: 'rgba(255,255,255,0.1)',
+                        color: 'white',
+                        border: '1px solid rgba(255,255,255,0.2)'
+                    }}
+                    value={usePhysicsStore(s => s.followingBodyId) || ''}
+                    onChange={(e) => usePhysicsStore.getState().setFollowingBody(e.target.value || null)}
+                >
+                    <option value="">Free Camera (None)</option>
+                    {usePhysicsStore(s => s.bodies).map(body => (
+                        <option key={body.id} value={body.id}>
+                            {body.name}
+                        </option>
+                    ))}
+                </select>
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>

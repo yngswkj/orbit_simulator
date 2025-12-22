@@ -12,16 +12,17 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
     {
         name: 'Sun',
         mass: SUN_MASS,
-        radius: 3.0, // Significantly reduced visual size (but clearly the star)
+        radius: 3.0,
         position: new Vector3(0, 0, 0),
         velocity: new Vector3(0, 0, 0),
         color: '#ffdd00',
+        texturePath: '/textures/sun_texture.png',
         isFixed: true,
     },
     {
         name: 'Mercury',
         mass: 0.055,
-        radius: 0.08, // Very small dot
+        radius: 0.08,
         position: new Vector3(10, 0, 0),
         velocity: new Vector3(0, 0, Math.sqrt(SUN_MASS / 10)),
         color: '#a1a1a1',
@@ -37,10 +38,11 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
     {
         name: 'Earth',
         mass: 1.0,
-        radius: 0.13, // Small dot
+        radius: 0.13,
         position: new Vector3(20, 0, 0),
         velocity: new Vector3(0, 0, Math.sqrt(SUN_MASS / 20)),
         color: '#22aaff',
+        texturePath: '/textures/earth_texture.png',
     },
     {
         name: 'Mars',
@@ -53,7 +55,7 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
     {
         name: 'Jupiter',
         mass: 317.8,
-        radius: 0.8, // Visible sphere
+        radius: 0.8,
         position: new Vector3(60, 0, 0),
         velocity: new Vector3(0, 0, Math.sqrt(SUN_MASS / 60)),
         color: '#d9a066',

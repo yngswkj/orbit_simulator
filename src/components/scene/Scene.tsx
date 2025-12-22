@@ -1,4 +1,4 @@
-import { Canvas } from '@react-three/fiber';
+import { Canvas, useFrame } from '@react-three/fiber';
 import { OrbitControls, Stars, Grid, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { usePhysicsStore } from '../../store/physicsStore';
 import { CelestialBody } from './CelestialBody';
@@ -13,15 +13,43 @@ const OrbitPredictionWrapper = () => {
 };
 
 // Internal component to hook into the R3F context
+// Handles Camera Follow logic
+const CameraController = () => {
+    const bodies = usePhysicsStore((state) => state.bodies);
+    const followingBodyId = usePhysicsStore((state) => state.followingBodyId);
+
+    // We need access to controls
+    // Using Drei's OrbitControls with makeDefault puts it in the `controls` field of Three state?
+    // Actually, we can just grab the controls via useThree() if makeDefault is used, or pass ref.
+    // Easier way: useFrame and state.controls
+
+    useFrame((state) => {
+        if (!followingBodyId) return;
+
+        const body = bodies.find(b => b.id === followingBodyId);
+        if (body && state.controls) {
+            const controls = state.controls as any;
+
+            // Smoothly interpolate target? Or hard set?
+            // Hard set is better for exact following to prevent jitter
+            controls.target.set(body.position.x, body.position.y, body.position.z);
+            controls.update();
+        }
+    });
+
+    return null;
+};
+
 const SimulationContent = () => {
     usePhysicsLoop();
     const bodies = usePhysicsStore((state) => state.bodies);
 
     return (
         <>
+            <CameraController />
             <ambientLight intensity={0.2} />
-            <pointLight position={[0, 0, 0]} intensity={2} /> {/* Sun-like light at center? Or ambient? */}
-            {/* Maybe a light attached to the Sun body specifically would be better, but for now global light */}
+            <pointLight position={[0, 0, 0]} intensity={2} decay={0} distance={1000} />
+            {/* Added decay=0 to ensure light reaches far planets like Earth without dimming too much */}
 
             <Stars radius={300} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
 

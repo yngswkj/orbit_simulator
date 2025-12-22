@@ -12,6 +12,7 @@ interface PhysicsStore {
     showPrediction: boolean;
     showGrid: boolean;
     showRealisticVisuals: boolean;
+    followingBodyId: string | null;
 
     addBody: (body: Omit<CelestialBody, 'id'>) => void;
     removeBody: (id: string) => void;
@@ -22,6 +23,7 @@ interface PhysicsStore {
     togglePrediction: () => void;
     toggleGrid: () => void;
     toggleRealisticVisuals: () => void;
+    setFollowingBody: (id: string | null) => void;
     reset: () => void;
 }
 
@@ -30,20 +32,22 @@ const INITIAL_BODIES: CelestialBody[] = [
         id: 'sun',
         name: 'Sun',
         mass: 333000,
-        radius: 2.5, // Reduced from 5
+        radius: 2.5,
         position: new Vector3(0, 0, 0),
         velocity: new Vector3(0, 0, 0),
         color: '#ffdd00',
+        texturePath: '/textures/sun_texture.png',
         isFixed: false,
     },
     {
         id: 'earth',
         name: 'Earth',
         mass: 1.0,
-        radius: 0.15, // Reduced from 1
-        position: new Vector3(30, 0, 0), // Increased distance slightly for better scale
-        velocity: new Vector3(0, 0, Math.sqrt(333000 / 30)), // v = sqrt(GM/r) = sqrt(333000/30) = sqrt(11100) ~ 105.3
+        radius: 0.15,
+        position: new Vector3(30, 0, 0),
+        velocity: new Vector3(0, 0, Math.sqrt(333000 / 30)),
         color: '#22aaff',
+        texturePath: '/textures/earth_texture.png',
     }
 ];
 
@@ -54,13 +58,15 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     showPrediction: false,
     showGrid: false,
     showRealisticVisuals: false,
+    followingBodyId: null,
 
     addBody: (body) => set((state) => ({
         bodies: [...state.bodies, { ...body, id: uuidv4() }]
     })),
 
     removeBody: (id) => set((state) => ({
-        bodies: state.bodies.filter(b => b.id !== id)
+        bodies: state.bodies.filter(b => b.id !== id),
+        followingBodyId: state.followingBodyId === id ? null : state.followingBodyId
     })),
 
     updateBodies: () => {
@@ -75,8 +81,9 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
     loadSolarSystem: () => set({
         bodies: createSolarSystem(),
-        timeScale: 0.02, // Slow down simulation because velocities are very high with realistic Sun mass
-        simulationState: 'running'
+        timeScale: 0.02,
+        simulationState: 'running',
+        followingBodyId: null
     }),
 
     setTimeScale: (scale) => set({ timeScale: scale }),
@@ -84,6 +91,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     togglePrediction: () => set((state) => ({ showPrediction: !state.showPrediction })),
     toggleGrid: () => set((state) => ({ showGrid: !state.showGrid })),
     toggleRealisticVisuals: () => set((state) => ({ showRealisticVisuals: !state.showRealisticVisuals })),
+    setFollowingBody: (id) => set({ followingBodyId: id }),
 
-    reset: () => set({ bodies: INITIAL_BODIES })
+    reset: () => set({ bodies: INITIAL_BODIES, followingBodyId: null })
 }));

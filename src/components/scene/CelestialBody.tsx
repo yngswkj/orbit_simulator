@@ -12,14 +12,16 @@ interface CelestialBodyProps {
 const TextureOrb = ({ body }: { body: BodyType }) => {
     // Try-catch isn't possible with hooks directly, but we can assume valid paths.
     // If path is missing, fallback to color.
-    // Since generated images might fail, this is risky.
-    // But we will generate them.
-    const texture = useTexture(body.texturePath || ''); // This will suspend
+    const texturePath = body.texturePath;
+    if (!texturePath) return null;
+
+    const texture = useTexture(texturePath); // This will suspend
 
     return (
         <meshStandardMaterial
             map={texture}
-            emissive={body.name === 'Sun' ? texture : undefined}
+            emissiveMap={body.name === 'Sun' ? texture : undefined}
+            emissive={body.name === 'Sun' ? 'white' : 'black'}
             emissiveIntensity={body.name === 'Sun' ? 2.0 : 0.0}
             roughness={1}
             metalness={0}

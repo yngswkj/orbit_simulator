@@ -8,6 +8,7 @@ export interface CelestialBody {
   position: Vector3;
   velocity: Vector3;
   color: string;
+  texturePath?: string;
   isFixed?: boolean; // For sun-like objects that shouldn't move
 }
 
