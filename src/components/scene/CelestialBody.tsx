@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
 import { Sphere, Trail, Text, Billboard, useTexture } from '@react-three/drei';
 import { usePhysicsStore } from '../../store/physicsStore';
 import type { CelestialBody as BodyType } from '../../types/physics';
@@ -35,33 +36,67 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
     // For now 1:1.
     const showRealistic = usePhysicsStore(state => state.showRealisticVisuals);
 
+    const textRef = React.useRef<any>(null);
+    const groupRef = React.useRef<any>(null); // Ref for the group to be targeted by Trail
     const positionVector = useMemo(() => new Vector3(body.position.x, body.position.y, body.position.z), [body.position]);
 
-    return (
-        <group position={positionVector}>
-            <Trail
-                width={2} // Reduced width to match smaller bodies
-                length={40} // Increased length
-                color={new Color(body.color)}
-                attenuation={(t) => t} // Linear attenuation for longer visibility
-                interval={1} // frame interval
-            >
-                <Sphere args={[body.radius, 32, 32]}>
-                    {showRealistic && body.texturePath ? (
-                        <React.Suspense fallback={<meshStandardMaterial color={body.color} />}>
-                            <TextureOrb body={body} />
-                        </React.Suspense>
-                    ) : (
-                        <meshStandardMaterial
-                            color={body.color}
-                            emissive={body.color}
-                            emissiveIntensity={2.0} // Increased brightness for small bodies
-                        />
-                    )}
-                </Sphere>
-            </Trail>
+    // Delayed trail initialization to prevent the "line from origin" artifact on mount
+    // We completely skip rendering the Trail component until stabilized to avoid capturing the (0,0,0) initialization point.
+    const [trailReady, setTrailReady] = React.useState(false);
 
-            {/* Label (Optional: only show if big or hovered?) */}
+    React.useEffect(() => {
+        const timer = setTimeout(() => {
+            setTrailReady(true);
+        }, 600); // Slightly longer delay to ensure everything is settled
+        return () => clearTimeout(timer);
+    }, []);
+
+    useFrame((state) => {
+        if (textRef.current) {
+            const distance = state.camera.position.distanceTo(positionVector);
+            const scaleFactor = Math.min(1.0, distance / 20.0);
+            textRef.current.scale.set(scaleFactor, scaleFactor, scaleFactor);
+            textRef.current.material.opacity = Math.min(1.0, distance / 5.0);
+        }
+    });
+
+    const selectBody = usePhysicsStore(state => state.selectBody);
+
+    return (
+        <group
+            ref={groupRef}
+            position={positionVector}
+            onClick={(e) => {
+                e.stopPropagation();
+                selectBody(body.id);
+            }}
+        >
+            <Sphere args={[body.radius, 32, 32]}>
+                {showRealistic && body.texturePath ? (
+                    <React.Suspense fallback={<meshStandardMaterial color={body.color} />}>
+                        <TextureOrb body={body} />
+                    </React.Suspense>
+                ) : (
+                    <meshStandardMaterial
+                        color={body.color}
+                        emissive={body.color}
+                        emissiveIntensity={2.0} // Increased brightness for small bodies
+                    />
+                )}
+            </Sphere>
+
+            {/* Trail - Attached via target ref to ensure clean initialization */}
+            {trailReady && (
+                <Trail
+                    target={groupRef}
+                    width={2} // Reduced width to match smaller bodies
+                    length={40} // Increased length
+                    color={new Color(body.color)}
+                    attenuation={(t) => t} // Linear attenuation for longer visibility
+                    interval={1} // frame interval
+                />
+            )}
+
             {/* Label */}
             <Billboard
                 follow={true}
@@ -70,6 +105,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                 lockZ={false} // Lock the rotation on the z axis (default=false)
             >
                 <Text
+                    ref={textRef}
                     position={[0, body.radius + 1.5, 0]}
                     fontSize={1.0}
                     color="white"

@@ -1,6 +1,7 @@
 import React from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
 import { Play, Pause, RefreshCw } from 'lucide-react';
+import { useTranslation } from '../../utils/i18n';
 
 export const SimulationControls: React.FC = () => {
     const simulationState = usePhysicsStore((state) => state.simulationState);
@@ -9,6 +10,7 @@ export const SimulationControls: React.FC = () => {
     const setTimeScale = usePhysicsStore((state) => state.setTimeScale);
     const reset = usePhysicsStore((state) => state.reset);
     const loadSolarSystem = usePhysicsStore((state) => state.loadSolarSystem);
+    const { t } = useTranslation();
 
     const togglePause = () => {
         setSimulationState(simulationState === 'running' ? 'paused' : 'running');
@@ -21,9 +23,9 @@ export const SimulationControls: React.FC = () => {
             gap: '12px',
             width: '100%'
         }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem', fontWeight: 500, letterSpacing: '0.05em' }}>SIMULATION</h3>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem', fontWeight: 500, letterSpacing: '0.05em' }}>{t('simulation_title')}</h3>
 
-            <div style={{ display: 'flex', gap: '8px' }}>
+            <div style={{ display: 'flex', gap: '8px' }} className="sim-controls-buttons">
                 <button
                     onClick={togglePause}
                     style={{
@@ -42,7 +44,7 @@ export const SimulationControls: React.FC = () => {
                     }}
                 >
                     {simulationState === 'running' ? <Pause size={16} /> : <Play size={16} />}
-                    {simulationState === 'running' ? 'PAUSE' : 'RESUME'}
+                    {simulationState === 'running' ? t('pause') : t('resume')}
                 </button>
 
                 <button
@@ -58,7 +60,7 @@ export const SimulationControls: React.FC = () => {
                         alignItems: 'center',
                         justifyContent: 'center'
                     }}
-                    title="Reset Simulation"
+                    title={t('reset')}
                 >
                     <RefreshCw size={16} />
                 </button>
@@ -80,7 +82,7 @@ export const SimulationControls: React.FC = () => {
                     gap: '6px'
                 }}
             >
-                <span>🪐 Load Solar System</span>
+                <span>🪐 {t('load_solar')}</span>
             </button>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
@@ -90,7 +92,7 @@ export const SimulationControls: React.FC = () => {
                         onChange={() => usePhysicsStore.getState().togglePrediction()}
                         checked={usePhysicsStore(s => s.showPrediction)}
                     />
-                    Show Orbit Prediction (Perf Heavy)
+                    {t('show_prediction')}
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
                     <input
@@ -98,7 +100,7 @@ export const SimulationControls: React.FC = () => {
                         onChange={() => usePhysicsStore.getState().toggleGrid()}
                         checked={usePhysicsStore(s => s.showGrid)}
                     />
-                    Show Grid & Axes
+                    {t('show_grid')}
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
                     <input
@@ -106,12 +108,20 @@ export const SimulationControls: React.FC = () => {
                         onChange={() => usePhysicsStore.getState().toggleRealisticVisuals()}
                         checked={usePhysicsStore(s => s.showRealisticVisuals)}
                     />
-                    Show Realistic Textures
+                    {t('show_realistic')}
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
+                    <input
+                        type="checkbox"
+                        checked={usePhysicsStore(state => state.showHabitableZone)}
+                        onChange={() => usePhysicsStore.getState().toggleHabitableZone()}
+                    />
+                    {t('show_habitable')}
                 </label>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>Camera Follow</label>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }} className="camera-follow-select">
+                <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>{t('camera_follow')}</label>
                 <select
                     style={{
                         padding: '6px',
@@ -123,9 +133,13 @@ export const SimulationControls: React.FC = () => {
                     value={usePhysicsStore(s => s.followingBodyId) || ''}
                     onChange={(e) => usePhysicsStore.getState().setFollowingBody(e.target.value || null)}
                 >
-                    <option value="">Free Camera (None)</option>
+                    <option value="">{t('free_camera')}</option>
                     {usePhysicsStore(s => s.bodies).map(body => (
-                        <option key={body.id} value={body.id}>
+                        <option
+                            key={body.id}
+                            value={body.id}
+                            style={{ color: 'black', background: 'white' }}
+                        >
                             {body.name}
                         </option>
                     ))}

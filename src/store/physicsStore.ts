@@ -3,7 +3,7 @@ import type { CelestialBody, SimulationState } from '../types/physics';
 import { updatePhysics } from '../utils/physics';
 import { Vector3 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
-import { createSolarSystem, SOLAR_SYSTEM_DATA } from '../utils/solarSystem';
+import { createSolarSystem } from '../utils/solarSystem';
 
 interface PhysicsStore {
     bodies: CelestialBody[];
@@ -12,7 +12,9 @@ interface PhysicsStore {
     showPrediction: boolean;
     showGrid: boolean;
     showRealisticVisuals: boolean;
+    showHabitableZone: boolean;
     followingBodyId: string | null;
+    selectedBodyId: string | null;
 
     addBody: (body: Omit<CelestialBody, 'id'>) => void;
     removeBody: (id: string) => void;
@@ -23,7 +25,10 @@ interface PhysicsStore {
     togglePrediction: () => void;
     toggleGrid: () => void;
     toggleRealisticVisuals: () => void;
+    toggleHabitableZone: () => void;
     setFollowingBody: (id: string | null) => void;
+    selectBody: (id: string | null) => void;
+    updateBody: (id: string, updates: Partial<CelestialBody>) => void; // Needed for inspector editing
     reset: () => void;
 }
 
@@ -36,7 +41,7 @@ const INITIAL_BODIES: CelestialBody[] = [
         position: new Vector3(0, 0, 0),
         velocity: new Vector3(0, 0, 0),
         color: '#ffdd00',
-        texturePath: '/textures/sun_texture.png',
+        texturePath: 'textures/sun_texture.png',
         isFixed: false,
     },
     {
@@ -47,7 +52,7 @@ const INITIAL_BODIES: CelestialBody[] = [
         position: new Vector3(30, 0, 0),
         velocity: new Vector3(0, 0, Math.sqrt(333000 / 30)),
         color: '#22aaff',
-        texturePath: '/textures/earth_texture.png',
+        texturePath: 'textures/earth_texture.png',
     }
 ];
 
@@ -56,9 +61,11 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     simulationState: 'running',
     timeScale: 1.0,
     showPrediction: false,
-    showGrid: false,
-    showRealisticVisuals: false,
+    showGrid: true,
+    showRealisticVisuals: true,
+    showHabitableZone: false,
     followingBodyId: null,
+    selectedBodyId: null,
 
     addBody: (body) => set((state) => ({
         bodies: [...state.bodies, { ...body, id: uuidv4() }]
@@ -66,7 +73,8 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
     removeBody: (id) => set((state) => ({
         bodies: state.bodies.filter(b => b.id !== id),
-        followingBodyId: state.followingBodyId === id ? null : state.followingBodyId
+        followingBodyId: state.followingBodyId === id ? null : state.followingBodyId,
+        selectedBodyId: state.selectedBodyId === id ? null : state.selectedBodyId
     })),
 
     updateBodies: () => {
@@ -81,9 +89,10 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
     loadSolarSystem: () => set({
         bodies: createSolarSystem(),
-        timeScale: 0.02,
+        timeScale: 1.0,
         simulationState: 'running',
-        followingBodyId: null
+        followingBodyId: null,
+        selectedBodyId: null
     }),
 
     setTimeScale: (scale) => set({ timeScale: scale }),
@@ -91,7 +100,13 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     togglePrediction: () => set((state) => ({ showPrediction: !state.showPrediction })),
     toggleGrid: () => set((state) => ({ showGrid: !state.showGrid })),
     toggleRealisticVisuals: () => set((state) => ({ showRealisticVisuals: !state.showRealisticVisuals })),
+    toggleHabitableZone: () => set((state) => ({ showHabitableZone: !state.showHabitableZone })),
     setFollowingBody: (id) => set({ followingBodyId: id }),
+    selectBody: (id) => set({ selectedBodyId: id }),
 
-    reset: () => set({ bodies: INITIAL_BODIES, followingBodyId: null })
+    updateBody: (id, updates) => set((state) => ({
+        bodies: state.bodies.map(b => b.id === id ? { ...b, ...updates } : b)
+    })),
+
+    reset: () => set({ bodies: INITIAL_BODIES, followingBodyId: null, selectedBodyId: null, showHabitableZone: false, showGrid: true, showRealisticVisuals: true })
 }));

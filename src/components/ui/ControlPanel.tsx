@@ -1,19 +1,13 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { SimulationControls } from './SimulationControls';
 import { BodyCreator } from './BodyCreator';
 import { BodyList } from './BodyList';
-import { ChevronRight, ChevronLeft, Menu } from 'lucide-react';
+import { ChevronRight, Menu } from 'lucide-react';
+import { useTranslation } from '../../utils/i18n';
 
 export const ControlPanel: React.FC = () => {
     const [isOpen, setIsOpen] = useState(true);
-    const [isMobile, setIsMobile] = useState(false);
-
-    useEffect(() => {
-        const checkMobile = () => setIsMobile(window.innerWidth < 768);
-        checkMobile();
-        window.addEventListener('resize', checkMobile);
-        return () => window.removeEventListener('resize', checkMobile);
-    }, []);
+    const { t } = useTranslation();
 
     return (
         <>
@@ -54,9 +48,9 @@ export const ControlPanel: React.FC = () => {
                 boxSizing: 'border-box',
                 zIndex: 1000,
                 overflowY: 'auto'
-            }}>
+            }} className="control-panel-container">
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                    <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600 }}>CONTROLS</h2>
+                    <h2 style={{ margin: 0, fontSize: '1.2rem', fontWeight: 600 }}>{t('controls_title')}</h2>
                     <button
                         onClick={() => setIsOpen(false)}
                         style={{

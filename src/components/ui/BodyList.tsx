@@ -1,10 +1,12 @@
 import React from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
 import { Trash2 } from 'lucide-react';
+import { useTranslation } from '../../utils/i18n';
 
 export const BodyList: React.FC = () => {
     const bodies = usePhysicsStore((state) => state.bodies);
     const removeBody = usePhysicsStore((state) => state.removeBody);
+    const { t } = useTranslation();
 
     if (bodies.length === 0) return null;
 
@@ -20,7 +22,7 @@ export const BodyList: React.FC = () => {
             maxHeight: 'none',
             overflowY: 'visible'
         }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem', fontWeight: 500, letterSpacing: '0.05em' }}>OBJECTS ({bodies.length})</h3>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem', fontWeight: 500, letterSpacing: '0.05em' }}>{t('bodies_list')} ({bodies.length})</h3>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
                 {bodies.map((body) => (
@@ -35,7 +37,7 @@ export const BodyList: React.FC = () => {
                     }}>
                         <div style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                             <span style={{ fontWeight: 'bold', fontSize: '0.9rem' }}>{body.name}</span>
-                            <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>Mass: {body.mass}</div>
+                            <div style={{ fontSize: '0.75rem', opacity: 0.7 }}>{t('mass')}: {body.mass}</div>
                         </div>
 
                         {!body.isFixed && (
@@ -54,7 +56,7 @@ export const BodyList: React.FC = () => {
                                 }}
                                 onMouseOver={(e) => (e.currentTarget.style.opacity = '1')}
                                 onMouseOut={(e) => (e.currentTarget.style.opacity = '0.7')}
-                                title="Remove Object"
+                                title={t('remove')}
                             >
                                 <Trash2 size={16} />
                             </button>

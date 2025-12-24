@@ -1,137 +1,176 @@
 import React, { useState } from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
 import { Vector3 } from 'three';
-import { Plus } from 'lucide-react';
 
-const COLORS = ['#ff4050', '#00ce7c', '#3b82f6', '#ffdd00', '#a855f7', '#ffffff'];
+import { useTranslation } from '../../utils/i18n';
 
 export const BodyCreator: React.FC = () => {
     const addBody = usePhysicsStore((state) => state.addBody);
+    const { t } = useTranslation();
 
-    const [name, setName] = useState('New Planet');
-    const [mass, setMass] = useState(10);
-    const [radius, setRadius] = useState(0.5);
-    const [color, setColor] = useState(COLORS[2]);
-    const [posX, setPosX] = useState(10);
-    const [posY, setPosY] = useState(0);
-    const [posZ, setPosZ] = useState(0);
-    const [velX, setVelX] = useState(0);
-    const [velY, setVelY] = useState(0);
-    const [velZ, setVelZ] = useState(5);
+    const [isExpanded, setIsExpanded] = useState(false);
+    const [newBody, setNewBody] = useState({
+        name: 'New Planet',
+        mass: 1.0,
+        radius: 0.5,
+        color: '#ffffff',
+        position: { x: 10, y: 0, z: 0 },
+        velocity: { x: 0, y: 0, z: 2 }
+    });
 
-    const handleCreate = () => {
+    const handleAdd = () => {
         addBody({
-            name,
-            mass,
-            radius,
-            color,
-            position: new Vector3(posX, posY, posZ),
-            velocity: new Vector3(velX, velY, velZ),
+            name: newBody.name,
+            mass: newBody.mass,
+            radius: newBody.radius,
+            color: newBody.color,
+            position: new Vector3(newBody.position.x, newBody.position.y, newBody.position.z),
+            velocity: new Vector3(newBody.velocity.x, newBody.velocity.y, newBody.velocity.z)
         });
+        setIsExpanded(false);
     };
 
-    const inputStyle = {
-        background: 'rgba(0, 0, 0, 0.3)',
-        border: '1px solid rgba(255, 255, 255, 0.2)',
-        borderRadius: '4px',
-        color: 'white',
-        padding: '4px 8px',
-        width: '100%',
-        marginBottom: '8px'
-    };
+    const handleRandom = () => {
+        const distance = 10 + Math.random() * 200;
+        const angle = Math.random() * Math.PI * 2;
+        const speed = Math.sqrt(500 / distance); // Rough orbital speed for stability
 
-    const labelStyle = {
-        fontSize: '0.75rem',
-        color: 'rgba(255, 255, 255, 0.6)',
-        marginBottom: '2px',
-        display: 'block'
+        addBody({
+            name: `Asteroid ${Math.floor(Math.random() * 1000)}`,
+            mass: 0.1 + Math.random() * 0.9,
+            radius: 0.2 + Math.random() * 0.3,
+            color: `hsl(${Math.random() * 360}, 70%, 50%)`,
+            position: new Vector3(Math.cos(angle) * distance, 0, Math.sin(angle) * distance),
+            velocity: new Vector3(-Math.sin(angle) * speed, 0, Math.cos(angle) * speed)
+        });
     };
 
     return (
         <div style={{
             display: 'flex',
             flexDirection: 'column',
-            gap: '12px',
+            gap: '8px',
             width: '100%',
             marginTop: '16px',
             borderTop: '1px solid rgba(255,255,255,0.1)',
             paddingTop: '16px'
         }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem', fontWeight: 500, letterSpacing: '0.05em' }}>ADD BODY</h3>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem', fontWeight: 500, letterSpacing: '0.05em' }}>{t('new_body_title')}</h3>
 
-            <div>
-                <label style={labelStyle}>Name</label>
-                <input style={inputStyle} value={name} onChange={(e) => setName(e.target.value)} />
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
-                <div>
-                    <label style={labelStyle}>Mass</label>
-                    <input type="number" style={inputStyle} value={mass} onChange={(e) => setMass(parseFloat(e.target.value))} />
+            {!isExpanded ? (
+                <div style={{ display: 'flex', gap: '8px' }}>
+                    <button
+                        onClick={() => setIsExpanded(true)}
+                        style={{
+                            flex: 1,
+                            padding: '8px',
+                            background: '#3b82f6',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: 'white',
+                            cursor: 'pointer',
+                            fontWeight: 500
+                        }}
+                    >
+                        + {t('add_body')}
+                    </button>
+                    <button
+                        onClick={handleRandom}
+                        style={{
+                            padding: '8px',
+                            background: 'rgba(255,255,255,0.1)',
+                            border: 'none',
+                            borderRadius: '6px',
+                            color: 'white',
+                            cursor: 'pointer'
+                        }}
+                        title={t('add_random')}
+                    >
+                        🎲
+                    </button>
                 </div>
-                <div>
-                    <label style={labelStyle}>Radius</label>
-                    <input type="number" style={inputStyle} value={radius} onChange={(e) => setRadius(parseFloat(e.target.value))} />
-                </div>
-            </div>
-
-            <div>
-                <label style={labelStyle}>Color</label>
-                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                    {COLORS.map((c) => (
-                        <div
-                            key={c}
-                            onClick={() => setColor(c)}
-                            style={{
-                                width: '24px',
-                                height: '24px',
-                                borderRadius: '50%',
-                                background: c,
-                                cursor: 'pointer',
-                                border: color === c ? '2px solid white' : '2px solid transparent'
-                            }}
-                        />
-                    ))}
-                </div>
-            </div>
-
-            <div style={{ marginTop: '8px' }}>
-                <label style={labelStyle}>Position (X, Y, Z)</label>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                    <input type="number" style={inputStyle} value={posX} onChange={(e) => setPosX(parseFloat(e.target.value))} placeholder="X" />
-                    <input type="number" style={inputStyle} value={posY} onChange={(e) => setPosY(parseFloat(e.target.value))} placeholder="Y" />
-                    <input type="number" style={inputStyle} value={posZ} onChange={(e) => setPosZ(parseFloat(e.target.value))} placeholder="Z" />
-                </div>
-            </div>
-
-            <div>
-                <label style={labelStyle}>Velocity (X, Y, Z)</label>
-                <div style={{ display: 'flex', gap: '4px' }}>
-                    <input type="number" style={inputStyle} value={velX} onChange={(e) => setVelX(parseFloat(e.target.value))} placeholder="VX" />
-                    <input type="number" style={inputStyle} value={velY} onChange={(e) => setVelY(parseFloat(e.target.value))} placeholder="VY" />
-                    <input type="number" style={inputStyle} value={velZ} onChange={(e) => setVelZ(parseFloat(e.target.value))} placeholder="VZ" />
-                </div>
-            </div>
-
-            <button
-                onClick={handleCreate}
-                style={{
-                    background: '#3b82f6',
-                    border: 'none',
-                    borderRadius: '6px',
-                    padding: '10px',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontWeight: 'bold',
+            ) : (
+                <div style={{
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '8px',
-                    marginTop: '8px'
-                }}
-            >
-                <Plus size={16} /> ADD OBJECT
-            </button>
+                    flexDirection: 'column',
+                    gap: '10px',
+                    background: 'rgba(255,255,255,0.05)',
+                    padding: '12px',
+                    borderRadius: '8px'
+                }}>
+                    <input
+                        type="text"
+                        value={newBody.name}
+                        onChange={e => setNewBody({ ...newBody, name: e.target.value })}
+                        placeholder={t('name')}
+                        style={{ padding: '6px', background: 'rgba(0,0,0,0.3)', border: '1px solid #444', color: 'white', borderRadius: '4px' }}
+                    />
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px' }}>
+                        <div>
+                            <label style={{ fontSize: '0.8rem', color: '#aaa' }}>{t('mass')}</label>
+                            <input
+                                type="number"
+                                value={newBody.mass}
+                                onChange={e => setNewBody({ ...newBody, mass: parseFloat(e.target.value) })}
+                                style={{ width: '100%', padding: '4px', background: 'rgba(0,0,0,0.3)', border: '1px solid #444', color: 'white', borderRadius: '4px' }}
+                            />
+                        </div>
+                        <div>
+                            <label style={{ fontSize: '0.8rem', color: '#aaa' }}>{t('radius')}</label>
+                            <input
+                                type="number"
+                                value={newBody.radius}
+                                onChange={e => setNewBody({ ...newBody, radius: parseFloat(e.target.value) })}
+                                style={{ width: '100%', padding: '4px', background: 'rgba(0,0,0,0.3)', border: '1px solid #444', color: 'white', borderRadius: '4px' }}
+                            />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label style={{ fontSize: '0.8rem', color: '#aaa' }}>{t('position')} (x, y, z)</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px' }}>
+                            <input type="number" value={newBody.position.x} onChange={e => setNewBody({ ...newBody, position: { ...newBody.position, x: parseFloat(e.target.value) } })} style={{ width: '100%', padding: '4px', background: 'rgba(0,0,0,0.3)', border: '1px solid #444', color: 'white', borderRadius: '4px' }} />
+                            <input type="number" value={newBody.position.y} onChange={e => setNewBody({ ...newBody, position: { ...newBody.position, y: parseFloat(e.target.value) } })} style={{ width: '100%', padding: '4px', background: 'rgba(0,0,0,0.3)', border: '1px solid #444', color: 'white', borderRadius: '4px' }} />
+                            <input type="number" value={newBody.position.z} onChange={e => setNewBody({ ...newBody, position: { ...newBody.position, z: parseFloat(e.target.value) } })} style={{ width: '100%', padding: '4px', background: 'rgba(0,0,0,0.3)', border: '1px solid #444', color: 'white', borderRadius: '4px' }} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label style={{ fontSize: '0.8rem', color: '#aaa' }}>{t('velocity')} (vx, vy, vz)</label>
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '4px' }}>
+                            <input type="number" value={newBody.velocity.x} onChange={e => setNewBody({ ...newBody, velocity: { ...newBody.velocity, x: parseFloat(e.target.value) } })} style={{ width: '100%', padding: '4px', background: 'rgba(0,0,0,0.3)', border: '1px solid #444', color: 'white', borderRadius: '4px' }} />
+                            <input type="number" value={newBody.velocity.y} onChange={e => setNewBody({ ...newBody, velocity: { ...newBody.velocity, y: parseFloat(e.target.value) } })} style={{ width: '100%', padding: '4px', background: 'rgba(0,0,0,0.3)', border: '1px solid #444', color: 'white', borderRadius: '4px' }} />
+                            <input type="number" value={newBody.velocity.z} onChange={e => setNewBody({ ...newBody, velocity: { ...newBody.velocity, z: parseFloat(e.target.value) } })} style={{ width: '100%', padding: '4px', background: 'rgba(0,0,0,0.3)', border: '1px solid #444', color: 'white', borderRadius: '4px' }} />
+                        </div>
+                    </div>
+
+                    <div>
+                        <label style={{ fontSize: '0.8rem', color: '#aaa' }}>{t('color')}</label>
+                        <input
+                            type="color"
+                            value={newBody.color}
+                            onChange={e => setNewBody({ ...newBody, color: e.target.value })}
+                            style={{ width: '100%', height: '30px', border: 'none', cursor: 'pointer' }}
+                        />
+                    </div>
+
+                    <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                        <button
+                            onClick={() => setIsExpanded(false)}
+                            style={{ flex: 1, padding: '8px', background: 'transparent', border: '1px solid #555', color: '#aaa', borderRadius: '6px', cursor: 'pointer' }}
+                        >
+                            {t('cancel')}
+                        </button>
+                        <button
+                            onClick={handleAdd}
+                            style={{ flex: 1, padding: '8px', background: '#3b82f6', border: 'none', color: 'white', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+                        >
+                            {t('create')}
+                        </button>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
