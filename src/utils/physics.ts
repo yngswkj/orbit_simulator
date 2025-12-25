@@ -1,8 +1,10 @@
 import { Vector3 } from 'three';
 import type { CelestialBody } from '../types/physics';
 
-const G = 1; // Gravitational constant (simplified for visual simulation)
-const SOFTENING = 0.5; // Softening parameter to prevent singularity
+// Physics constants
+const G = 1;
+const SOFTENING = 0.5;
+export const BASE_DT = 0.001; // Base time step (adjusted for desired 1x speed)
 
 export const calculateAcceleration = (
     body: CelestialBody,
@@ -41,7 +43,7 @@ export const updatePhysics = (
 ): CelestialBody[] => {
     // Adjusted base time step: 0.002 is approx 1/8th of 60fps (0.016),
     // satisfying the request to make "1x" much slower (approx 0.1x of the previous 0.02 scale relative to 1.0).
-    const dt = 0.002 * timeScale;
+    const dt = BASE_DT * timeScale;
 
     // --- Velocity Verlet Integration ---
 

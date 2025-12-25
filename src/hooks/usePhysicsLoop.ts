@@ -5,9 +5,9 @@ export const usePhysicsLoop = () => {
     const updateBodies = usePhysicsStore((state) => state.updateBodies);
     const simulationState = usePhysicsStore((state) => state.simulationState);
 
-    useFrame(() => {
+    useFrame((_, delta) => {
         if (simulationState === 'running') {
-            updateBodies();
+            updateBodies(delta);
         }
     });
 };

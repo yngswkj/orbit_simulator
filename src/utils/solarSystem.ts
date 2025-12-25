@@ -36,6 +36,8 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         color: '#ffdd00',
         texturePath: 'textures/sun_texture.png',
         isFixed: true,
+        axialTilt: 7.25,
+        rotationSpeed: 0.04, // 25 days
     },
     {
         name: 'Mercury',
@@ -44,6 +46,8 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         ...getOrbitState(10, 7.0),
         color: '#a1a1a1',
         texturePath: 'textures/mercury_texture.png',
+        axialTilt: 0.03,
+        rotationSpeed: 0.017, // 58 days
     },
     {
         name: 'Venus',
@@ -52,6 +56,8 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         ...getOrbitState(15, 3.4),
         color: '#e3bb76',
         texturePath: 'textures/venus_texture.png',
+        axialTilt: 177.3,
+        rotationSpeed: -0.004, // 243 days (Retrograde)
     },
     {
         name: 'Earth',
@@ -60,6 +66,8 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         ...getOrbitState(20, 0.0),
         color: '#22aaff',
         texturePath: 'textures/earth_texture.png',
+        axialTilt: 23.4,
+        rotationSpeed: 1.0, // 1 day
     },
     {
         name: 'Mars',
@@ -68,6 +76,8 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         ...getOrbitState(30, 1.85),
         color: '#ff4400',
         texturePath: 'textures/mars_texture.png',
+        axialTilt: 25.2,
+        rotationSpeed: 0.97, // 24.6 hours
     },
     {
         name: 'Jupiter',
@@ -76,6 +86,8 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         ...getOrbitState(60, 1.3),
         color: '#d9a066',
         texturePath: 'textures/jupiter_texture.png',
+        axialTilt: 3.1,
+        rotationSpeed: 2.4, // 9.9 hours
     },
     {
         name: 'Saturn',
@@ -84,6 +96,8 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         ...getOrbitState(100, 2.49),
         color: '#eaddb1',
         texturePath: 'textures/saturn_texture.png',
+        axialTilt: 26.7,
+        rotationSpeed: 2.2, // 10.7 hours
     },
     {
         name: 'Uranus',
@@ -92,6 +106,8 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         ...getOrbitState(180, 0.77),
         color: '#b2f0ff',
         texturePath: 'textures/uranus_texture.png',
+        axialTilt: 97.8,
+        rotationSpeed: -1.4, // 17 hours (Retrograde)
     },
     {
         name: 'Neptune',
@@ -100,6 +116,8 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         ...getOrbitState(250, 1.77),
         color: '#3366ff',
         texturePath: 'textures/neptune_texture.png',
+        axialTilt: 28.3,
+        rotationSpeed: 1.5, // 16 hours
     }
 ];
 

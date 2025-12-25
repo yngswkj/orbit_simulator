@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Sphere, Trail, Text, Billboard, useTexture } from '@react-three/drei';
+import { Sphere, Trail, Text, Billboard, useTexture, Line } from '@react-three/drei';
 import { usePhysicsStore } from '../../store/physicsStore';
 import type { CelestialBody as BodyType } from '../../types/physics';
 import { Vector3, Color } from 'three';
@@ -31,32 +31,46 @@ const TextureOrb = ({ body }: { body: BodyType }) => {
 };
 
 export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
-    // Memoize geometry args to avoid regeneration
-    // Radius is visual size. Maybe scale it slightly differently from physical collision radius if needed?
-    // For now 1:1.
     const showRealistic = usePhysicsStore(state => state.showRealisticVisuals);
+    const showGrid = usePhysicsStore(state => state.showGrid);
+    const timeScale = usePhysicsStore(state => state.timeScale);
+    const simulationTime = usePhysicsStore(state => state.simulationTime); // Pick up simulationTime
 
     const textRef = React.useRef<any>(null);
-    const groupRef = React.useRef<any>(null); // Ref for the group to be targeted by Trail
+    const groupRef = React.useRef<any>(null); // Ref for position group
+    const meshRef = React.useRef<any>(null); // Ref for spinning mesh
+
     const positionVector = useMemo(() => new Vector3(body.position.x, body.position.y, body.position.z), [body.position]);
 
-    // Delayed trail initialization to prevent the "line from origin" artifact on mount
-    // We completely skip rendering the Trail component until stabilized to avoid capturing the (0,0,0) initialization point.
-    const [trailReady, setTrailReady] = React.useState(false);
+    // Axial Tilt: Convert degrees to radians. 
+    // We rotate around Z axis to tilt the Y axis.
+    const tiltRadians = useMemo(() => {
+        return (body.axialTilt || 0) * (Math.PI / 180);
+    }, [body.axialTilt]);
 
+    // Delayed trail initialization
+    const [trailReady, setTrailReady] = React.useState(false);
     React.useEffect(() => {
         const timer = setTimeout(() => {
             setTrailReady(true);
-        }, 600); // Slightly longer delay to ensure everything is settled
+        }, 600);
         return () => clearTimeout(timer);
     }, []);
 
-    useFrame((state) => {
+    useFrame((state, delta) => {
+        // 1. Text Scaling
         if (textRef.current) {
             const distance = state.camera.position.distanceTo(positionVector);
             const scaleFactor = Math.min(1.0, distance / 20.0);
             textRef.current.scale.set(scaleFactor, scaleFactor, scaleFactor);
             textRef.current.material.opacity = Math.min(1.0, distance / 5.0);
+        }
+
+        // 2. Planet Rotation
+        if (meshRef.current && body.rotationSpeed) {
+            // Apply rotation based on accumulated simulation time (synced with pause)
+            // rotationSpeed is now calibrated to Rad/Time
+            meshRef.current.rotation.y = (body.rotationSpeed * simulationTime);
         }
     });
 
@@ -71,38 +85,63 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                 selectBody(body.id);
             }}
         >
-            <Sphere args={[body.radius, 32, 32]}>
-                {showRealistic && body.texturePath ? (
-                    <React.Suspense fallback={<meshStandardMaterial color={body.color} />}>
-                        <TextureOrb body={body} />
-                    </React.Suspense>
-                ) : (
-                    <meshStandardMaterial
-                        color={body.color}
-                        emissive={body.color}
-                        emissiveIntensity={2.0} // Increased brightness for small bodies
+            {/* Axial Tilt Wrapper */}
+            <group rotation={[0, 0, tiltRadians]}>
+                {/* Spinning Mesh */}
+                <Sphere ref={meshRef} args={[body.radius, 32, 32]}>
+                    {showRealistic && body.texturePath ? (
+                        <React.Suspense fallback={<meshStandardMaterial color={body.color} />}>
+                            <TextureOrb body={body} />
+                        </React.Suspense>
+                    ) : (
+                        <meshStandardMaterial
+                            color={body.color}
+                            emissive={body.color}
+                            emissiveIntensity={2.0}
+                        />
+                    )}
+                </Sphere>
+
+                {/* Axis Line - Only visible when Grid is ON */}
+                {showGrid && (
+                    <Line
+                        points={[[0, -body.radius * 1.5, 0], [0, body.radius * 1.5, 0]]}
+                        color="white"
+                        lineWidth={1}
+                        opacity={0.5}
+                        transparent
+                        dashed
+                        dashScale={2}
+                        gapSize={1}
                     />
                 )}
-            </Sphere>
+            </group>
 
-            {/* Trail - Attached via target ref to ensure clean initialization */}
+            {/* Trail */}
             {trailReady && (
                 <Trail
                     target={groupRef}
-                    width={2} // Reduced width to match smaller bodies
-                    length={40} // Increased length
+                    width={2}
+                    length={40}
                     color={new Color(body.color)}
-                    attenuation={(t) => t} // Linear attenuation for longer visibility
-                    interval={1} // frame interval
+                    attenuation={(t) => t}
+                    interval={1}
                 />
             )}
 
-            {/* Label */}
+            {/* Label - Keep outside of tilt group so it stays upright relative to camera/scene? 
+                Actually Billboard handles orientation, but position should be relative to center. 
+                If we put it in tilt group, it orbits the tilted axis? No, Billboard overrides rotation. 
+                But position offset [0, r+1.5, 0] would be tilted. 
+                So KEEP IT OUTSIDE tilt group to ensure it floats "above" world Y if desired, 
+                OR keep inside to float above "North Pole".
+                Usually UI labels float above World Y. Let's keep it here (outside tilt).
+            */}
             <Billboard
                 follow={true}
                 lockX={false}
                 lockY={false}
-                lockZ={false} // Lock the rotation on the z axis (default=false)
+                lockZ={false}
             >
                 <Text
                     ref={textRef}

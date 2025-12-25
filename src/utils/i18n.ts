@@ -26,6 +26,9 @@ const translations = {
         camera_follow: 'Camera Follow',
         free_camera: 'Free Camera (None)',
         stop_following: 'Stop Following',
+        camera_mode_free: 'Free Look',
+        camera_mode_sun: 'Fixed View (Sun)',
+        camera_mode_surface: 'Fixed View (Surface)',
 
         // Creator
         new_body_title: 'NEW CELESTIAL BODY',
@@ -40,6 +43,7 @@ const translations = {
         // Inspector
         distance_sun: 'Distance to Sun',
         orbital_speed: 'Orbital Speed',
+        rotation_speed: 'Rotation Speed',
 
         // Tour
         tour_welcome: 'Welcome to Orbit Simulator!',
@@ -85,6 +89,9 @@ const translations = {
         camera_follow: 'カメラ追従',
         free_camera: 'フリーカメラ (なし)',
         stop_following: '追従を解除',
+        camera_mode_free: 'フリールック',
+        camera_mode_sun: '視点固定（太陽）',
+        camera_mode_surface: '視点固定（地表）',
 
         // Creator
         new_body_title: '新規天体作成',
@@ -99,6 +106,7 @@ const translations = {
         // Inspector
         distance_sun: '太陽からの距離',
         orbital_speed: '公転速度',
+        rotation_speed: '自転速度',
 
         // Tour
         tour_welcome: 'Orbit Simulatorへようこそ！',

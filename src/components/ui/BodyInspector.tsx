@@ -104,6 +104,24 @@ export const BodyInspector: React.FC = () => {
                 </div>
 
                 <div style={{ marginBottom: '5px' }}>
+                    <label style={{ display: 'block', color: '#888', marginBottom: '5px' }}>{t('rotation_speed')} (Earth = 1)</label>
+                    <input
+                        type="number"
+                        value={selectedBody.rotationSpeed || 1.0}
+                        onChange={(e) => updateBody(selectedBody.id, { rotationSpeed: parseFloat(e.target.value) })}
+                        step="0.1"
+                        style={{
+                            width: '100%',
+                            background: 'rgba(0,0,0,0.3)',
+                            border: '1px solid rgba(255,255,255,0.2)',
+                            borderRadius: '4px',
+                            padding: '6px',
+                            color: 'white'
+                        }}
+                    />
+                </div>
+
+                <div style={{ marginBottom: '5px' }}>
                     <label style={{ display: 'block', color: '#888', marginBottom: '5px' }}>{t('color')}</label>
                     <input
                         type="color"

@@ -1,12 +1,36 @@
+import React, { useEffect } from 'react';
 import { Scene } from './components/scene/Scene';
 import { ControlPanel } from './components/ui/ControlPanel';
 import { BodyInspector } from './components/ui/BodyInspector';
 import { Tour } from './components/ui/Tour';
 import { useTranslation } from './utils/i18n';
+import { usePhysicsStore } from './store/physicsStore';
 import './App.css';
 
 function App() {
   const { t } = useTranslation();
+
+  // Keyboard Shortcuts
+  const simulationState = usePhysicsStore(state => state.simulationState);
+  const setSimulationState = usePhysicsStore(state => state.setSimulationState);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Spacebar to toggle Pause/Resume
+      if (e.code === 'Space') {
+        const activeTag = document.activeElement?.tagName.toLowerCase();
+        // Ignore if typing in input or textarea
+        if (activeTag === 'input' || activeTag === 'textarea') return;
+
+        e.preventDefault(); // Prevent scrolling
+        setSimulationState(simulationState === 'running' ? 'paused' : 'running');
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [simulationState, setSimulationState]);
+
   return (
     <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
       <Scene />

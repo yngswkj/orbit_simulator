@@ -10,6 +10,9 @@ export const SimulationControls: React.FC = () => {
     const setTimeScale = usePhysicsStore((state) => state.setTimeScale);
     const reset = usePhysicsStore((state) => state.reset);
     const loadSolarSystem = usePhysicsStore((state) => state.loadSolarSystem);
+    const followingBodyId = usePhysicsStore((state) => state.followingBodyId);
+    const cameraMode = usePhysicsStore((state) => state.cameraMode);
+    const setCameraMode = usePhysicsStore((state) => state.setCameraMode);
     const { t } = useTranslation();
 
     const togglePause = () => {
@@ -145,6 +148,37 @@ export const SimulationControls: React.FC = () => {
                     ))}
                 </select>
             </div>
+
+            {/* Camera Mode Choice Chips (Only visible when following) */}
+            {followingBodyId && (
+                <div style={{ display: 'flex', gap: '4px', marginTop: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                    {[
+                        { id: 'free', label: t('camera_mode_free') },
+                        { id: 'sun_lock', label: t('camera_mode_sun') },
+                        { id: 'surface_lock', label: t('camera_mode_surface') }
+                    ].map(mode => (
+                        <button
+                            key={mode.id}
+                            onClick={() => setCameraMode(mode.id as any)}
+                            style={{
+                                flex: '1 0 80px', // Grow, don't shrink below 80px
+                                padding: '4px 2px',
+                                fontSize: '0.7rem',
+                                background: cameraMode === mode.id ? '#3b82f6' : 'rgba(255,255,255,0.1)',
+                                color: 'white',
+                                border: 'none',
+                                borderRadius: '4px',
+                                cursor: 'pointer',
+                                transition: 'background 0.2s',
+                                textAlign: 'center'
+                            }}
+                            title={mode.label}
+                        >
+                            {mode.label}
+                        </button>
+                    ))}
+                </div>
+            )}
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>Time Scale: {timeScale.toFixed(1)}x</label>
