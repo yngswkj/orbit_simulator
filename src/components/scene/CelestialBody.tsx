@@ -33,7 +33,6 @@ const TextureOrb = ({ body }: { body: BodyType }) => {
 export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
     const showRealistic = usePhysicsStore(state => state.showRealisticVisuals);
     const showGrid = usePhysicsStore(state => state.showGrid);
-    const timeScale = usePhysicsStore(state => state.timeScale);
     const simulationTime = usePhysicsStore(state => state.simulationTime); // Pick up simulationTime
 
     const textRef = React.useRef<any>(null);
@@ -57,7 +56,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
         return () => clearTimeout(timer);
     }, []);
 
-    useFrame((state, delta) => {
+    useFrame((state) => {
         // 1. Text Scaling
         if (textRef.current) {
             const distance = state.camera.position.distanceTo(positionVector);

@@ -1,5 +1,4 @@
-import React, { useRef } from 'react';
-import { useFrame } from '@react-three/fiber';
+import React from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
 import { updatePhysics } from '../../utils/physics';
 import { Vector3 } from 'three';

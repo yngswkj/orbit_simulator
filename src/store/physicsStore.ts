@@ -20,7 +20,7 @@ interface PhysicsStore {
 
     addBody: (body: Omit<CelestialBody, 'id'>) => void;
     removeBody: (id: string) => void;
-    updateBodies: (dt: number) => void; // Update to accept dt
+    updateBodies: () => void; // Update to accept dt
     loadSolarSystem: () => void;
     setSimulationState: (state: SimulationState) => void;
     setTimeScale: (scale: number) => void;
@@ -86,7 +86,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         selectedBodyId: state.selectedBodyId === id ? null : state.selectedBodyId
     })),
 
-    updateBodies: (dt: number) => {
+    updateBodies: () => {
         const { bodies, simulationState, timeScale, simulationTime } = get();
         if (simulationState === 'paused') return;
 

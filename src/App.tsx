@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Scene } from './components/scene/Scene';
 import { ControlPanel } from './components/ui/ControlPanel';
 import { BodyInspector } from './components/ui/BodyInspector';

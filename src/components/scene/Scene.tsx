@@ -1,69 +1,11 @@
 import React from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Stars, Grid, GizmoHelper, GizmoViewport, Html } from '@react-three/drei';
+import { OrbitControls, Stars, Grid, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { Vector3 } from 'three';
 import { usePhysicsStore } from '../../store/physicsStore';
 import { CelestialBody } from './CelestialBody';
 import { usePhysicsLoop } from '../../hooks/usePhysicsLoop';
 import { OrbitPrediction } from './OrbitPrediction';
-
-// Helper to format date
-const formatDate = (simulationTime: number) => {
-    // 1 Day = 0.0049 units (Approximately)
-    const UNITS_PER_DAY = 0.0049;
-
-    const totalDays = Math.floor(simulationTime / UNITS_PER_DAY);
-    const year = Math.floor(totalDays / 365);
-    const dayOfYear = (totalDays % 365) + 1;
-
-    // Simple Month approximation
-    const months = [
-        { n: 1, d: 31 }, { n: 2, d: 28 }, { n: 3, d: 31 }, { n: 4, d: 30 },
-        { n: 5, d: 31 }, { n: 6, d: 30 }, { n: 7, d: 31 }, { n: 8, d: 31 },
-        { n: 9, d: 30 }, { n: 10, d: 31 }, { n: 11, d: 30 }, { n: 12, d: 31 }
-    ];
-
-    let tempDays = dayOfYear;
-    let month = 1;
-    for (const m of months) {
-        if (tempDays <= m.d) {
-            month = m.n;
-            break;
-        }
-        tempDays -= m.d;
-        month++;
-    }
-    const day = tempDays;
-
-    return `${year}年 ${month}月 ${day}日`;
-};
-
-const DateDisplay = () => {
-    const simulationTime = usePhysicsStore(state => state.simulationTime);
-    const dateStr = formatDate(simulationTime);
-
-    return (
-        <Html fullscreen style={{ pointerEvents: 'none' }}>
-            <div style={{
-                position: 'absolute',
-                bottom: '150px', // Adjusted to be above Gizmo
-                left: '20px',
-                color: 'rgba(255, 255, 255, 0.9)',
-                fontFamily: "'Inter', sans-serif",
-                fontSize: '16px',
-                background: 'rgba(0, 0, 0, 0.3)',
-                padding: '8px 12px',
-                borderRadius: '8px',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                backdropFilter: 'blur(4px)',
-                pointerEvents: 'none',
-                userSelect: 'none'
-            }}>
-                📅 {dateStr}
-            </div>
-        </Html>
-    );
-};
 
 // Wrapper to avoid re-rendering entire Scene on toggle change if possible, 
 // or just standard conditional render.
@@ -152,7 +94,6 @@ const CameraController = () => {
 
             } else if (cameraMode === 'surface_lock') {
                 // Surface Lock / Fixed View (Surface)
-                const dist = body.radius * 3 + 2; // unused now?
                 const surfaceHeight = body.radius * 1.05;
                 const baseOffset = new Vector3(surfaceHeight, 0, 0);
 
