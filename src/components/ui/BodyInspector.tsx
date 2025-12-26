@@ -1,12 +1,13 @@
-import React from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
 import { useTranslation } from '../../utils/i18n';
+import { Trash2 } from 'lucide-react';
 
 export const BodyInspector: React.FC = () => {
     const bodies = usePhysicsStore(state => state.bodies);
     const selectedBodyId = usePhysicsStore(state => state.selectedBodyId);
     const updateBody = usePhysicsStore(state => state.updateBody);
     const selectBody = usePhysicsStore(state => state.selectBody);
+    const removeBody = usePhysicsStore(state => state.removeBody);
     const setFollowingBody = usePhysicsStore(state => state.setFollowingBody);
     const followingBodyId = usePhysicsStore(state => state.followingBodyId);
     const { t } = useTranslation();
@@ -138,11 +139,11 @@ export const BodyInspector: React.FC = () => {
                     />
                 </div>
 
-                <div style={{ marginTop: '10px' }}>
+                <div style={{ marginTop: '10px', display: 'flex', gap: '8px' }}>
                     <button
                         onClick={() => setFollowingBody(followingBodyId === selectedBody.id ? null : selectedBody.id)}
                         style={{
-                            width: '100%',
+                            flex: 1,
                             padding: '8px',
                             background: followingBodyId === selectedBody.id ? 'rgba(34, 170, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)',
                             border: `1px solid ${followingBodyId === selectedBody.id ? '#22aaff' : 'rgba(255, 255, 255, 0.2)'}`,
@@ -150,11 +151,34 @@ export const BodyInspector: React.FC = () => {
                             color: 'white',
                             cursor: 'pointer',
                             transition: 'all 0.2s',
-                            fontWeight: 500
+                            fontWeight: 500,
+                            fontSize: '0.9rem'
                         }}
                     >
                         {followingBodyId === selectedBody.id ? t('stop_following') : t('camera_follow')}
                     </button>
+                    {!selectedBody.isFixed && (
+                        <button
+                            onClick={() => {
+                                removeBody(selectedBody.id);
+                                selectBody(null);
+                            }}
+                            style={{
+                                padding: '8px',
+                                background: 'rgba(255, 64, 80, 0.2)',
+                                border: '1px solid rgba(255, 64, 80, 0.4)',
+                                borderRadius: '6px',
+                                color: '#ff4050',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center'
+                            }}
+                            title={t('remove')}
+                        >
+                            <Trash2 size={16} />
+                        </button>
+                    )}
                 </div>
             </div>
         </div>

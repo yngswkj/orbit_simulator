@@ -55,8 +55,6 @@ export const BodyCreator: React.FC = () => {
             borderTop: '1px solid rgba(255,255,255,0.1)',
             paddingTop: '16px'
         }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem', fontWeight: 500, letterSpacing: '0.05em' }}>{t('new_body_title')}</h3>
-
             {!isExpanded ? (
                 <div style={{ display: 'flex', gap: '8px' }}>
                     <button

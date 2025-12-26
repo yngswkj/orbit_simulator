@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Sphere, Trail, Text, Billboard, useTexture, Line } from '@react-three/drei';
+import { Sphere, Text, Billboard, useTexture, Line } from '@react-three/drei';
 import { usePhysicsStore } from '../../store/physicsStore';
 import type { CelestialBody as BodyType } from '../../types/physics';
-import { Vector3, Color } from 'three';
+import { Vector3 } from 'three';
 
 interface CelestialBodyProps {
     body: BodyType;
@@ -30,19 +30,48 @@ const TextureOrb = ({ body }: { body: BodyType }) => {
     );
 };
 
+// Internal component for constant width trail
+const ConstantWidthTrail = ({ position, color }: { position: Vector3, color: string }) => {
+    const [points, setPoints] = React.useState<Vector3[]>([]);
+    const frameCount = React.useRef(0);
+
+    React.useEffect(() => {
+        frameCount.current++;
+        // Update every 3 frames for smoothness vs performance
+        if (frameCount.current % 3 === 0) {
+            setPoints(prev => {
+                const newPoints = [...prev, position.clone()];
+                // Limit trail length
+                if (newPoints.length > 150) newPoints.shift();
+                return newPoints;
+            });
+        }
+    }, [position]);
+
+    if (points.length < 2) return null;
+
+    return (
+        <Line
+            points={points}
+            color={color}
+            lineWidth={2.5} // Constant screen-space width
+            opacity={0.6}
+            transparent
+        />
+    );
+};
+
 export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
     const showRealistic = usePhysicsStore(state => state.showRealisticVisuals);
     const showGrid = usePhysicsStore(state => state.showGrid);
-    const simulationTime = usePhysicsStore(state => state.simulationTime); // Pick up simulationTime
+    const simulationTime = usePhysicsStore(state => state.simulationTime);
 
     const textRef = React.useRef<any>(null);
-    const groupRef = React.useRef<any>(null); // Ref for position group
-    const meshRef = React.useRef<any>(null); // Ref for spinning mesh
+    const groupRef = React.useRef<any>(null);
+    const meshRef = React.useRef<any>(null);
 
     const positionVector = useMemo(() => new Vector3(body.position.x, body.position.y, body.position.z), [body.position]);
 
-    // Axial Tilt: Convert degrees to radians. 
-    // We rotate around Z axis to tilt the Y axis.
     const tiltRadians = useMemo(() => {
         return (body.axialTilt || 0) * (Math.PI / 180);
     }, [body.axialTilt]);
@@ -57,7 +86,6 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
     }, []);
 
     useFrame((state) => {
-        // 1. Text Scaling
         if (textRef.current) {
             const distance = state.camera.position.distanceTo(positionVector);
             const scaleFactor = Math.min(1.0, distance / 20.0);
@@ -65,10 +93,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
             textRef.current.material.opacity = Math.min(1.0, distance / 5.0);
         }
 
-        // 2. Planet Rotation
         if (meshRef.current && body.rotationSpeed) {
-            // Apply rotation based on accumulated simulation time (synced with pause)
-            // rotationSpeed is now calibrated to Rad/Time
             meshRef.current.rotation.y = (body.rotationSpeed * simulationTime);
         }
     });
@@ -76,85 +101,73 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
     const selectBody = usePhysicsStore(state => state.selectBody);
 
     return (
-        <group
-            ref={groupRef}
-            position={positionVector}
-            onClick={(e) => {
-                e.stopPropagation();
-                selectBody(body.id);
-            }}
-        >
-            {/* Axial Tilt Wrapper */}
-            <group rotation={[0, 0, tiltRadians]}>
-                {/* Spinning Mesh */}
-                <Sphere ref={meshRef} args={[body.radius, 32, 32]}>
-                    {showRealistic && body.texturePath ? (
-                        <React.Suspense fallback={<meshStandardMaterial color={body.color} />}>
-                            <TextureOrb body={body} />
-                        </React.Suspense>
-                    ) : (
-                        <meshStandardMaterial
-                            color={body.color}
-                            emissive={body.color}
-                            emissiveIntensity={2.0}
+        <>
+            <group
+                ref={groupRef}
+                position={positionVector}
+                onClick={(e) => {
+                    e.stopPropagation();
+                    selectBody(body.id);
+                }}
+            >
+                {/* Axial Tilt Wrapper */}
+                <group rotation={[0, 0, tiltRadians]}>
+                    <Sphere ref={meshRef} args={[body.radius, 32, 32]}>
+                        {showRealistic && body.texturePath ? (
+                            <React.Suspense fallback={<meshStandardMaterial color={body.color} />}>
+                                <TextureOrb body={body} />
+                            </React.Suspense>
+                        ) : (
+                            <meshStandardMaterial
+                                color={body.color}
+                                emissive={body.color}
+                                emissiveIntensity={2.0}
+                            />
+                        )}
+                    </Sphere>
+
+                    {showGrid && (
+                        <Line
+                            points={[[0, -body.radius * 1.5, 0], [0, body.radius * 1.5, 0]]}
+                            color="white"
+                            lineWidth={1}
+                            opacity={0.5}
+                            transparent
+                            dashed
+                            dashScale={2}
+                            gapSize={1}
                         />
                     )}
-                </Sphere>
+                </group>
 
-                {/* Axis Line - Only visible when Grid is ON */}
-                {showGrid && (
-                    <Line
-                        points={[[0, -body.radius * 1.5, 0], [0, body.radius * 1.5, 0]]}
+                <Billboard
+                    follow={true}
+                    lockX={false}
+                    lockY={false}
+                    lockZ={false}
+                >
+                    <Text
+                        ref={textRef}
+                        position={[0, body.radius + 1.5, 0]}
+                        fontSize={1.0}
                         color="white"
-                        lineWidth={1}
-                        opacity={0.5}
-                        transparent
-                        dashed
-                        dashScale={2}
-                        gapSize={1}
-                    />
-                )}
+                        anchorX="center"
+                        anchorY="middle"
+                        outlineWidth={0.1}
+                        outlineColor="#000000"
+                    >
+                        {body.name}
+                    </Text>
+                </Billboard>
             </group>
 
-            {/* Trail */}
+            {/* Trail - Rendered in World Space (outside the moving group) */}
             {trailReady && (
-                <Trail
-                    target={groupRef}
-                    width={2}
-                    length={40}
-                    color={new Color(body.color)}
-                    attenuation={(t) => t}
-                    interval={1}
+                <ConstantWidthTrail
+                    position={positionVector}
+                    color={body.color}
                 />
             )}
-
-            {/* Label - Keep outside of tilt group so it stays upright relative to camera/scene? 
-                Actually Billboard handles orientation, but position should be relative to center. 
-                If we put it in tilt group, it orbits the tilted axis? No, Billboard overrides rotation. 
-                But position offset [0, r+1.5, 0] would be tilted. 
-                So KEEP IT OUTSIDE tilt group to ensure it floats "above" world Y if desired, 
-                OR keep inside to float above "North Pole".
-                Usually UI labels float above World Y. Let's keep it here (outside tilt).
-            */}
-            <Billboard
-                follow={true}
-                lockX={false}
-                lockY={false}
-                lockZ={false}
-            >
-                <Text
-                    ref={textRef}
-                    position={[0, body.radius + 1.5, 0]}
-                    fontSize={1.0}
-                    color="white"
-                    anchorX="center"
-                    anchorY="middle"
-                    outlineWidth={0.1}
-                    outlineColor="#000000"
-                >
-                    {body.name}
-                </Text>
-            </Billboard>
-        </group>
+        </>
     );
 };

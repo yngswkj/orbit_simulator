@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { Play, Pause, RefreshCw } from 'lucide-react';
+import { Play, Pause, RefreshCw, AlertCircle, Trash2 } from 'lucide-react';
 import { useTranslation } from '../../utils/i18n';
 
 export const SimulationControls: React.FC = () => {
@@ -11,6 +11,7 @@ export const SimulationControls: React.FC = () => {
     const reset = usePhysicsStore((state) => state.reset);
     const loadSolarSystem = usePhysicsStore((state) => state.loadSolarSystem);
     const followingBodyId = usePhysicsStore((state) => state.followingBodyId);
+    const removeBody = usePhysicsStore((state) => state.removeBody);
     const cameraMode = usePhysicsStore((state) => state.cameraMode);
     const setCameraMode = usePhysicsStore((state) => state.setCameraMode);
     const { t } = useTranslation();
@@ -26,7 +27,24 @@ export const SimulationControls: React.FC = () => {
             gap: '12px',
             width: '100%'
         }}>
-            <h3 style={{ margin: '0 0 8px 0', fontSize: '1rem', fontWeight: 500, letterSpacing: '0.05em' }}>{t('simulation_title')}</h3>
+            {/* Header */}
+            <div style={{
+                marginBottom: '4px',
+                borderBottom: '1px solid rgba(255,255,255,0.1)',
+                paddingBottom: '8px',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center'
+            }}>
+                <h2 style={{
+                    margin: 0,
+                    fontSize: '0.9rem',
+                    color: '#94a3b8',
+                    letterSpacing: '0.05em'
+                }}>
+                    {t('controls_title')}
+                </h2>
+            </div>
 
             <div style={{ display: 'flex', gap: '8px' }} className="sim-controls-buttons">
                 <button
@@ -88,6 +106,19 @@ export const SimulationControls: React.FC = () => {
                 <span>🪐 {t('load_solar')}</span>
             </button>
 
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>Time Scale: {timeScale.toFixed(1)}x</label>
+                <input
+                    type="range"
+                    min="0.1"
+                    max="5.0"
+                    step="0.1"
+                    value={timeScale}
+                    onChange={(e) => setTimeScale(parseFloat(e.target.value))}
+                    style={{ width: '100%', cursor: 'pointer', accentColor: '#3b82f6' }}
+                />
+            </div>
+
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
                     <input
@@ -96,6 +127,9 @@ export const SimulationControls: React.FC = () => {
                         checked={usePhysicsStore(s => s.showPrediction)}
                     />
                     {t('show_prediction')}
+                    <div title="High performance cost / 重い処理です" style={{ display: 'flex', alignItems: 'center', color: '#ffb302' }}>
+                        <AlertCircle size={14} />
+                    </div>
                 </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
                     <input
@@ -123,74 +157,119 @@ export const SimulationControls: React.FC = () => {
                 </label>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }} className="camera-follow-select">
-                <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>{t('camera_follow')}</label>
-                <select
-                    style={{
-                        padding: '6px',
-                        borderRadius: '4px',
-                        background: 'rgba(255,255,255,0.1)',
-                        color: 'white',
-                        border: '1px solid rgba(255,255,255,0.2)'
-                    }}
-                    value={usePhysicsStore(s => s.followingBodyId) || ''}
-                    onChange={(e) => usePhysicsStore.getState().setFollowingBody(e.target.value || null)}
-                >
-                    <option value="">{t('free_camera')}</option>
-                    {usePhysicsStore(s => s.bodies).map(body => (
-                        <option
-                            key={body.id}
-                            value={body.id}
-                            style={{ color: 'black', background: 'white' }}
-                        >
-                            {body.name}
-                        </option>
-                    ))}
-                </select>
+            {/* Camera Mode Choice Chips */}
+            <div style={{ display: 'flex', gap: '4px', marginTop: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
+                {[
+                    { id: 'free', label: t('camera_mode_free') },
+                    { id: 'sun_lock', label: t('camera_mode_sun') },
+                    { id: 'surface_lock', label: t('camera_mode_surface') }
+                ].map(mode => (
+                    <button
+                        key={mode.id}
+                        onClick={() => followingBodyId && setCameraMode(mode.id as any)}
+                        disabled={!followingBodyId && mode.id !== 'free'}
+                        style={{
+                            flex: '1 0 80px',
+                            padding: '4px 2px',
+                            fontSize: '0.7rem',
+                            background: cameraMode === mode.id ? '#3b82f6' : 'rgba(255,255,255,0.1)',
+                            color: 'white',
+                            border: 'none',
+                            borderRadius: '4px',
+                            cursor: followingBodyId ? 'pointer' : 'not-allowed',
+                            opacity: (!followingBodyId && mode.id !== 'free') ? 0.5 : 1,
+                            transition: 'background 0.2s',
+                            textAlign: 'center'
+                        }}
+                        title={mode.label}
+                    >
+                        {mode.label}
+                    </button>
+                ))}
             </div>
 
-            {/* Camera Mode Choice Chips (Only visible when following) */}
-            {followingBodyId && (
-                <div style={{ display: 'flex', gap: '4px', marginTop: '4px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                    {[
-                        { id: 'free', label: t('camera_mode_free') },
-                        { id: 'sun_lock', label: t('camera_mode_sun') },
-                        { id: 'surface_lock', label: t('camera_mode_surface') }
-                    ].map(mode => (
-                        <button
-                            key={mode.id}
-                            onClick={() => setCameraMode(mode.id as any)}
-                            style={{
-                                flex: '1 0 80px', // Grow, don't shrink below 80px
-                                padding: '4px 2px',
-                                fontSize: '0.7rem',
-                                background: cameraMode === mode.id ? '#3b82f6' : 'rgba(255,255,255,0.1)',
-                                color: 'white',
-                                border: 'none',
-                                borderRadius: '4px',
-                                cursor: 'pointer',
-                                transition: 'background 0.2s',
-                                textAlign: 'center'
-                            }}
-                            title={mode.label}
-                        >
-                            {mode.label}
-                        </button>
+            {/* Body List */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
+                {/* Removed label: {t('camera_follow')} */}
+                <div style={{
+                    display: 'flex',
+                    flexDirection: 'column',
+                    gap: '4px',
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    paddingRight: '4px'
+                }}>
+                    {usePhysicsStore(s => s.bodies).map(body => (
+                        <div key={body.id} style={{ display: 'flex', gap: '4px' }}>
+                            <button
+                                onClick={() => {
+                                    if (followingBodyId === body.id) {
+                                        usePhysicsStore.getState().setFollowingBody(null);
+                                    } else {
+                                        usePhysicsStore.getState().setFollowingBody(body.id);
+                                    }
+                                }}
+                                style={{
+                                    flex: 1,
+                                    display: 'flex',
+                                    alignItems: 'center',
+                                    justifyContent: 'space-between',
+                                    padding: '6px 8px',
+                                    background: followingBodyId === body.id ? 'rgba(59, 130, 246, 0.3)' : 'rgba(255, 255, 255, 0.05)',
+                                    border: followingBodyId === body.id ? '1px solid #3b82f6' : '1px solid transparent',
+                                    borderRadius: '4px',
+                                    color: 'white',
+                                    cursor: 'pointer',
+                                    fontSize: '0.9rem',
+                                    transition: 'all 0.2s',
+                                    textAlign: 'left'
+                                }}
+                            >
+                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                    <span style={{
+                                        width: '8px',
+                                        height: '8px',
+                                        borderRadius: '50%',
+                                        background: body.color,
+                                        boxShadow: `0 0 5px ${body.color}`
+                                    }} />
+                                    {body.name}
+                                </span>
+                                {followingBodyId === body.id && <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>On</span>}
+                            </button>
+
+                            {!body.isFixed && (
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        removeBody(body.id);
+                                        // If following this body, stop following
+                                        if (followingBodyId === body.id) {
+                                            usePhysicsStore.getState().setFollowingBody(null);
+                                        }
+                                    }}
+                                    style={{
+                                        background: 'rgba(255, 64, 80, 0.1)',
+                                        border: '1px solid rgba(255, 64, 80, 0.2)',
+                                        borderRadius: '4px',
+                                        color: '#ff4050',
+                                        cursor: 'pointer',
+                                        padding: '0 8px',
+                                        display: 'flex',
+                                        alignItems: 'center',
+                                        justifyContent: 'center',
+                                        transition: 'background 0.2s'
+                                    }}
+                                    title={t('remove')}
+                                    onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(255, 64, 80, 0.3)')}
+                                    onMouseOut={(e) => (e.currentTarget.style.background = 'rgba(255, 64, 80, 0.1)')}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            )}
+                        </div>
                     ))}
                 </div>
-            )}
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>Time Scale: {timeScale.toFixed(1)}x</label>
-                <input
-                    type="range"
-                    min="0.1"
-                    max="5.0"
-                    step="0.1"
-                    value={timeScale}
-                    onChange={(e) => setTimeScale(parseFloat(e.target.value))}
-                    style={{ width: '100%', cursor: 'pointer', accentColor: '#3b82f6' }}
-                />
             </div>
         </div>
     );

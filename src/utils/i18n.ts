@@ -27,7 +27,7 @@ const translations = {
         free_camera: 'Free Camera (None)',
         stop_following: 'Stop Following',
         camera_mode_free: 'Free Look',
-        camera_mode_sun: 'Fixed View (Sun)',
+        camera_mode_sun: 'Fixed View (Orbit)',
         camera_mode_surface: 'Fixed View (Surface)',
 
         // Creator
@@ -65,6 +65,26 @@ const translations = {
         name: 'Name',
         cancel: 'Cancel',
         create: 'Create',
+        // Help
+        help_title: 'Help & Information',
+        version: 'Version',
+        controls_header: 'Controls',
+        changelog_header: 'Changelog',
+
+        // Controls Help
+        ctrl_pan: 'Pan',
+        ctrl_pan_desc: 'Right Click + Drag',
+        ctrl_rotate: 'Rotate',
+        ctrl_rotate_desc: 'Left Click + Drag',
+        ctrl_zoom: 'Zoom',
+        ctrl_zoom_desc: 'Scroll Wheel',
+        ctrl_select: 'Select Body',
+        ctrl_select_desc: 'Click on a planet',
+
+        // Changelog Items
+        cl_surface_view: 'New Surface View (FPS Style)',
+        cl_orbit_view: 'Renamed Sun View to Orbit Fixed View',
+        cl_perf: 'Performance Improvements',
     },
     ja: {
         // App
@@ -77,21 +97,21 @@ const translations = {
         pause: '一時停止',
         resume: '再開',
         reset: 'リセット',
-        load_solar: '太陽系をロード',
+        load_solar: '太陽系に移動',
 
         // Toggles
-        show_prediction: '軌道予測線を表示 (重い)',
-        show_grid: 'グリッドと座標軸',
-        show_realistic: 'リアルなテクスチャ',
-        show_habitable: 'ハビタブルゾーン',
+        show_prediction: '軌道予測線を表示',
+        show_grid: 'グリッドを表示',
+        show_realistic: 'リアルな表示 (スケール調整)',
+        show_habitable: 'ハビタブルゾーンを表示',
 
         // Camera
         camera_follow: 'カメラ追従',
-        free_camera: 'フリーカメラ (なし)',
+        free_camera: '追従なし',
         stop_following: '追従を解除',
-        camera_mode_free: 'フリールック',
-        camera_mode_sun: '視点固定（太陽）',
-        camera_mode_surface: '視点固定（地表）',
+        camera_mode_free: 'フリー視点',
+        camera_mode_sun: '公転固定視点',
+        camera_mode_surface: '地表視点',
 
         // Creator
         new_body_title: '新規天体作成',
@@ -128,6 +148,27 @@ const translations = {
         name: '名前',
         cancel: 'キャンセル',
         create: '作成',
+
+        // Help
+        help_title: 'ヘルプと情報',
+        version: 'バージョン',
+        controls_header: '操作方法',
+        changelog_header: '更新履歴',
+
+        // Controls Help
+        ctrl_pan: '視点移動 (Pan)',
+        ctrl_pan_desc: '右クリック + ドラッグ',
+        ctrl_rotate: '回転 (Rotate)',
+        ctrl_rotate_desc: '左クリック + ドラッグ',
+        ctrl_zoom: 'ズーム (Zoom)',
+        ctrl_zoom_desc: 'マウスホイール',
+        ctrl_select: '天体選択',
+        ctrl_select_desc: '惑星をクリック',
+
+        // Changelog Items
+        cl_surface_view: '地表視点の刷新 (FPSスタイル)',
+        cl_orbit_view: '公転固定視点への名称変更',
+        cl_perf: 'パフォーマンス改善',
     }
 };
 
