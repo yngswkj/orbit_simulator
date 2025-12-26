@@ -1,7 +1,7 @@
 import React from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars, Grid, GizmoHelper, GizmoViewport } from '@react-three/drei';
-import { Vector3, Quaternion } from 'three';
+import { Vector3 } from 'three';
 import * as THREE from 'three';
 import { usePhysicsStore } from '../../store/physicsStore';
 import { CelestialBody } from './CelestialBody';
