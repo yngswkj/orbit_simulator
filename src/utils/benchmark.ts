@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { updatePhysicsSoA, createPhysicsState, debugInteractionCount, resetDebugCount } from './physics';
+import { updatePhysicsSoA, createPhysicsState, resetDebugCount } from './physics';
 import type { CelestialBody } from '../types/physics';
 
 /**
