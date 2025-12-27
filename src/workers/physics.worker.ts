@@ -6,7 +6,7 @@ let sharedPositions: Float64Array;
 let sharedVelocities: Float64Array;
 let sharedAccelerations: Float64Array;
 let sharedMasses: Float64Array;
-let sharedRadii: Float64Array;
+
 let syncCounter: Int32Array;
 
 // Worker State
@@ -52,8 +52,7 @@ self.onmessage = (e: MessageEvent) => {
         sharedMasses = new Float64Array(sharedBuffer, offset, maxBodies);
         offset += maxBodies * 8;
 
-        sharedRadii = new Float64Array(sharedBuffer, offset, maxBodies);
-        offset += maxBodies * 8;
+
 
         syncCounter = new Int32Array(sharedBuffer, offset, 1);
 

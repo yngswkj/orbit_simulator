@@ -59,7 +59,7 @@ export const runBenchmark = async (iterations: number = 600, bodyCounts: number[
         }
         const timeDirect = performance.now() - startDirect;
         const totalInteractions = debugInteractionCount;
-        const perFrameInteractions = totalInteractions / iterations;
+        // perFrameInteractions removed (unused)
         const countDirect = state.count;
 
         // Anti-DCE: Accumulate position check
