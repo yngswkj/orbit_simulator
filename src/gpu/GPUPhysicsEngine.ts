@@ -5,12 +5,11 @@
 import type { CelestialBody } from '../types/physics';
 
 // Embedded WGSL Shader to avoid loader issues
+// Embedded WGSL Shader to avoid loader issues
 const SHADER_CODE = `
 struct Body {
-    position : vec3<f32>,
-    mass : f32,
-    velocity : vec3<f32>,
-    radius : f32,
+    data0 : vec4<f32>, // pos(xyz), mass(w)
+    data1 : vec4<f32>, // vel(xyz), radius(w)
 }
 
 struct Params {
@@ -31,8 +30,8 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
         return;
     }
 
-    let myPos = bodiesIn[index].position;
-    let myMass = bodiesIn[index].mass;
+    let myPos = bodiesIn[index].data0.xyz;
+    let myMass = bodiesIn[index].data0.w;
     var acc = vec3<f32>(0.0, 0.0, 0.0);
 
     // O(N^2) Force Calculation
@@ -41,8 +40,8 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
             continue;
         }
 
-        let otherPos = bodiesIn[i].position;
-        let otherMass = bodiesIn[i].mass;
+        let otherPos = bodiesIn[i].data0.xyz;
+        let otherMass = bodiesIn[i].data0.w;
 
         let diff = otherPos - myPos;
         let distSq = dot(diff, diff) + params.softening;
@@ -53,14 +52,12 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     }
 
     // Integration
-    let oldVel = bodiesIn[index].velocity;
+    let oldVel = bodiesIn[index].data1.xyz;
     let newVel = oldVel + acc * params.dt;
     let newPos = myPos + newVel * params.dt;
 
-    bodiesOut[index].position = newPos;
-    bodiesOut[index].velocity = newVel;
-    bodiesOut[index].mass = myMass;
-    bodiesOut[index].radius = bodiesIn[index].radius;
+    bodiesOut[index].data0 = vec4<f32>(newPos, myMass);
+    bodiesOut[index].data1 = vec4<f32>(newVel, bodiesIn[index].data1.w);
 }
 `;
 
@@ -209,7 +206,15 @@ export class GPUPhysicsEngine {
         if (!this.device || !this.pipeline || !this.uniformBuffer || !this.bindGroupA || !this.bindGroupB) return;
 
         // Update Uniforms
-        const uniforms = new Float32Array([dt, bodyCount, this.G, this.softening]);
+        const uniforms = new ArrayBuffer(16);
+        const floatView = new Float32Array(uniforms);
+        const uintView = new Uint32Array(uniforms);
+
+        floatView[0] = dt;
+        uintView[1] = bodyCount;
+        floatView[2] = this.G;
+        floatView[3] = this.softening;
+
         this.device.queue.writeBuffer(this.uniformBuffer, 0, uniforms);
 
         const commandEncoder = this.device.createCommandEncoder();
