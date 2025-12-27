@@ -5,9 +5,13 @@ import { Vector3 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { createSolarSystem } from '../utils/solarSystem';
 import { PhysicsWorkerManager } from '../workers/physicsWorkerManager';
+import { GPUPhysicsEngine } from '../gpu/GPUPhysicsEngine';
 
 export const workerManager = new PhysicsWorkerManager(20000); // Max 20k bodies
 workerManager.initWorkers(); // Start workers immediately
+
+export const gpuEngine = new GPUPhysicsEngine();
+
 
 interface PhysicsStore {
     bodies: CelestialBody[];
@@ -25,9 +29,13 @@ interface PhysicsStore {
 
     // Multithreading
     useMultithreading: boolean;
+    useGPU: boolean;
     isCalculating: boolean;
     isWorkerSupported: boolean;
+    isGPUSupported: boolean | null; // null = checking
     toggleMultithreading: () => void;
+    toggleGPU: () => void;
+    checkGPUSupport: () => Promise<void>;
 
     addBody: (body: Omit<CelestialBody, 'id'>) => void;
     removeBody: (id: string) => void;
@@ -89,12 +97,29 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     cameraMode: 'free',
 
     useMultithreading: false,
+    useGPU: false,
     isCalculating: false,
     isWorkerSupported: workerManager.isSupported,
+    isGPUSupported: null,
+
+    checkGPUSupport: async () => {
+        const supported = await GPUPhysicsEngine.isSupported();
+        set({ isGPUSupported: supported });
+    },
 
     toggleMultithreading: () => {
-        set((state) => ({ useMultithreading: !state.useMultithreading }));
-        // Reset physics state to ensure sync
+        set((state) => ({
+            useMultithreading: !state.useMultithreading,
+            useGPU: false // Disable GPU if CPU multi-threading enabled
+        }));
+        set({ physicsState: null });
+    },
+
+    toggleGPU: () => {
+        set((state) => ({
+            useGPU: !state.useGPU,
+            useMultithreading: false // Disable CPU multi-threading if GPU enabled
+        }));
         set({ physicsState: null });
     },
 
@@ -117,13 +142,77 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     },
 
     updateBodies: async () => {
-        const { bodies, simulationState, timeScale, simulationTime, physicsState, useMultithreading, isCalculating } = get();
+        const { bodies, simulationState, timeScale, simulationTime, physicsState, useMultithreading, useGPU, isCalculating } = get();
         if (simulationState === 'paused') return;
-        if (useMultithreading && isCalculating) return; // Drop frame if worker busy
+        if ((useMultithreading || useGPU) && isCalculating) return; // Drop frame if busy
 
         const dt = BASE_DT * timeScale;
 
-        if (useMultithreading) {
+        if (useGPU) {
+            set({ isCalculating: true });
+
+            try {
+                // Initialize if needed (using private property access hack or public getter ideally, 
+                // but here we trust setBodies to handle lazy init or we check maxBodies match)
+                // For now, assume engine handles lazy init internally or we call init explicitly.
+                // Actually GPUPhysicsEngine needs explicit init.
+                // Let's add a check logic here.
+
+                // Note: We should ideally track 'isGPUInitialized' in store, but for now we'll do it inside engine or just call setBodies.
+                // GPUPhysicsEngine.setBodies doesn't init. We need to call init.
+                // Let's rely on setBodies checking initialization state or modifying engine.
+
+                // We'll modify GPUPhysicsEngine later to accept init check or we assume init was called.
+                // Let's call init if not ready.
+                // Accessing private 'isReady' is not allowed. 
+                // We'll add 'isReady' getter to GPUPhysicsEngine in next step if needed, or just call init blindly? No, init is async.
+
+                // Quick fix: Attempt init if we haven't tracked it? 
+                // Better: Just call setBodies and let it throw if not ready?
+                // Or: Check a flag.
+
+                // Let's assume we need to call init(maxBodies) once.
+                // We'll add a helper in GPUPhysicsEngine to check readiness or auto-init.
+                // For this step, I'll modify logic to initialization inside handle.
+
+                // Temporary logic:
+                // We need to initialize GPU engine.
+                // Let's add a property to the store or rely on the engine.
+                // I will add public isInitialized getter to engine in next step.
+                // For now:
+
+                if (!(gpuEngine as any).isReady) {
+                    await gpuEngine.init(20000);
+                }
+
+                await gpuEngine.setBodies(bodies);
+                await gpuEngine.step(dt, bodies.length);
+                const gpuData = await gpuEngine.getBodies(bodies.length);
+
+                if (gpuData) {
+                    // Sync back to bodies
+                    const nextBodies = bodies.map((b, i) => {
+                        const idx = i * 8;
+                        return {
+                            ...b,
+                            position: new Vector3(gpuData[idx], gpuData[idx + 1], gpuData[idx + 2]),
+                            velocity: new Vector3(gpuData[idx + 4], gpuData[idx + 5], gpuData[idx + 6])
+                        };
+                    });
+
+                    set({
+                        bodies: nextBodies,
+                        physicsState: null, // GPU handles state
+                        simulationTime: simulationTime + dt,
+                        isCalculating: false
+                    });
+                }
+            } catch (e) {
+                console.error("GPU Step Failed", e);
+                set({ isCalculating: false, useGPU: false }); // Fallback
+            }
+
+        } else if (useMultithreading) {
             set({ isCalculating: true });
 
             // Initialize/Sync Worker if needed

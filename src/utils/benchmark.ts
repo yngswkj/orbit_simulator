@@ -111,6 +111,44 @@ export const runBenchmark = async (iterations: number = 600, bodyCounts: number[
             console.log('  Worker:         Not Supported');
         }
 
+        // 4. Measure GPU (WebGPU)
+        const { GPUPhysicsEngine } = await import('../gpu/GPUPhysicsEngine');
+        const isGPUSupported = await GPUPhysicsEngine.isSupported();
+        let avgGPU = 0;
+        let gpuSpeedup = 0;
+
+        if (isGPUSupported) {
+            console.log('  Testing GPU...');
+            const gpuEngine = new GPUPhysicsEngine();
+            try {
+                await gpuEngine.init(count);
+                await gpuEngine.setBodies(bodies);
+
+                // Warmup
+                await gpuEngine.step(1.0, count);
+                await gpuEngine.getBodies(count);
+
+                const startGPU = performance.now();
+                for (let i = 0; i < iterations; i++) {
+                    await gpuEngine.step(1.0, count);
+                    await gpuEngine.getBodies(count); // Include readback for fairness with Store usage
+                }
+                const timeGPU = performance.now() - startGPU;
+                avgGPU = timeGPU / iterations;
+                gpuSpeedup = avgDirect / avgGPU;
+
+                console.log(`  GPU:            ${avgGPU.toFixed(3)}ms/frame (~${(1000 / avgGPU).toFixed(1)} FPS)`);
+                console.log(`  Speedup (GPU):  ${gpuSpeedup.toFixed(2)}x`);
+
+            } catch (e) {
+                console.error('GPU Benchmark failed', e);
+            } finally {
+                gpuEngine.dispose();
+            }
+        } else {
+            console.log('  GPU:            Not Supported');
+        }
+
         console.log(`  Checksums:      Direct=${checkDirect.toFixed(2)} | BH=${checkBH.toFixed(2)}`);
         console.log('--------------------------------------------------');
 

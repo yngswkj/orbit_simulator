@@ -32,7 +32,11 @@ function App() {
   const [overlayName, setOverlayName] = useState<string | null>(null);
   const [overlayOpacity, setOverlayOpacity] = useState(0);
 
+  const checkGPUSupport = usePhysicsStore(state => state.checkGPUSupport);
+
   useEffect(() => {
+    checkGPUSupport(); // Check if WebGPU is available
+
     if (followedBodyName) {
       setOverlayName(followedBodyName);
       setOverlayOpacity(1);
@@ -45,7 +49,7 @@ function App() {
     } else {
       setOverlayOpacity(0);
     }
-  }, [followedBodyName]);
+  }, [followedBodyName, checkGPUSupport]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {

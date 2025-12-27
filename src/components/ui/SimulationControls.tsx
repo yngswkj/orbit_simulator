@@ -166,6 +166,17 @@ export const SimulationControls: React.FC = () => {
                     {!usePhysicsStore.getState().isWorkerSupported && <span style={{ fontSize: '0.7rem', color: '#ff4050' }}>(N/A)</span>}
                     {usePhysicsStore.getState().isWorkerSupported && <div style={{ color: '#00ce7c' }}><Zap size={14} fill="#00ce7c" /></div>}
                 </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
+                    <input
+                        type="checkbox"
+                        checked={usePhysicsStore(state => state.useGPU)}
+                        onChange={() => usePhysicsStore.getState().toggleGPU()}
+                        disabled={!usePhysicsStore(s => s.isGPUSupported)}
+                    />
+                    <span>GPU Acceleration (Beta)</span>
+                    {usePhysicsStore(s => s.isGPUSupported) === false && <span style={{ fontSize: '0.7rem', color: '#ff4050' }}>(N/A)</span>}
+                    {usePhysicsStore(s => s.isGPUSupported) === true && <div style={{ color: '#00ce7c' }}><Zap size={14} fill="#00ce7c" /></div>}
+                </label>
             </div>
 
             {/* Camera Mode Choice Chips */}
