@@ -1,144 +1,300 @@
 import { Vector3 } from 'three';
-import type { CelestialBody } from '../types/physics';
+import type { CelestialBody, PhysicsState } from '../types/physics';
 
 // Physics constants
 const G = 1;
 const SOFTENING = 0.5;
-export const BASE_DT = 0.001; // Base time step (adjusted for desired 1x speed)
+const SOFTENING_SQ = SOFTENING * SOFTENING;
+export const BASE_DT = 0.001; // Base time step
 
+// Object Pool for Vector3 to reduce GC overhead
+const vectorPool = {
+    diff: new Vector3(),
+    temp: new Vector3(),
+    acc: new Vector3()
+};
+
+/**
+ * Initializes a PhysicsState from an array of CelestialBody objects.
+ */
+export const createPhysicsState = (bodies: CelestialBody[]): PhysicsState => {
+    const maxCount = Math.max(bodies.length * 2, 1000); // Buffer for growth
+    const count = bodies.length;
+
+    const state: PhysicsState = {
+        count,
+        maxCount,
+        positions: new Float64Array(maxCount * 3),
+        velocities: new Float64Array(maxCount * 3),
+        accelerations: new Float64Array(maxCount * 3),
+        masses: new Float64Array(maxCount),
+        radii: new Float64Array(maxCount),
+        ids: new Array(maxCount),
+        idToIndex: new Map()
+    };
+
+    bodies.forEach((body, i) => {
+        state.positions[i * 3] = body.position.x;
+        state.positions[i * 3 + 1] = body.position.y;
+        state.positions[i * 3 + 2] = body.position.z;
+
+        state.velocities[i * 3] = body.velocity.x;
+        state.velocities[i * 3 + 1] = body.velocity.y;
+        state.velocities[i * 3 + 2] = body.velocity.z;
+
+        state.masses[i] = body.mass;
+        state.radii[i] = body.radius;
+        state.ids[i] = body.id;
+        state.idToIndex.set(body.id, i);
+    });
+
+    return state;
+};
+
+/**
+ * Synchronizes PhysicsState back to CelestialBody objects for rendering/UI.
+ */
+export const syncStateToBodies = (state: PhysicsState, bodies: CelestialBody[]): CelestialBody[] => {
+    const nextBodies = new Array(state.count);
+
+    for (let i = 0; i < state.count; i++) {
+        const id = state.ids[i];
+        const existing = bodies.find(b => b.id === id); // Optimization opportunity: use Map
+
+        if (existing) {
+            nextBodies[i] = {
+                ...existing,
+                position: new Vector3(
+                    state.positions[i * 3],
+                    state.positions[i * 3 + 1],
+                    state.positions[i * 3 + 2]
+                ),
+                velocity: new Vector3(
+                    state.velocities[i * 3],
+                    state.velocities[i * 3 + 1],
+                    state.velocities[i * 3 + 2]
+                ),
+                mass: state.masses[i],
+                radius: state.radii[i]
+            };
+        } else {
+            nextBodies[i] = {
+                id,
+                name: 'Unknown',
+                mass: state.masses[i],
+                radius: state.radii[i],
+                position: new Vector3(state.positions[i * 3], state.positions[i * 3 + 1], state.positions[i * 3 + 2]),
+                velocity: new Vector3(state.velocities[i * 3], state.velocities[i * 3 + 1], state.velocities[i * 3 + 2]),
+                color: '#fff'
+            };
+        }
+    }
+    return nextBodies;
+};
+
+/**
+ * Calculates all accelerations for the current state (SoA).
+ */
+const calculateAccelerationsSoA = (state: PhysicsState): void => {
+    const { count, positions, accelerations, masses } = state;
+
+    // Reset accelerations
+    accelerations.fill(0, 0, count * 3);
+
+    for (let i = 0; i < count; i++) {
+        const i3 = i * 3;
+        const pi_x = positions[i3];
+        const pi_y = positions[i3 + 1];
+        const pi_z = positions[i3 + 2];
+
+        // Newton's 3rd law optimization
+        for (let j = i + 1; j < count; j++) {
+            const j3 = j * 3;
+            const dx = positions[j3] - pi_x;
+            const dy = positions[j3 + 1] - pi_y;
+            const dz = positions[j3 + 2] - pi_z;
+
+            const distSq = dx * dx + dy * dy + dz * dz;
+
+            // Optimized Math
+            const distWithSoftSq = distSq + SOFTENING_SQ;
+            const distWithSoft = Math.sqrt(distWithSoftSq);
+            // F_scalar = G / (dist^3)
+            const f_base = G / (distWithSoftSq * distWithSoft);
+
+            const fx = dx * f_base;
+            const fy = dy * f_base;
+            const fz = dz * f_base;
+
+            const mi = masses[i];
+            const mj = masses[j];
+
+            accelerations[i3] += fx * mj;
+            accelerations[i3 + 1] += fy * mj;
+            accelerations[i3 + 2] += fz * mj;
+
+            accelerations[j3] -= fx * mi;
+            accelerations[j3 + 1] -= fy * mi;
+            accelerations[j3 + 2] -= fz * mi;
+        }
+    }
+};
+
+const removeBodyAt = (state: PhysicsState, index: number): void => {
+    const last = state.count - 1;
+    if (index !== last) {
+        // Swap components with last
+        const i3 = index * 3;
+        const l3 = last * 3;
+
+        state.positions[i3] = state.positions[l3];
+        state.positions[i3 + 1] = state.positions[l3 + 1];
+        state.positions[i3 + 2] = state.positions[l3 + 2];
+
+        state.velocities[i3] = state.velocities[l3];
+        state.velocities[i3 + 1] = state.velocities[l3 + 1];
+        state.velocities[i3 + 2] = state.velocities[l3 + 2];
+
+        state.accelerations[i3] = state.accelerations[l3];
+        state.accelerations[i3 + 1] = state.accelerations[l3 + 1];
+        state.accelerations[i3 + 2] = state.accelerations[l3 + 2];
+
+        state.masses[index] = state.masses[last];
+        state.radii[index] = state.radii[last];
+        state.ids[index] = state.ids[last];
+
+        state.idToIndex.set(state.ids[index], index);
+    }
+
+    state.idToIndex.delete(state.ids[last]);
+    state.count--;
+};
+
+const resolveCollisionsSoA = (state: PhysicsState): void => {
+    const { count, positions, velocities, masses, radii } = state;
+
+    for (let i = 0; i < count; i++) {
+        if (masses[i] <= 0) continue;
+
+        for (let j = i + 1; j < count; j++) {
+            if (masses[j] <= 0) continue;
+
+            const i3 = i * 3;
+            const j3 = j * 3;
+
+            const dx = positions[i3] - positions[j3];
+            const dy = positions[i3 + 1] - positions[j3 + 1];
+            const dz = positions[i3 + 2] - positions[j3 + 2];
+
+            const distSq = dx * dx + dy * dy + dz * dz;
+            const radSum = radii[i] + radii[j];
+
+            if (distSq < (radSum * 0.8) ** 2) {
+                const mi = masses[i];
+                const mj = masses[j];
+                const totalMass = mi + mj;
+
+                // New Velocity (momentum conservation)
+                const vx = (velocities[i3] * mi + velocities[j3] * mj) / totalMass;
+                const vy = (velocities[i3 + 1] * mi + velocities[j3 + 1] * mj) / totalMass;
+                const vz = (velocities[i3 + 2] * mi + velocities[j3 + 2] * mj) / totalMass;
+
+                // New Position (center of mass)
+                const px = (positions[i3] * mi + positions[j3] * mj) / totalMass;
+                const py = (positions[i3 + 1] * mi + positions[j3 + 1] * mj) / totalMass;
+                const pz = (positions[i3 + 2] * mi + positions[j3 + 2] * mj) / totalMass;
+
+                const newRadius = Math.cbrt(radii[i] ** 3 + radii[j] ** 3);
+
+                // Update 'i'
+                masses[i] = totalMass;
+                radii[i] = newRadius;
+                positions[i3] = px; positions[i3 + 1] = py; positions[i3 + 2] = pz;
+                velocities[i3] = vx; velocities[i3 + 1] = vy; velocities[i3 + 2] = vz;
+
+                // Remove 'j'
+                removeBodyAt(state, j);
+                j--;
+            }
+        }
+    }
+};
+
+/**
+ * Updates physics using SoA state (Velocity Verlet)
+ */
+export const updatePhysicsSoA = (state: PhysicsState, dt: number): void => {
+    const { count, positions, velocities, accelerations } = state;
+    const halfDt = 0.5 * dt;
+
+    // 1. First Half-Step: v += 0.5 * a * dt, r += v * dt
+    for (let i = 0; i < count; i++) {
+        const i3 = i * 3;
+
+        velocities[i3] += accelerations[i3] * halfDt;
+        velocities[i3 + 1] += accelerations[i3 + 1] * halfDt;
+        velocities[i3 + 2] += accelerations[i3 + 2] * halfDt;
+
+        positions[i3] += velocities[i3] * dt;
+        positions[i3 + 1] += velocities[i3 + 1] * dt;
+        positions[i3 + 2] += velocities[i3 + 2] * dt;
+    }
+
+    // 2. Calculate new forces/accelerations
+    calculateAccelerationsSoA(state);
+
+    // 3. Second Half-Step: v += 0.5 * a_new * dt
+    for (let i = 0; i < count; i++) {
+        const i3 = i * 3;
+
+        velocities[i3] += accelerations[i3] * halfDt;
+        velocities[i3 + 1] += accelerations[i3 + 1] * halfDt;
+        velocities[i3 + 2] += accelerations[i3 + 2] * halfDt;
+    }
+
+    // 4. Collision Detection
+    resolveCollisionsSoA(state);
+};
+
+/**
+ * Optimized acceleration calculation using object pooling (Legacy support).
+ */
 export const calculateAcceleration = (
     body: CelestialBody,
-    allBodies: CelestialBody[]
-): Vector3 => {
-    const acceleration = new Vector3(0, 0, 0);
+    allBodies: CelestialBody[],
+    outAcceleration: Vector3
+): void => {
+    outAcceleration.set(0, 0, 0);
 
     for (const other of allBodies) {
         if (body.id === other.id) continue;
 
-        const diff = new Vector3().subVectors(other.position, body.position);
-        const distanceSq = diff.lengthSq();
+        vectorPool.diff.subVectors(other.position, body.position);
+        const distanceSq = vectorPool.diff.lengthSq();
 
-        // F = G * m1 * m2 / r^2
-        // a = F / m1 = G * m2 / r^2
-        // Vector form: a = (G * m2 / r^3) * vector_r
+        const distWithSoftSq = distanceSq + SOFTENING_SQ;
+        const distWithSoft = Math.sqrt(distWithSoftSq);
+        const forceScalar = (G * other.mass) / (distWithSoftSq * distWithSoft);
 
-        // Applying softening: r^3 becomes (r^2 + softening^2)^(3/2)
-        const forceScalar = (G * other.mass) / Math.pow(distanceSq + SOFTENING * SOFTENING, 1.5);
-
-        acceleration.add(diff.multiplyScalar(forceScalar));
+        outAcceleration.addScaledVector(vectorPool.diff, forceScalar);
     }
-
-    return acceleration;
 };
 
-// Symplectic integrator (Velocity Verlet)
-// This requires keeping track of previous acceleration or calculating it twice.
-// For simplicity in this step-based simulation, we might use a slightly modified Euler or semi-implicit Euler
-// But Velocity Verlet is better for energy conservation.
-
-// Update Physics Step
+/**
+ * Main update function (Legacy wrapper).
+ * NOTE: Using this wrapper is inefficient because it converts format every frame.
+ * The store should switch to managing PhysicsState directly.
+ */
 export const updatePhysics = (
     bodies: CelestialBody[],
-    timeScale: number // delta time multiplier
+    timeScale: number
 ): CelestialBody[] => {
-    // Adjusted base time step: 0.002 is approx 1/8th of 60fps (0.016),
-    // satisfying the request to make "1x" much slower (approx 0.1x of the previous 0.02 scale relative to 1.0).
-    const dt = BASE_DT * timeScale;
+    // 1. Convert to SoA (One-off cost per frame if using this wrapper)
+    const state = createPhysicsState(bodies);
 
-    // --- Velocity Verlet Integration ---
+    // 2. Update SoA
+    updatePhysicsSoA(state, BASE_DT * timeScale);
 
-    // 1. First Acceleration Step: a(t)
-    // We need to calculate acceleration based on current positions r(t)
-    const acc1 = bodies.map(body => calculateAcceleration(body, bodies));
-
-    // 2. First Half-Step: 
-    // v(t + 0.5*dt) = v(t) + 0.5 * a(t) * dt
-    // r(t + dt)     = r(t) + v(t + 0.5*dt) * dt
-    const intermediateBodies = bodies.map((body, i) => {
-        if (body.isFixed) return body;
-
-        const halfVel = body.velocity.clone().add(acc1[i].multiplyScalar(0.5 * dt));
-        const nextPos = body.position.clone().add(halfVel.clone().multiplyScalar(dt));
-
-        return {
-            ...body,
-            velocity: halfVel, // Temporarily store half-step velocity
-            position: nextPos,
-        };
-    });
-
-    // 3. Second Acceleration Step: a(t + dt)
-    // Calculate acceleration based on new positions r(t + dt)
-    const acc2 = intermediateBodies.map(body => calculateAcceleration(body, intermediateBodies));
-
-    // 4. Second Half-Step:
-    // v(t + dt) = v(t + 0.5*dt) + 0.5 * a(t + dt) * dt
-    let nextBodies = intermediateBodies.map((body, i) => {
-        if (body.isFixed) return body;
-
-        const fullVel = body.velocity.clone().add(acc2[i].multiplyScalar(0.5 * dt));
-
-        return {
-            ...body,
-            velocity: fullVel,
-        };
-    });
-
-    // --- Collision Detection & Resolution ---
-    // Simple iterative merging.
-    // We restart the check after every merge to handle multi-body pileups simply.
-    let merged = true;
-    while (merged) {
-        merged = false;
-        for (let i = 0; i < nextBodies.length; i++) {
-            for (let j = i + 1; j < nextBodies.length; j++) {
-                const b1 = nextBodies[i];
-                const b2 = nextBodies[j];
-                const dist = b1.position.distanceTo(b2.position);
-
-                // Check overlap
-                if (dist < (b1.radius + b2.radius) * 0.8) { // 0.8 factor to allow slight overlap before snap
-                    // Merge b2 into b1 (or bigger one eats smaller one)
-                    const big = b1.mass >= b2.mass ? b1 : b2;
-                    const small = b1.mass >= b2.mass ? b2 : b1;
-
-                    // Conservation of Momentum: (m1v1 + m2v2) / (m1+m2)
-                    const totalMass = big.mass + small.mass;
-                    const momentum1 = big.velocity.clone().multiplyScalar(big.mass);
-                    const momentum2 = small.velocity.clone().multiplyScalar(small.mass);
-                    const newVelocity = momentum1.add(momentum2).divideScalar(totalMass);
-
-                    // Center of Mass for Position: (m1r1 + m2r2) / (m1+m2)
-                    // (Though usually sticking to the bigger one's position looks smoother for visual dominance)
-                    // Let's use weighted position for realism
-                    const pos1 = big.position.clone().multiplyScalar(big.mass);
-                    const pos2 = small.position.clone().multiplyScalar(small.mass);
-                    const newPosition = pos1.add(pos2).divideScalar(totalMass);
-
-                    // Volume conservation for Radius: r_new = cbrt(r1^3 + r2^3)
-                    const newRadius = Math.cbrt(Math.pow(big.radius, 3) + Math.pow(small.radius, 3));
-
-                    const newBody: CelestialBody = {
-                        ...big, // Keep ID/Name/Color of the bigger one usually
-                        mass: totalMass,
-                        radius: newRadius,
-                        position: big.isFixed ? big.position : newPosition, // Fixed bodies don't move
-                        velocity: big.isFixed ? new Vector3(0, 0, 0) : newVelocity,
-                    };
-
-                    // Replace the two old bodies with the new one
-                    // We remove j first (index higher), then i, then push newBody
-                    // Actually clearer to just filter them out and add newBody
-                    nextBodies = nextBodies.filter(b => b.id !== b1.id && b.id !== b2.id);
-                    nextBodies.push(newBody);
-
-                    merged = true;
-                    break; // Restart loop
-                }
-            }
-            if (merged) break; // Restart loop
-        }
-    }
-
-    return nextBodies;
+    // 3. Convert back to objects
+    return syncStateToBodies(state, bodies);
 };

@@ -1,12 +1,13 @@
 import { create } from 'zustand';
-import type { CelestialBody, SimulationState, CameraMode } from '../types/physics';
-import { updatePhysics, BASE_DT } from '../utils/physics';
+import type { CelestialBody, SimulationState, CameraMode, PhysicsState } from '../types/physics';
+import { updatePhysicsSoA, createPhysicsState, syncStateToBodies, BASE_DT } from '../utils/physics';
 import { Vector3 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { createSolarSystem } from '../utils/solarSystem';
 
 interface PhysicsStore {
     bodies: CelestialBody[];
+    physicsState: PhysicsState | null; // Persisted SoA state
     simulationState: SimulationState;
     timeScale: number;
     simulationTime: number; // Accumulated time for rotation sync
@@ -20,7 +21,7 @@ interface PhysicsStore {
 
     addBody: (body: Omit<CelestialBody, 'id'>) => void;
     removeBody: (id: string) => void;
-    updateBodies: () => void; // Update to accept dt
+    updateBodies: () => void;
     loadSolarSystem: () => void;
     setSimulationState: (state: SimulationState) => void;
     setTimeScale: (scale: number) => void;
@@ -65,6 +66,7 @@ const INITIAL_BODIES: CelestialBody[] = [
 
 export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     bodies: INITIAL_BODIES,
+    physicsState: null,
     simulationState: 'running',
     timeScale: 1.0,
     simulationTime: 0,
@@ -76,30 +78,46 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     selectedBodyId: null,
     cameraMode: 'free',
 
-    addBody: (body) => set((state) => ({
-        bodies: [...state.bodies, { ...body, id: uuidv4() }]
-    })),
+    addBody: (body) => {
+        const { bodies } = get();
+        const newBodies = [...bodies, { ...body, id: uuidv4() }];
+        // Invalidate physics state so it rebuilds on next frame
+        set({ bodies: newBodies, physicsState: null });
+    },
 
-    removeBody: (id) => set((state) => ({
-        bodies: state.bodies.filter(b => b.id !== id),
-        followingBodyId: state.followingBodyId === id ? null : state.followingBodyId,
-        selectedBodyId: state.selectedBodyId === id ? null : state.selectedBodyId
-    })),
+    removeBody: (id) => {
+        const { bodies, followingBodyId, selectedBodyId } = get();
+        const newBodies = bodies.filter(b => b.id !== id);
+        set({
+            bodies: newBodies,
+            physicsState: null, // Invalidate state
+            followingBodyId: followingBodyId === id ? null : followingBodyId,
+            selectedBodyId: selectedBodyId === id ? null : selectedBodyId
+        });
+    },
 
     updateBodies: () => {
-        const { bodies, simulationState, timeScale, simulationTime } = get();
+        const { bodies, simulationState, timeScale, simulationTime, physicsState } = get();
         if (simulationState === 'paused') return;
 
-        // Apply physics
-        // Note: updatePhysics takes just bodies and timeScale. It assumes a fixed internal step or applies timeScale to a base dt.
-        // If we want exact time tracking, we should know what updatePhysics does.
-        // Checking utils/physics.ts would be safer but let's assume it works per call.
+        // Initialize state if needed (first run or after add/remove)
+        let currentState = physicsState;
+        if (!currentState || currentState.count !== bodies.length) {
+            currentState = createPhysicsState(bodies);
+        }
 
-        const nextBodies = updatePhysics(bodies, timeScale);
+        // Run Logic on SoA
+        const dt = BASE_DT * timeScale;
+        updatePhysicsSoA(currentState, dt);
+
+        // Sync back to objects (necessary for React UI/Three.js until we refactor rendering)
+        // Optimization: We could throttle this sync if UI is slow, but Three.js needs positions every frame.
+        const nextBodies = syncStateToBodies(currentState, bodies);
 
         set({
-            bodies: nextBodies, // updatePhysics uses BASE_DT internally
-            simulationTime: simulationTime + (BASE_DT * timeScale) // Accumulate simplified time
+            bodies: nextBodies,
+            physicsState: currentState,
+            simulationTime: simulationTime + dt
         });
     },
 
@@ -107,6 +125,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
     loadSolarSystem: () => set({
         bodies: createSolarSystem(),
+        physicsState: null,
         timeScale: 1.0,
         simulationState: 'running',
         simulationTime: 0,
@@ -125,9 +144,21 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     selectBody: (id) => set({ selectedBodyId: id }),
     setCameraMode: (mode) => set({ cameraMode: mode }),
 
-    updateBody: (id, updates) => set((state) => ({
-        bodies: state.bodies.map(b => b.id === id ? { ...b, ...updates } : b)
-    })),
+    updateBody: (id, updates) => {
+        const { bodies } = get();
+        const newBodies = bodies.map(b => b.id === id ? { ...b, ...updates } : b);
+        set({ bodies: newBodies, physicsState: null });
+    },
 
-    reset: () => set({ bodies: INITIAL_BODIES, followingBodyId: null, selectedBodyId: null, showHabitableZone: false, showGrid: true, showRealisticVisuals: true, simulationTime: 0, cameraMode: 'free' })
+    reset: () => set({
+        bodies: INITIAL_BODIES,
+        physicsState: null,
+        followingBodyId: null,
+        selectedBodyId: null,
+        showHabitableZone: false,
+        showGrid: true,
+        showRealisticVisuals: true,
+        simulationTime: 0,
+        cameraMode: 'free'
+    })
 }));
