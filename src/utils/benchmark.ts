@@ -33,7 +33,12 @@ const generateBodies = (count: number): CelestialBody[] => {
 /**
  * Runs a performance benchmark comparison
  */
-export const runBenchmark = (iterations: number = 600, bodyCounts: number[] = [100, 500, 1000]) => {
+import { workerManager } from '../store/physicsStore';
+
+/**
+ * Runs a performance benchmark comparison
+ */
+export const runBenchmark = async (iterations: number = 600, bodyCounts: number[] = [100, 500, 1000]) => {
     console.log(`Starting Benchmark Comparison (${iterations} frames)...`);
     console.log('--------------------------------------------------');
 
@@ -71,8 +76,6 @@ export const runBenchmark = (iterations: number = 600, bodyCounts: number[] = [1
         }
         const timeBH = performance.now() - startBH;
         const countBH = stateBH.count;
-
-        // Anti-DCE
         let checkBH = 0;
         for (let k = 0; k < stateBH.count; k++) checkBH += stateBH.positions[k * 3];
 
@@ -82,13 +85,38 @@ export const runBenchmark = (iterations: number = 600, bodyCounts: number[] = [1
 
         console.log(`[${count} Bodies] -> Final: D=${countDirect}, BH=${countBH}`);
         console.log(`  Direct (N^2):   ${avgDirect.toFixed(3)}ms/frame (~${(1000 / avgDirect).toFixed(1)} FPS)`);
-        console.log(`  (Interactions:  ${perFrameInteractions.toFixed(0)})`);
         console.log(`  Barnes-Hut:     ${avgBH.toFixed(3)}ms/frame (~${(1000 / avgBH).toFixed(1)} FPS)`);
-        console.log(`  Speedup:        ${ratio.toFixed(2)}x`);
+        console.log(`  Speedup (BH):   ${ratio.toFixed(2)}x`);
+
+        // 3. Measure Worker (Parallel N^2)
+        let avgWorker = 0;
+        let workerSpeedup = 0;
+
+        if (workerManager.isSupported) {
+            console.log('  Testing Worker...');
+            workerManager.setBodies(bodies);
+
+            // Warmup Worker with 1 frame
+            await workerManager.executeStep(count, 1.0);
+
+            const startWorker = performance.now();
+            for (let i = 0; i < iterations; i++) {
+                await workerManager.executeStep(count, 1.0);
+            }
+            const timeWorker = performance.now() - startWorker;
+            avgWorker = timeWorker / iterations;
+            workerSpeedup = avgDirect / avgWorker;
+
+            console.log(`  Worker (N^2):   ${avgWorker.toFixed(3)}ms/frame (~${(1000 / avgWorker).toFixed(1)} FPS)`);
+            console.log(`  Speedup (Work): ${workerSpeedup.toFixed(2)}x`);
+        } else {
+            console.log('  Worker:         Not Supported');
+        }
+
         console.log(`  Checksums:      Direct=${checkDirect.toFixed(2)} | BH=${checkBH.toFixed(2)}`);
         console.log('--------------------------------------------------');
 
-        results[count] = { direct: avgDirect, bh: avgBH, ratio };
+        results[count] = { direct: avgDirect, bh: avgBH, worker: avgWorker };
     }
 
     return results;

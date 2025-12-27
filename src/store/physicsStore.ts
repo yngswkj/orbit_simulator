@@ -4,6 +4,10 @@ import { updatePhysicsSoA, createPhysicsState, syncStateToBodies, BASE_DT } from
 import { Vector3 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { createSolarSystem } from '../utils/solarSystem';
+import { PhysicsWorkerManager } from '../workers/physicsWorkerManager';
+
+export const workerManager = new PhysicsWorkerManager(20000); // Max 20k bodies
+workerManager.initWorkers(); // Start workers immediately
 
 interface PhysicsStore {
     bodies: CelestialBody[];
@@ -18,6 +22,12 @@ interface PhysicsStore {
     followingBodyId: string | null;
     selectedBodyId: string | null;
     cameraMode: CameraMode;
+
+    // Multithreading
+    useMultithreading: boolean;
+    isCalculating: boolean;
+    isWorkerSupported: boolean;
+    toggleMultithreading: () => void;
 
     addBody: (body: Omit<CelestialBody, 'id'>) => void;
     removeBody: (id: string) => void;
@@ -78,6 +88,16 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     selectedBodyId: null,
     cameraMode: 'free',
 
+    useMultithreading: false,
+    isCalculating: false,
+    isWorkerSupported: workerManager.isSupported,
+
+    toggleMultithreading: () => {
+        set((state) => ({ useMultithreading: !state.useMultithreading }));
+        // Reset physics state to ensure sync
+        set({ physicsState: null });
+    },
+
     addBody: (body) => {
         const { bodies } = get();
         const newBodies = [...bodies, { ...body, id: uuidv4() }];
@@ -96,29 +116,54 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         });
     },
 
-    updateBodies: () => {
-        const { bodies, simulationState, timeScale, simulationTime, physicsState } = get();
+    updateBodies: async () => {
+        const { bodies, simulationState, timeScale, simulationTime, physicsState, useMultithreading, isCalculating } = get();
         if (simulationState === 'paused') return;
+        if (useMultithreading && isCalculating) return; // Drop frame if worker busy
 
-        // Initialize state if needed (first run or after add/remove)
-        let currentState = physicsState;
-        if (!currentState || currentState.count !== bodies.length) {
-            currentState = createPhysicsState(bodies);
-        }
-
-        // Run Logic on SoA
         const dt = BASE_DT * timeScale;
-        updatePhysicsSoA(currentState, dt);
 
-        // Sync back to objects (necessary for React UI/Three.js until we refactor rendering)
-        // Optimization: We could throttle this sync if UI is slow, but Three.js needs positions every frame.
-        const nextBodies = syncStateToBodies(currentState, bodies);
+        if (useMultithreading) {
+            set({ isCalculating: true });
 
-        set({
-            bodies: nextBodies,
-            physicsState: currentState,
-            simulationTime: simulationTime + dt
-        });
+            // Initialize/Sync Worker if needed
+            if (!physicsState || physicsState.count !== bodies.length) {
+                workerManager.setBodies(bodies);
+            }
+
+            await workerManager.executeStep(bodies.length, dt);
+
+            // Get updated views (pointers)
+            const workerState = workerManager.getPhysicsState(bodies.length);
+
+            // Restore IDs for sync
+            workerState.ids = bodies.map(b => b.id);
+
+            const nextBodies = syncStateToBodies(workerState, bodies);
+
+            set({
+                bodies: nextBodies,
+                physicsState: workerState,
+                simulationTime: simulationTime + dt,
+                isCalculating: false
+            });
+
+        } else {
+            // CPU Single Thread (Existing)
+            let currentState = physicsState;
+            if (!currentState || currentState.count !== bodies.length) {
+                currentState = createPhysicsState(bodies);
+            }
+
+            updatePhysicsSoA(currentState, dt);
+            const nextBodies = syncStateToBodies(currentState, bodies);
+
+            set({
+                bodies: nextBodies,
+                physicsState: currentState,
+                simulationTime: simulationTime + dt
+            });
+        }
     },
 
     setSimulationState: (state) => set({ simulationState: state }),

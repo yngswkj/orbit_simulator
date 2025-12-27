@@ -6,4 +6,10 @@ export default defineConfig({
   plugins: [react()],
   // Vercel uses root path, GitHub Pages uses /orbit_simulator/
   base: process.env.VERCEL ? '/' : '/orbit_simulator/',
+  server: {
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp',
+    },
+  },
 })

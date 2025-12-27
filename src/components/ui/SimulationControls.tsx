@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { Play, Pause, RefreshCw, AlertCircle, Trash2 } from 'lucide-react';
+import { Play, Pause, RefreshCw, AlertCircle, Trash2, Zap } from 'lucide-react';
 import { useTranslation } from '../../utils/i18n';
 
 export const SimulationControls: React.FC = () => {
@@ -154,6 +154,17 @@ export const SimulationControls: React.FC = () => {
                         onChange={() => usePhysicsStore.getState().toggleHabitableZone()}
                     />
                     {t('show_habitable')}
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
+                    <input
+                        type="checkbox"
+                        checked={usePhysicsStore(state => state.useMultithreading)}
+                        onChange={() => usePhysicsStore.getState().toggleMultithreading()}
+                        disabled={!usePhysicsStore.getState().isWorkerSupported}
+                    />
+                    <span>Multi-threading (Experimental)</span>
+                    {!usePhysicsStore.getState().isWorkerSupported && <span style={{ fontSize: '0.7rem', color: '#ff4050' }}>(N/A)</span>}
+                    {usePhysicsStore.getState().isWorkerSupported && <div style={{ color: '#00ce7c' }}><Zap size={14} fill="#00ce7c" /></div>}
                 </label>
             </div>
 
