@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { updatePhysics, updatePhysicsSoA, createPhysicsState } from './physics';
+import { updatePhysicsSoA, createPhysicsState, debugInteractionCount, resetDebugCount } from './physics';
 import type { CelestialBody } from '../types/physics';
 
 /**
@@ -43,43 +43,52 @@ export const runBenchmark = (iterations: number = 600, bodyCounts: number[] = [1
         console.log(`Testing with ${count} bodies...`);
         let bodies = generateBodies(count);
 
-        // --- Legacy Object Mode (via Wrapper) ---
-        // Note: The wrapper now includes conversion overhead, which is what we want to measure avoiding!
-        // But to measure pure Algo difference, we should look at updatePhysics vs updatePhysicsSoA(pure).
-        // Since updatePhysics now wraps SoA, it effectively measures "SoA + Conversion Overhead".
-        // To measure the REAL gain, we will compare "SoA Pure Update" vs "Full Loop (SoA + Conversion)"
-
         // Warmup
         const state = createPhysicsState(bodies);
 
-        // 1. Measure Pure SoA (Kernel Speed)
-        const startSoA = performance.now();
+        // 1. Measure SoA Direct (O(N^2))
+        resetDebugCount();
+        const startDirect = performance.now();
         for (let i = 0; i < iterations; i++) {
-            updatePhysicsSoA(state, 1.0);
+            updatePhysicsSoA(state, 1.0, false, false);
         }
-        const timeSoA = performance.now() - startSoA;
+        const timeDirect = performance.now() - startDirect;
+        const totalInteractions = debugInteractionCount;
+        const perFrameInteractions = totalInteractions / iterations;
+        const countDirect = state.count;
 
-        // 2. Measure "Legacy-style" usage (Creating state every frame + Syncing back)
-        // This simulates the overhead if we didn't persist state.
-        // Or if we had the old object-based function (which is now replaced).
-        // Since I replaced the old function with a wrapper, let's measure the wrapper to see overhead cost.
-        const startLegacy = performance.now();
-        let tempBodies = [...bodies]; // clone
+        // Anti-DCE: Accumulate position check
+        let checkDirect = 0;
+        for (let k = 0; k < state.count; k++) checkDirect += state.positions[k * 3];
+
+        // Reset state for BH (to be fair)
+        const stateBH = createPhysicsState(bodies);
+
+        // 2. Measure SoA Barnes-Hut (O(N log N))
+        const startBH = performance.now();
         for (let i = 0; i < iterations; i++) {
-            tempBodies = updatePhysics(tempBodies, 1.0);
+            updatePhysicsSoA(stateBH, 1.0, true, false);
         }
-        const timeLegacy = performance.now() - startLegacy;
+        const timeBH = performance.now() - startBH;
+        const countBH = stateBH.count;
 
-        const avgSoA = timeSoA / iterations;
-        const avgLegacy = timeLegacy / iterations;
+        // Anti-DCE
+        let checkBH = 0;
+        for (let k = 0; k < stateBH.count; k++) checkBH += stateBH.positions[k * 3];
 
-        console.log(`[${count} Bodies]`);
-        console.log(`  SoA Kernel: ${avgSoA.toFixed(3)}ms/frame (~${(1000 / avgSoA).toFixed(1)} FPS)`);
-        console.log(`  Overhead:   ${(avgLegacy - avgSoA).toFixed(3)}ms/frame (Conversion Cost)`);
-        console.log(`  Total (UI): ${avgLegacy.toFixed(3)}ms/frame (~${(1000 / avgLegacy).toFixed(1)} FPS)`);
+        const avgDirect = timeDirect / iterations;
+        const avgBH = timeBH / iterations;
+        const ratio = avgDirect / avgBH;
+
+        console.log(`[${count} Bodies] -> Final: D=${countDirect}, BH=${countBH}`);
+        console.log(`  Direct (N^2):   ${avgDirect.toFixed(3)}ms/frame (~${(1000 / avgDirect).toFixed(1)} FPS)`);
+        console.log(`  (Interactions:  ${perFrameInteractions.toFixed(0)})`);
+        console.log(`  Barnes-Hut:     ${avgBH.toFixed(3)}ms/frame (~${(1000 / avgBH).toFixed(1)} FPS)`);
+        console.log(`  Speedup:        ${ratio.toFixed(2)}x`);
+        console.log(`  Checksums:      Direct=${checkDirect.toFixed(2)} | BH=${checkBH.toFixed(2)}`);
         console.log('--------------------------------------------------');
 
-        results[count] = { soa: avgSoA, total: avgLegacy };
+        results[count] = { direct: avgDirect, bh: avgBH, ratio };
     }
 
     return results;

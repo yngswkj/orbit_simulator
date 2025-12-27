@@ -1,5 +1,6 @@
 import { Vector3 } from 'three';
 import type { CelestialBody, PhysicsState } from '../types/physics';
+import { calculateAccelerationsBarnesHut } from './barnesHut';
 
 // Physics constants
 const G = 1;
@@ -92,6 +93,10 @@ export const syncStateToBodies = (state: PhysicsState, bodies: CelestialBody[]):
     return nextBodies;
 };
 
+// Debug Global
+export let debugInteractionCount = 0;
+export const resetDebugCount = () => { debugInteractionCount = 0; };
+
 /**
  * Calculates all accelerations for the current state (SoA).
  */
@@ -109,6 +114,8 @@ const calculateAccelerationsSoA = (state: PhysicsState): void => {
 
         // Newton's 3rd law optimization
         for (let j = i + 1; j < count; j++) {
+            debugInteractionCount++; // Verify Iterations
+
             const j3 = j * 3;
             const dx = positions[j3] - pi_x;
             const dy = positions[j3 + 1] - pi_y;
@@ -223,7 +230,7 @@ const resolveCollisionsSoA = (state: PhysicsState): void => {
 /**
  * Updates physics using SoA state (Velocity Verlet)
  */
-export const updatePhysicsSoA = (state: PhysicsState, dt: number): void => {
+export const updatePhysicsSoA = (state: PhysicsState, dt: number, useBarnesHut: boolean = false, enableCollisions: boolean = true): void => {
     const { count, positions, velocities, accelerations } = state;
     const halfDt = 0.5 * dt;
 
@@ -241,7 +248,11 @@ export const updatePhysicsSoA = (state: PhysicsState, dt: number): void => {
     }
 
     // 2. Calculate new forces/accelerations
-    calculateAccelerationsSoA(state);
+    if (useBarnesHut) {
+        calculateAccelerationsBarnesHut(state);
+    } else {
+        calculateAccelerationsSoA(state);
+    }
 
     // 3. Second Half-Step: v += 0.5 * a_new * dt
     for (let i = 0; i < count; i++) {
@@ -253,7 +264,9 @@ export const updatePhysicsSoA = (state: PhysicsState, dt: number): void => {
     }
 
     // 4. Collision Detection
-    resolveCollisionsSoA(state);
+    if (enableCollisions) {
+        resolveCollisionsSoA(state);
+    }
 };
 
 /**
@@ -293,7 +306,7 @@ export const updatePhysics = (
     const state = createPhysicsState(bodies);
 
     // 2. Update SoA
-    updatePhysicsSoA(state, BASE_DT * timeScale);
+    updatePhysicsSoA(state, BASE_DT * timeScale, false);
 
     // 3. Convert back to objects
     return syncStateToBodies(state, bodies);
