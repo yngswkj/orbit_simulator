@@ -77,16 +77,20 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                 </div>
 
                 {/* Content */}
-                <div style={{ display: 'flex', flex: 1, minHeight: 0 }}>
+                <div style={{ display: 'flex', flex: 1, minHeight: 0, flexWrap: 'wrap' }}>
 
                     {/* Sidebar / Tabs */}
                     <div style={{
                         width: '200px',
+                        minWidth: '200px', // Prevent shrinking
                         borderRight: '1px solid rgba(255,255,255,0.1)',
                         background: 'rgba(0,0,0,0.2)',
                         padding: '16px 0',
                         display: 'flex',
-                        flexDirection: 'column'
+                        flexDirection: 'column',
+                        // Mobile: Full width if wrapped
+                        flexGrow: 1,
+                        maxWidth: '100%',
                     }}>
                         <button
                             onClick={() => setActiveTab('controls')}
@@ -193,8 +197,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                                                     padding: '1px 4px',
                                                     borderRadius: '4px',
                                                     marginRight: '8px'
-                                                }}>IMPROVED</span>
-                                                Precise Planetary Rotation (Visuals synced to 1 Earth Day = 1.0)
+                                                }}>改善</span>
+                                                惑星自転の精密化 (地球を基準とした1日1回転の正確な同期)
                                             </li>
                                             <li style={{ marginBottom: '8px' }}>
                                                 <span style={{
@@ -205,8 +209,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                                                     padding: '1px 4px',
                                                     borderRadius: '4px',
                                                     marginRight: '8px'
-                                                }}>NEW</span>
-                                                Date Display Overlay (YYYY/MM/DD & Days/Years format)
+                                                }}>新機能</span>
+                                                日付情報の表示 (YYYY/MM/DD および 経過日数・年数)
                                             </li>
                                             <li style={{ marginBottom: '8px' }}>
                                                 <span style={{
@@ -217,8 +221,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                                                     padding: '1px 4px',
                                                     borderRadius: '4px',
                                                     marginRight: '8px'
-                                                }}>FIX</span>
-                                                Refined Camera Distance & Initial State
+                                                }}>修正</span>
+                                                カメラ初期位置と距離感の再調整・初期状態の同期修正
                                             </li>
                                             <li>
                                                 <span style={{
@@ -229,8 +233,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                                                     padding: '1px 4px',
                                                     borderRadius: '4px',
                                                     marginRight: '8px'
-                                                }}>TECH</span>
-                                                WebGPU Stability Fix (Read-After-Write Safety)
+                                                }}>技術</span>
+                                                WebGPU安定性の向上 (バッファ競合回避による安全性確保)
                                             </li>
                                         </ul>
                                     </div>
@@ -258,11 +262,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                                                     padding: '1px 4px',
                                                     borderRadius: '4px',
                                                     marginRight: '8px'
-                                                }}>NEW</span>
-                                                {t('cl_surface_view')}
+                                                }}>新機能</span>
+                                                {t('cl_surface_view')} (地表視点モード)
                                             </li>
-                                            <li>{t('cl_orbit_view')}</li>
-                                            <li>{t('cl_perf')}</li>
+                                            <li>{t('cl_orbit_view')} (軌道固定視点)</li>
+                                            <li>{t('cl_perf')} (パフォーマンス最適化)</li>
                                         </ul>
                                     </div>
                                 </div>
