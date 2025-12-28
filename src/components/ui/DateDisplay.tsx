@@ -16,6 +16,7 @@ export const DateDisplay: React.FC = () => {
             position: 'absolute',
             bottom: '160px',
             left: '10px',
+            width: '220px',
             background: 'rgba(20, 30, 40, 0.1)', // More transparent
             backdropFilter: 'blur(4px)', // Glass effect
             padding: '12px 18px',

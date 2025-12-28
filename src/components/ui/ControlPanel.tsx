@@ -41,16 +41,7 @@ export const ControlPanel: React.FC = () => {
                     alignItems: 'center',
                     justifyContent: 'center',
                     transition: 'all 0.2s',
-                    opacity: isOpen ? 0 : 1, // Hide when panel is open? Or keep visible? 
-                    // User said "next to menu button". 
-                    // If panel is Open, the menu button is HIDDEN (`display: isOpen ? 'none' : 'flex'`).
-                    // So wait, if panel is open, where should the help button be?
-                    // User says "icon is not in control panel but next to menu button".
-                    // The menu button (hamburger) is only visible when panel is CLOSED.
-                    // So maybe the Help button should also only be visible when Closed?
-                    // OR should it ALWAYS be visible?
-                    // "？アイコンはコントロールパネルの中じゃなくて、メニューボタンの横に表示して。"
-                    // Likely implies it should be a global floating button like the menu button.
+                    opacity: isOpen ? 0 : 1,
                     pointerEvents: isOpen ? 'none' : 'auto'
                 }}
                 className="help-toggle-btn"

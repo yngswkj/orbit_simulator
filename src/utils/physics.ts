@@ -308,6 +308,28 @@ export const updatePhysics = (
     // 2. Update SoA
     updatePhysicsSoA(state, BASE_DT * timeScale, false);
 
-    // 3. Convert back to objects
     return syncStateToBodies(state, bodies);
+};
+
+export const calculateTotalEnergy = (bodies: CelestialBody[]): number => {
+    let kinetic = 0;
+    let potential = 0;
+    const count = bodies.length;
+
+    for (let i = 0; i < count; i++) {
+        const bi = bodies[i];
+        const vSq = bi.velocity.lengthSq();
+        kinetic += 0.5 * bi.mass * vSq;
+
+        for (let j = i + 1; j < count; j++) {
+            const bj = bodies[j];
+            const dx = bi.position.x - bj.position.x;
+            const dy = bi.position.y - bj.position.y;
+            const dz = bi.position.z - bj.position.z;
+            const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) + 1e-6; // avoid div by zero
+            potential -= (G * bi.mass * bj.mass) / dist;
+        }
+    }
+
+    return kinetic + potential;
 };

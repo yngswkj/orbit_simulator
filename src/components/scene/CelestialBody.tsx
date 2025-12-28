@@ -101,16 +101,25 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
     });
 
     const selectBody = usePhysicsStore(state => state.selectBody);
+    const cameraMode = usePhysicsStore(state => state.cameraMode);
+    const followingBodyId = usePhysicsStore(state => state.followingBodyId);
+
+    // Filter interactions for Surface View
+    const isSurfaceView = cameraMode === 'surface_lock';
+    const isSelf = isSurfaceView && followingBodyId === body.id;
+
+    const handleClick = (e: any) => {
+        if (isSurfaceView) return; // Disable selection in Surface View
+        e.stopPropagation();
+        selectBody(body.id);
+    };
 
     return (
         <>
             <group
                 ref={groupRef}
                 position={positionVector}
-                onClick={(e) => {
-                    e.stopPropagation();
-                    selectBody(body.id);
-                }}
+                onClick={handleClick}
             >
                 {/* Axial Tilt Wrapper */}
                 <group rotation={[0, 0, tiltRadians]}>
@@ -128,7 +137,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                         )}
                     </Sphere>
 
-                    {showGrid && (
+                    {showGrid && !isSelf && (
                         <Line
                             points={[[0, -body.radius * 1.5, 0], [0, body.radius * 1.5, 0]]}
                             color="white"
@@ -163,7 +172,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                 </Billboard>
             </group>
 
-            {/* Trail - Rendered in World Space (outside the moving group) */}
+            {/* Trail - Rendered in World Space */}
             {trailReady && (
                 <ConstantWidthTrail
                     position={positionVector}

@@ -64,6 +64,8 @@ export class PhysicsWorkerManager {
         this.syncCounter = new Int32Array(this.sharedBuffer, offset, 2);
     }
 
+    public onCollision: ((pairs: [number, number][]) => void) | null = null;
+
     public initWorkers(): void {
         if (!this.isSupported) return;
 
@@ -87,17 +89,18 @@ export class PhysicsWorkerManager {
     public executeStep(count: number, dt: number): Promise<void> {
         if (!this.isSupported) return Promise.resolve();
 
-        // Reset sync counter
         Atomics.store(this.syncCounter, 0, 0);
 
         const promises = this.workers.map(worker =>
             new Promise<void>((resolve) => {
-                // We use one-time event listener or assume correct order
-                // For simplicity, let's wait for 'done' message
                 const handler = (e: MessageEvent) => {
                     if (e.data.type === 'done') {
                         worker.removeEventListener('message', handler);
                         resolve();
+                    } else if (e.data.type === 'collisions') {
+                        if (this.onCollision) {
+                            this.onCollision(e.data.collisions);
+                        }
                     }
                 };
                 worker.addEventListener('message', handler);
@@ -111,6 +114,22 @@ export class PhysicsWorkerManager {
         );
 
         return Promise.all(promises).then(() => { });
+    }
+
+    public calculateEnergy(count: number): Promise<number> {
+        if (!this.isSupported || this.workers.length === 0) return Promise.resolve(0);
+
+        return new Promise((resolve) => {
+            const worker = this.workers[0]; // Only worker 0 computes energy
+            const handler = (e: MessageEvent) => {
+                if (e.data.type === 'energyResult') {
+                    worker.removeEventListener('message', handler);
+                    resolve(e.data.totalEnergy);
+                }
+            };
+            worker.addEventListener('message', handler);
+            worker.postMessage({ type: 'energy', count });
+        });
     }
 
     public terminate(): void {

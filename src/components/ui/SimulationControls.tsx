@@ -36,14 +36,6 @@ export const SimulationControls: React.FC = () => {
                 justifyContent: 'space-between',
                 alignItems: 'center'
             }}>
-                <h2 style={{
-                    margin: 0,
-                    fontSize: '0.9rem',
-                    color: '#94a3b8',
-                    letterSpacing: '0.05em'
-                }}>
-                    {t('controls_title')}
-                </h2>
             </div>
 
             <div style={{ display: 'flex', gap: '8px' }} className="sim-controls-buttons">
@@ -157,6 +149,7 @@ export const SimulationControls: React.FC = () => {
                     />
                     {t('show_habitable')}
                 </label>
+
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
                     <input
                         type="checkbox"
@@ -164,7 +157,7 @@ export const SimulationControls: React.FC = () => {
                         onChange={() => usePhysicsStore.getState().toggleMultithreading()}
                         disabled={!usePhysicsStore.getState().isWorkerSupported}
                     />
-                    <span>Multi-threading (Experimental)</span>
+                    <span>{t('show_multithreading')}</span>
                     {!usePhysicsStore.getState().isWorkerSupported && <span style={{ fontSize: '0.7rem', color: '#ff4050' }}>(N/A)</span>}
                     {usePhysicsStore.getState().isWorkerSupported && <div style={{ color: '#00ce7c' }}><Zap size={14} fill="#00ce7c" /></div>}
                 </label>
@@ -175,9 +168,17 @@ export const SimulationControls: React.FC = () => {
                         onChange={() => usePhysicsStore.getState().toggleGPU()}
                         disabled={!usePhysicsStore(s => s.isGPUSupported)}
                     />
-                    <span>GPU Acceleration (Beta)</span>
+                    <span>{t('show_gpu')}</span>
                     {usePhysicsStore(s => s.isGPUSupported) === false && <span style={{ fontSize: '0.7rem', color: '#ff4050' }}>(N/A)</span>}
                     {usePhysicsStore(s => s.isGPUSupported) === true && <div style={{ color: '#00ce7c' }}><Zap size={14} fill="#00ce7c" /></div>}
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
+                    <input
+                        type="checkbox"
+                        onChange={() => usePhysicsStore.getState().togglePerformance()}
+                        checked={usePhysicsStore(s => s.showPerformance)}
+                    />
+                    {t('show_performance')}
                 </label>
             </div>
 

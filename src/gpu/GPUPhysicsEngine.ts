@@ -19,12 +19,22 @@ struct Params {
     softening : f32,
 }
 
+struct CollisionPair {
+    indexA : u32,
+    indexB : u32,
+}
+
+struct AtomicCounter {
+    count : atomic<u32>,
+}
+
 @group(0) @binding(0) var<storage, read> bodiesIn : array<Body>;
 @group(0) @binding(1) var<storage, read_write> bodiesOut : array<Body>;
 @group(0) @binding(2) var<uniform> params : Params;
+@group(0) @binding(3) var<storage, read_write> collisions : array<CollisionPair>;
+@group(0) @binding(4) var<storage, read_write> counter : AtomicCounter;
 
 // PASS 1: Integration (Kick1 + Drift)
-// Read Old State (In), Write New Pos + Mid Vel (Out)
 @compute @workgroup_size(64)
 fn integrate(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     let index = GlobalInvocationID.x;
@@ -48,16 +58,14 @@ fn integrate(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     bodiesOut[index].data2 = vec4<f32>(0.0, 0.0, 0.0, 0.0); 
 }
 
-// PASS 2: Force Calculation + Kick2
-// Read New Pos (In), Write Final Vel + New Acc (Out)
-// NOTE: "In" here MUST be a copy of the "Out" from Pass 1.
+// PASS 2: Force Calculation + Kick2 + Collision
 @compute @workgroup_size(64)
 fn calcForces(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     let index = GlobalInvocationID.x;
     if (index >= params.bodyCount) { return; }
 
-    // Read from Input (Safe Read-Only)
     let myPos = bodiesIn[index].data0.xyz;
+    let myRadius = bodiesIn[index].data1.w;
     var acc = vec3<f32>(0.0, 0.0, 0.0);
 
     // O(N^2) Force Calculation
@@ -73,6 +81,21 @@ fn calcForces(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
         let invDist3 = invDist * invDist * invDist;
         
         acc = acc + diff * (params.G * otherMass * invDist3);
+        
+        // COLLISION CHECK
+        if (i > index) {
+            let realDistSq = dot(diff, diff);
+            let otherRadius = bodiesIn[i].data1.w;
+            let radSum = myRadius + otherRadius;
+            
+            if (realDistSq < (radSum * 0.8) * (radSum * 0.8)) {
+                let oldVal = atomicAdd(&counter.count, 1u);
+                if (oldVal < 1000u) {
+                    collisions[oldVal].indexA = index;
+                    collisions[oldVal].indexB = i;
+                }
+            }
+        }
     }
 
     // Kick 2
@@ -80,7 +103,6 @@ fn calcForces(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     let halfDt = params.dt * 0.5;
     let newVel = midVel + acc * halfDt;
 
-    // Write back Final Velocity and New Acceleration to Output
     bodiesOut[index].data1 = vec4<f32>(newVel, bodiesIn[index].data1.w);
     bodiesOut[index].data2 = vec4<f32>(acc, 0.0);
 }
@@ -96,6 +118,12 @@ export class GPUPhysicsEngine {
     private bufferB: GPUBuffer | null = null;
     private uniformBuffer: GPUBuffer | null = null;
     private stagingBuffer: GPUBuffer | null = null;
+
+    // Collision Buffers
+    private collisionBuffer: GPUBuffer | null = null;
+    private counterBuffer: GPUBuffer | null = null;
+    private stagingCollisionBuffer: GPUBuffer | null = null;
+    private stagingCounterBuffer: GPUBuffer | null = null;
 
     private bindGroupA_Integrate: GPUBindGroup | null = null; // Read A, Write B
     private bindGroupB_Integrate: GPUBindGroup | null = null; // Read B, Write A
@@ -175,7 +203,6 @@ export class GPUPhysicsEngine {
             console.warn('Body count exceeds GPU buffer capacity.');
         }
 
-        // Struct Body is now 3 vec4s = 48 bytes
         const stride = 48; // 3 * 16
         const bufferSize = Math.max(count * stride, 128);
 
@@ -193,16 +220,48 @@ export class GPUPhysicsEngine {
             usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
         });
 
+        // Collision Buffers
+        // Max 1000 collisions * 8 bytes (2 u32) = 8000 bytes
+        this.collisionBuffer = this.device.createBuffer({
+            size: 8000,
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC
+        });
+
+        this.counterBuffer = this.device.createBuffer({
+            size: 4, // 1 atomic u32
+            usage: GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_SRC | GPUBufferUsage.COPY_DST
+        });
+
+        this.stagingCollisionBuffer = this.device.createBuffer({
+            size: 8000,
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+        });
+
+        this.stagingCounterBuffer = this.device.createBuffer({
+            size: 4,
+            usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
+        });
+
+
         // Create BindGroups
-        // Integrate Layout: (read A, write B, uniforms)
         const integrateLayout = this.pipelineIntegrate.getBindGroupLayout(0);
+
+        const bindEntriesIntegrate = [
+            { binding: 2, resource: { buffer: this.uniformBuffer } }
+        ];
+
+        const bindEntriesForce = [
+            { binding: 2, resource: { buffer: this.uniformBuffer } },
+            { binding: 3, resource: { buffer: this.collisionBuffer } },
+            { binding: 4, resource: { buffer: this.counterBuffer } }
+        ];
 
         this.bindGroupA_Integrate = this.device.createBindGroup({
             layout: integrateLayout,
             entries: [
                 { binding: 0, resource: { buffer: this.bufferA } },
                 { binding: 1, resource: { buffer: this.bufferB } },
-                { binding: 2, resource: { buffer: this.uniformBuffer } }
+                ...bindEntriesIntegrate
             ]
         });
 
@@ -211,11 +270,10 @@ export class GPUPhysicsEngine {
             entries: [
                 { binding: 0, resource: { buffer: this.bufferB } }, // Read B
                 { binding: 1, resource: { buffer: this.bufferA } }, // Write A
-                { binding: 2, resource: { buffer: this.uniformBuffer } }
+                ...bindEntriesIntegrate
             ]
         });
 
-        // Force Layout: (0: In, 1: Out, 2: Uniforms)
         const forceLayout = this.pipelineForce.getBindGroupLayout(0);
 
         this.bindGroup_Force_ReadA_WriteB = this.device.createBindGroup({
@@ -223,7 +281,7 @@ export class GPUPhysicsEngine {
             entries: [
                 { binding: 0, resource: { buffer: this.bufferA } }, // Read A (Copy)
                 { binding: 1, resource: { buffer: this.bufferB } }, // Write B (Target)
-                { binding: 2, resource: { buffer: this.uniformBuffer } }
+                ...bindEntriesForce
             ]
         });
 
@@ -232,7 +290,7 @@ export class GPUPhysicsEngine {
             entries: [
                 { binding: 0, resource: { buffer: this.bufferB } }, // Read B (Copy)
                 { binding: 1, resource: { buffer: this.bufferA } }, // Write A (Target)
-                { binding: 2, resource: { buffer: this.uniformBuffer } }
+                ...bindEntriesForce
             ]
         });
     }
@@ -267,6 +325,11 @@ export class GPUPhysicsEngine {
 
         this.device.queue.writeBuffer(this.bufferA, 0, data);
 
+        // Reset Counter
+        if (this.counterBuffer) {
+            this.device.queue.writeBuffer(this.counterBuffer, 0, new Uint32Array([0]));
+        }
+
         // --- Initialize Acceleration (Critical for Velocity Verlet) ---
         // A is currently (pos, vel, 0). We need (pos, vel, acc) for the first step.
         // We use the 'calcForces' pipeline, but we must ensure it doesn't modify Velocity.
@@ -300,6 +363,11 @@ export class GPUPhysicsEngine {
 
     async step(dt: number, bodyCount: number) {
         if (!this.device || !this.pipelineIntegrate || !this.pipelineForce || !this.uniformBuffer) return;
+
+        // Reset Collision Counter for this step
+        if (this.counterBuffer) {
+            this.device.queue.writeBuffer(this.counterBuffer, 0, new Uint32Array([0]));
+        }
 
         // Update Uniforms
         const uniforms = new ArrayBuffer(16);
@@ -409,11 +477,50 @@ export class GPUPhysicsEngine {
         return data;
     }
 
+    async getCollisions(): Promise<[number, number][] | null> {
+        if (!this.device || !this.collisionBuffer || !this.counterBuffer || !this.stagingCounterBuffer || !this.stagingCollisionBuffer) return null;
+
+        // 1. Read Counter
+        const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(this.counterBuffer, 0, this.stagingCounterBuffer, 0, 4);
+        this.device.queue.submit([commandEncoder.finish()]);
+
+        await this.stagingCounterBuffer.mapAsync(GPUMapMode.READ);
+        const countData = new Uint32Array(this.stagingCounterBuffer.getMappedRange());
+        const count = countData[0];
+        this.stagingCounterBuffer.unmap();
+
+        if (count === 0) return [];
+
+        // 2. Read Collisions (Safe clamp)
+        const safeCount = Math.min(count, 1000);
+        const byteSize = safeCount * 8;
+
+        const cmd2 = this.device.createCommandEncoder();
+        cmd2.copyBufferToBuffer(this.collisionBuffer, 0, this.stagingCollisionBuffer, 0, byteSize);
+        this.device.queue.submit([cmd2.finish()]);
+
+        await this.stagingCollisionBuffer.mapAsync(GPUMapMode.READ, 0, byteSize);
+        const pairsData = new Uint32Array(this.stagingCollisionBuffer.getMappedRange(0, byteSize));
+
+        const pairs: [number, number][] = [];
+        for (let i = 0; i < safeCount; i++) {
+            pairs.push([pairsData[i * 2], pairsData[i * 2 + 1]]);
+        }
+        this.stagingCollisionBuffer.unmap();
+
+        return pairs;
+    }
+
     dispose() {
         this.bufferA?.destroy();
         this.bufferB?.destroy();
         this.uniformBuffer?.destroy();
         this.stagingBuffer?.destroy();
+        this.collisionBuffer?.destroy();
+        this.counterBuffer?.destroy();
+        this.stagingCollisionBuffer?.destroy();
+        this.stagingCounterBuffer?.destroy();
         this.device?.destroy();
     }
 }

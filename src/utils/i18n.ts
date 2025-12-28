@@ -77,14 +77,32 @@ const translations = {
         ctrl_rotate: 'Rotate',
         ctrl_rotate_desc: 'Left Click + Drag',
         ctrl_zoom: 'Zoom',
-        ctrl_zoom_desc: 'Scroll Wheel',
+        ctrl_zoom_desc: 'Mouse Wheel',
         ctrl_select: 'Select Body',
-        ctrl_select_desc: 'Click on a planet',
+        ctrl_select_desc: 'Click on planet',
 
         // Changelog Items
-        cl_surface_view: 'New Surface View (FPS Style)',
-        cl_orbit_view: 'Renamed Sun View to Orbit Fixed View',
+        cl_surface_view: 'Surface View Overhaul (FPS Style)',
+        cl_orbit_view: 'Renamed to Orbit Fixed View',
         cl_perf: 'Performance Improvements',
+        cl_v0_2_1_title: 'v0.2.1 - Physics & View Update',
+        cl_item_surface: 'Surface View Refinement (Orbit Locked, Tangent View)',
+        cl_item_perf: 'Performance View (FPS, Physics Time, Energy)',
+        cl_item_physics: 'Physics Engine (Collision in GPU/Worker)',
+
+        // New Toggles
+        show_multithreading: 'Multithreading (Experimental)',
+        show_gpu: 'GPU Acceleration (Beta)',
+        show_performance: 'Show Performance View',
+
+        // Performance Stats
+        perf_stats: 'Simulation Stats',
+        perf_fps: 'FPS',
+        perf_mode: 'Mode',
+        perf_bodies: 'Bodies',
+        perf_physics: 'Physics Time',
+        perf_energy: 'Energy',
+        calculating: 'Calculating...',
     },
     ja: {
         // App
@@ -169,6 +187,24 @@ const translations = {
         cl_surface_view: '地表視点の刷新 (FPSスタイル)',
         cl_orbit_view: '公転固定視点への名称変更',
         cl_perf: 'パフォーマンス改善',
+        cl_v0_2_1_title: 'v0.2.1 - 物理演算と視点の強化',
+        cl_item_surface: '地表視点の改善 (公転固定、進行方向への整列、UX向上)',
+        cl_item_perf: 'パフォーマンスビュー (FPS, 計算時間, 総エネルギー)',
+        cl_item_physics: '物理エンジンの強化 (GPU/Workerでの衝突判定)',
+
+        // New Toggles
+        show_multithreading: 'マルチスレッド計算 (実験的)',
+        show_gpu: 'GPUアクセラレーション (ベータ)',
+        show_performance: 'パフォーマンス情報を表示',
+
+        // Performance Stats
+        perf_stats: 'シミュレーション統計',
+        perf_fps: 'FPS',
+        perf_mode: '計算モード',
+        perf_bodies: '天体数',
+        perf_physics: '計算時間',
+        perf_energy: '総エネルギー',
+        calculating: '計算中...',
     }
 };
 

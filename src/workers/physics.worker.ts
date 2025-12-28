@@ -6,6 +6,7 @@ let sharedPositions: Float64Array;
 let sharedVelocities: Float64Array;
 let sharedAccelerations: Float64Array;
 let sharedMasses: Float64Array;
+let sharedRadii: Float64Array;
 
 let syncCounter: Int32Array;
 
@@ -61,6 +62,9 @@ self.onmessage = (e: MessageEvent) => {
         sharedMasses = new Float64Array(sharedBuffer, offset, maxBodies);
         offset += maxBodies * 8;
 
+        sharedRadii = new Float64Array(sharedBuffer, offset, maxBodies);
+        offset += maxBodies * 8;
+
         // syncCounter (2 integers)
         syncCounter = new Int32Array(sharedBuffer, offset, 2);
 
@@ -92,12 +96,8 @@ self.onmessage = (e: MessageEvent) => {
         // BARRIER
         waitBarrier(workerCount);
 
-        // 2. Force Calculation (All pairs)
+        // 2. Force Calculation (All pairs) + Collision Detection
         // Reset accelerations for my range
-        // Since we are parallelizing, we can compute forces acting ON my bodies
-        // from ALL OTHER bodies.
-
-        // Clear accelerations for my range
         for (let i = startIdx; i < endIdx; i++) {
             const i3 = i * 3;
             sharedAccelerations[i3] = 0;
@@ -105,12 +105,15 @@ self.onmessage = (e: MessageEvent) => {
             sharedAccelerations[i3 + 2] = 0;
         }
 
+        const collisions: [number, number][] = [];
+
         // Compute Forces
         for (let i = startIdx; i < endIdx; i++) {
             const i3 = i * 3;
             const pi_x = sharedPositions[i3];
             const pi_y = sharedPositions[i3 + 1];
             const pi_z = sharedPositions[i3 + 2];
+            const r_i = sharedRadii[i];
 
             let ax = 0;
             let ay = 0;
@@ -128,6 +131,22 @@ self.onmessage = (e: MessageEvent) => {
                 const distWithSoftSq = distSq + SOFTENING_SQ;
                 const distWithSoft = Math.sqrt(distWithSoftSq);
 
+                // Collision Detection
+                // Only report if i < j to avoid duplicates (though i range is partitioned, j is global)
+                // Since this loop runs for 'i' in local range, and 'j' in global,
+                // we should only report if i < j to ensure uniqueness globally?
+                // Actually, if I handle 'i', I can just report (i, j).
+                // But another worker handling 'j' might report (j, i).
+                // Let's rely on main thread to dedupe, or strictly i < j.
+                // If i < j, report.
+
+                if (i < j) {
+                    const r_j = sharedRadii[j];
+                    if (distSq < (r_i + r_j) ** 2) {
+                        collisions.push([i, j]);
+                    }
+                }
+
                 // F = G * m_j / (dist^3)
                 const f_base = (G * sharedMasses[j]) / (distWithSoftSq * distWithSoft);
 
@@ -141,7 +160,19 @@ self.onmessage = (e: MessageEvent) => {
             sharedAccelerations[i3 + 2] = az;
         }
 
-        // Note: No barrier needed here because Step 3 only needs local accelerations.
+        // Send collisions if any
+        if (collisions.length > 0) {
+            self.postMessage({ type: 'collisions', collisions });
+        }
+
+        // BARRIER (Wait for force calcs)
+        // waitBarrier(workerCount); // Not strictly needed for Step 3?
+        // Actually for pure Verlet, Step 3 uses new accelerations.
+        // We write into sharedAccelerations.
+        // Step 3 reads sharedAccelerations.
+        // If Worker A is fast and starts Step 3 for body X, it reads Accel X.
+        // Accel X is only written by Worker A. So no race on READ.
+        // So no barrier needed.
 
         // 3. Second Half-Step: v += 0.5a_new
         for (let i = startIdx; i < endIdx; i++) {
@@ -152,6 +183,40 @@ self.onmessage = (e: MessageEvent) => {
         }
 
         self.postMessage({ type: 'done' });
+    }
+
+    if (type === 'energy') {
+        // Only Worker 0 calculates energy
+        if (workerId === 0) {
+            const { count } = e.data;
+            let kinetic = 0;
+            let potential = 0;
+
+            for (let i = 0; i < count; i++) {
+                const i3 = i * 3;
+                const vSq = sharedVelocities[i3] ** 2 + sharedVelocities[i3 + 1] ** 2 + sharedVelocities[i3 + 2] ** 2;
+                kinetic += 0.5 * sharedMasses[i] * vSq;
+
+                const pi_x = sharedPositions[i3];
+                const pi_y = sharedPositions[i3 + 1];
+                const pi_z = sharedPositions[i3 + 2];
+
+                for (let j = i + 1; j < count; j++) {
+                    const j3 = j * 3;
+                    const dx = pi_x - sharedPositions[j3];
+                    const dy = pi_y - sharedPositions[j3 + 1];
+                    const dz = pi_z - sharedPositions[j3 + 2];
+                    const dist = Math.sqrt(dx * dx + dy * dy + dz * dz) + 1e-6;
+
+                    potential -= (G * sharedMasses[i] * sharedMasses[j]) / dist;
+                }
+            }
+
+            self.postMessage({ type: 'energyResult', totalEnergy: kinetic + potential });
+        } else {
+            // Other workers do nothing or could ack
+            // self.postMessage({ type: 'energyResult', totalEnergy: 0 }); // Don't confuse manager
+        }
     }
 };
 
