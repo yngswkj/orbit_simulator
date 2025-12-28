@@ -1,7 +1,7 @@
 export const PHYSICS_CONSTANTS = {
     G: 1.0,
     SOFTENING_SQ: 0.25, // 0.5 * 0.5
-    BASE_DT: 0.005, // Reduced from 0.01 for better stability
+    BASE_DT: 0.001, // Reverted to original value
     COLLISION_THRESHOLD: 0.8,
 } as const;
 
