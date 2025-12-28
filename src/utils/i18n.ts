@@ -116,10 +116,10 @@ const translations = {
     ja: {
         // App
         app_title: 'ORBIT SIMULATOR',
-        app_subtitle: '多体重力シミュレーター',
+        app_subtitle: '天体軌道シミュレーター',
 
         // Control Panel
-        controls_title: 'コントロール',
+        controls_title: 'コントロールパネル',
         simulation_title: 'シミュレーション',
         pause: '一時停止',
         resume: '再開',
@@ -129,7 +129,7 @@ const translations = {
         // Toggles
         show_prediction: '軌道予測線を表示',
         show_grid: 'グリッドを表示',
-        show_realistic: 'リアルな表示 (スケール調整)',
+        show_realistic: 'リアルなテクスチャを表示',
         show_habitable: 'ハビタブルゾーンを表示',
 
         // Camera
@@ -157,7 +157,7 @@ const translations = {
 
         // Tour
         tour_welcome: 'Orbit Simulatorへようこそ！',
-        tour_intro: 'N体シミュレーションと天体力学の美しさを体験してください。簡単なツアーにご案内します！',
+        tour_intro: '軌道シミュレーションと天体力学の美しさを体験してください。簡単なツアーにご案内します！',
         tour_panel_title: 'コントロールパネル',
         tour_panel_content: 'ここではシミュレーション速度の調整、グリッド表示の切り替え、天体の管理ができます。',
         tour_sim_title: 'シミュレーション操作',

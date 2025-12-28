@@ -177,12 +177,12 @@ const removeBodyAt = (state: PhysicsState, index: number): void => {
 };
 
 const resolveCollisionsSoA = (state: PhysicsState): void => {
-    const { count, positions, velocities, masses, radii } = state;
+    const { positions, velocities, masses, radii } = state;
 
-    for (let i = 0; i < count; i++) {
+    for (let i = 0; i < state.count; i++) {
         if (masses[i] <= 0) continue;
 
-        for (let j = i + 1; j < count; j++) {
+        for (let j = i + 1; j < state.count; j++) {
             if (masses[j] <= 0) continue;
 
             const i3 = i * 3;
