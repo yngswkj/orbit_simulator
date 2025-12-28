@@ -262,9 +262,9 @@ export const Scene = () => {
     const showGrid = usePhysicsStore((state) => state.showGrid);
 
     // Camera tuned to see Neptune (r=250) at 12 o'clock (-Z) from 6 o'clock (+Z)
-    // Lower height (40) for better perspective
+    // User requested return to original distance feeling
     return (
-        <Canvas camera={{ position: [0, 40, 350], fov: 45, near: 0.1, far: 50000 }}>
+        <Canvas camera={{ position: [0, 50, 50], fov: 45, near: 0.1, far: 50000 }}>
             <color attach="background" args={['#050510']} />
             <SimulationContent />
             <OrbitControls makeDefault enablePan={true} minDistance={0.001} />

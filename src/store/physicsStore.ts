@@ -54,33 +54,8 @@ interface PhysicsStore {
     reset: () => void;
 }
 
-const INITIAL_BODIES: CelestialBody[] = [
-    {
-        id: 'sun',
-        name: 'Sun',
-        mass: 333000,
-        radius: 2.5,
-        position: new Vector3(0, 0, 0),
-        velocity: new Vector3(0, 0, 0),
-        color: '#ffdd00',
-        texturePath: 'textures/sun_texture.png',
-        isFixed: false,
-        axialTilt: 7.25,
-        rotationSpeed: 0.04
-    },
-    {
-        id: 'earth',
-        name: 'Earth',
-        mass: 1.0,
-        radius: 0.15,
-        position: new Vector3(30, 0, 0),
-        velocity: new Vector3(0, 0, Math.sqrt(333000 / 30)),
-        color: '#22aaff',
-        texturePath: 'textures/earth_texture.png',
-        axialTilt: 23.4,
-        rotationSpeed: 1.0
-    }
-];
+// Use the shared solar system generator to ensure consistency between Initial Load and Reset
+const INITIAL_BODIES: CelestialBody[] = createSolarSystem();
 
 export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     bodies: INITIAL_BODIES,
