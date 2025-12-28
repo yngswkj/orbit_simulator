@@ -13,15 +13,35 @@ const getOrbitState = (distance: number, inclinationDeg: number) => {
     const speed = Math.sqrt(SUN_MASS / distance);
     const incRad = (inclinationDeg * Math.PI) / 180;
 
-    // Start at Ascending Node (on X-axis) for simplicity
-    // Position is just along X
-    const position = new Vector3(distance, 0, 0);
+    // Start at 12 o'clock (Negative Z axis)
+    // Applying -90 degree rotation around Y axis to previous (X-axis) setup
+    const position = new Vector3(0, 0, -distance);
 
-    // Velocity is perpendicular to position (tangential)
-    // In flat plane (XZ), velocity is (0, 0, speed)
-    // Apply inclination by rotating velocity vector around the X-axis
-    // (Since the node line is the X-axis, we tilt the plane around it)
-    const velocity = new Vector3(0, -speed * Math.sin(incRad), speed * Math.cos(incRad));
+    // Velocity is perpendicular. For CCW orbit, at -Z (12h), velocity points Left (-X).
+    // Inclination tilt was in Y (rotating around X axis). 
+    // After migrating to Z-axis start, the node line is still X-axis?
+    // Let's just rotate the previous velocity vector (0, -sin, cos) by -90 deg around Y.
+    // V_old = (0, -v*sin, v*cos)
+    // V_new_x = V_old_z * sin(-90) + V_old_x * cos(-90) = v*cos * (-1) = -v*cos
+    // V_new_y = V_old_y = -v*sin
+    // V_new_z = V_old_z * cos(-90) - V_old_x * sin(-90) = 0
+    // So New Vel = (-speed * cos, -speed * sin, 0)
+
+    // Actually, let's simplify.
+    // If flat orbit: Pos(0,0,-d), Vel(-v,0,0).
+    // With inclination 'inc':
+    // Usually inclination is rotation around the line of nodes.
+    // If we start at -Z, and line of nodes is X-axis.
+    // Then we are at 90 degrees/max latitude.
+    // Position z should be affected?
+    // No, if we rotate the whole system, the node line rotates too.
+    // That's fine. We simply want the "visual start" to be 12h.
+
+    const velocity = new Vector3(
+        -speed * Math.cos(incRad),
+        -speed * Math.sin(incRad),
+        0
+    );
 
     return { position, velocity };
 };
