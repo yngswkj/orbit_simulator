@@ -35,7 +35,7 @@ const ConstantWidthTrail = ({ position, color }: { position: Vector3, color: str
     const [points, setPoints] = React.useState<Vector3[]>([]);
     const frameCount = React.useRef(0);
 
-    React.useEffect(() => {
+    useFrame(() => {
         frameCount.current++;
         // Update every 3 frames for smoothness vs performance
         if (frameCount.current % 3 === 0) {
@@ -46,7 +46,7 @@ const ConstantWidthTrail = ({ position, color }: { position: Vector3, color: str
                 return newPoints;
             });
         }
-    }, [position]);
+    });
 
     if (points.length < 2) return null;
 
