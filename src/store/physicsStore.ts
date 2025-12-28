@@ -302,6 +302,10 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                     });
                 }
             } catch (e) {
+                // Ignore AbortError caused by buffer destruction during cleanup/dispose
+                if (e instanceof Error && (e.name === 'AbortError' || e.message.includes('destroyed'))) {
+                    return;
+                }
                 console.error("GPU Step Failed", e);
                 set({ isCalculating: false, useGPU: false });
             }
