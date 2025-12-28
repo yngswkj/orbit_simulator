@@ -53,11 +53,11 @@ export const PerformanceStats = () => {
                         <span>${t('perf_energy')}:</span> <span style="font-family: monospace; font-size: 0.9em;">${totalText}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between;">
-                        <span>Error (Drift):</span> <span style="font-family: monospace; font-size: 0.9em; color: ${driftColor}">${driftText}</span>
+                        <span>${t('perf_error')}:</span> <span style="font-family: monospace; font-size: 0.9em; color: ${driftColor}">${driftText}</span>
                     </div>
                     <div style="font-size: 0.85em; opacity: 0.7; margin-top: 4px; display: flex; flex-direction: column; gap: 2px;">
-                       <div style="display: flex; justify-content: space-between;"><span>Kinetic:</span> <span>${energy.kinetic.toExponential(2)}</span></div>
-                       <div style="display: flex; justify-content: space-between;"><span>Potential:</span> <span>${energy.potential.toExponential(2)}</span></div>
+                       <div style="display: flex; justify-content: space-between;"><span>${t('perf_kinetic')}:</span> <span>${energy.kinetic.toExponential(2)}</span></div>
+                       <div style="display: flex; justify-content: space-between;"><span>${t('perf_potential')}:</span> <span>${energy.potential.toExponential(2)}</span></div>
                     </div>
                 `;
             }
