@@ -170,8 +170,11 @@ const CameraController = () => {
                 // And follow the body's translation
 
                 // 1. Calculate Rotation Angle (Delta)
-                // rotationSpeed is Rad/Time
-                const rotationDelta = (body.rotationSpeed || 0) * dt;
+                // rotationSpeed is relative to Earth=1.0 (where 1.0 = 1 rotation/day)
+                // 1 Sim Year (2PI) = 365.25 Days.
+                // So Earth Speed (Rad/Year) = 2300
+                const EARTH_YEAR_RAD = 2300;
+                const rotationDelta = (body.rotationSpeed || 0) * EARTH_YEAR_RAD * dt;
 
                 // 2. Define Axis of Rotation (Taking Axial Tilt into account)
                 // Axial tilt is usually around Z axis first, then Y rotation? 
