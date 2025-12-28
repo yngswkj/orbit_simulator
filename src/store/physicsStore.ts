@@ -181,7 +181,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                 // I will add public isInitialized getter to engine in next step.
                 // For now:
 
-                if (!(gpuEngine as any).isReady) {
+                if (!gpuEngine.isReady) {
                     await gpuEngine.init(20000);
                 }
 
@@ -191,8 +191,9 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
                 if (gpuData) {
                     // Sync back to bodies
+                    // Stride is now 12 floats (48 bytes) due to 'acc' padding in GPU
                     const nextBodies = bodies.map((b, i) => {
-                        const idx = i * 8;
+                        const idx = i * 12; // Updated stride from 8 to 12
                         return {
                             ...b,
                             position: new Vector3(gpuData[idx], gpuData[idx + 1], gpuData[idx + 2]),

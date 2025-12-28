@@ -18,14 +18,23 @@ const G = 1;
 const SOFTENING_SQ = 0.5 * 0.5;
 
 function waitBarrier(targetCount: number) {
-    // Increment counter
-    Atomics.add(syncCounter, 0, 1);
+    // Phase-based barrier to avoid race conditions
+    // syncCounter[0] = arrival count
+    // syncCounter[1] = phase generation
 
-    // Busy-wait until all workers reach this point
-    // Note: This relies on all workers being active and stepping.
-    // If a worker crashes, this freezes.
-    while (Atomics.load(syncCounter, 0) < targetCount) {
-        // Spin
+    const myPhase = Atomics.load(syncCounter, 1);
+    const arrived = Atomics.add(syncCounter, 0, 1) + 1;
+
+    if (arrived === targetCount) {
+        // Last one here
+        Atomics.store(syncCounter, 0, 0); // Reset count
+        Atomics.add(syncCounter, 1, 1);   // Bump phase
+        Atomics.notify(syncCounter, 1);   // Wake up others
+    } else {
+        // Wait for phase to change
+        while (Atomics.load(syncCounter, 1) === myPhase) {
+            Atomics.wait(syncCounter, 1, myPhase);
+        }
     }
 }
 
@@ -52,9 +61,8 @@ self.onmessage = (e: MessageEvent) => {
         sharedMasses = new Float64Array(sharedBuffer, offset, maxBodies);
         offset += maxBodies * 8;
 
-
-
-        syncCounter = new Int32Array(sharedBuffer, offset, 1);
+        // syncCounter (2 integers)
+        syncCounter = new Int32Array(sharedBuffer, offset, 2);
 
         console.log(`Worker ${workerId} initialized.`);
     }

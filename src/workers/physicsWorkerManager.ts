@@ -34,7 +34,7 @@ export class PhysicsWorkerManager {
 
         // Calculate size: (pos(3) + vel(3) + acc(3) + mass(1) + radius(1)) * 8 bytes * N + sync(4)
         const elementCountPerBody = 3 + 3 + 3 + 1 + 1; // 11 doubles
-        const bufferSize = maxBodies * elementCountPerBody * 8 + 4; // +4 for Int32 counter
+        const bufferSize = maxBodies * elementCountPerBody * 8 + 8; // +8 for Int32 counter (2 * 4 bytes)
 
         this.sharedBuffer = new SharedArrayBuffer(bufferSize);
 
@@ -60,8 +60,8 @@ export class PhysicsWorkerManager {
         this.radii = new Float64Array(this.sharedBuffer, offset, maxBodies);
         offset += maxBodies * 8;
 
-        // syncCounter (Atomics)
-        this.syncCounter = new Int32Array(this.sharedBuffer, offset, 1);
+        // syncCounter (Atomics) - [0]: arrival count, [1]: phase/generation
+        this.syncCounter = new Int32Array(this.sharedBuffer, offset, 2);
     }
 
     public initWorkers(): void {

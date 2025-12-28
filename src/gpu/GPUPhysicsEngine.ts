@@ -4,12 +4,12 @@
  */
 import type { CelestialBody } from '../types/physics';
 
-// Embedded WGSL Shader to avoid loader issues
-// Embedded WGSL Shader to avoid loader issues
+// Embedded WGSL Shader with two kernels for Velocity Verlet
 const SHADER_CODE = `
 struct Body {
     data0 : vec4<f32>, // pos(xyz), mass(w)
     data1 : vec4<f32>, // vel(xyz), radius(w)
+    data2 : vec4<f32>, // acc(xyz), padding(w)
 }
 
 struct Params {
@@ -23,25 +23,63 @@ struct Params {
 @group(0) @binding(1) var<storage, read_write> bodiesOut : array<Body>;
 @group(0) @binding(2) var<uniform> params : Params;
 
+// PASS 1: Integration (Kick1 + Drift)
+// v += 0.5 * a * dt
+// x += v * dt
+// a = 0 (reset for accumulation in next pass, or just overwrite)
 @compute @workgroup_size(64)
-fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
+fn integrate(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     let index = GlobalInvocationID.x;
-    if (index >= params.bodyCount) {
-        return;
-    }
+    if (index >= params.bodyCount) { return; }
 
     let myPos = bodiesIn[index].data0.xyz;
     let myMass = bodiesIn[index].data0.w;
+    let oldVel = bodiesIn[index].data1.xyz;
+    let oldAcc = bodiesIn[index].data2.xyz;
+
+    let halfDt = params.dt * 0.5;
+
+    // Kick 1
+    let midVel = oldVel + oldAcc * halfDt;
+
+    // Drift
+    let newPos = myPos + midVel * params.dt;
+
+    // We write to bodiesOut. Force calc will read from bodiesOut (as Input) or we bind buffer B as both?
+    // In our architecture, we Read A, Write B.
+    // So Pass 1: Read A -> Write B.
+    // Pass 2: Read B -> Write B (Self-update) OR Read B -> Write A?
+    // Velocity Verlet requires updated positions for force calc.
+    // Optimal: 
+    // Pass 1: Read A, Write B (Update Pos, MidVel).
+    // Pass 2: Read B, Write B (Calc Force, FinalVel).
+
+    bodiesOut[index].data0 = vec4<f32>(newPos, myMass);
+    bodiesOut[index].data1 = vec4<f32>(midVel, bodiesIn[index].data1.w);
+    bodiesOut[index].data2 = vec4<f32>(0.0, 0.0, 0.0, 0.0); // Reset or unused
+}
+
+// PASS 2: Force Calculation + Kick2
+// calculate new a(x)
+// v += 0.5 * new_a * dt
+@compute @workgroup_size(64)
+fn calcForces(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
+    let index = GlobalInvocationID.x;
+    if (index >= params.bodyCount) { return; }
+
+    // Note: bodiesOut is bound as read_write. We are reading from the SAME buffer we are writing to?
+    // Or we bind it as Read (Input) and Write (Output).
+    // WebGPU allows storage read/write.
+    
+    let myPos = bodiesOut[index].data0.xyz;
     var acc = vec3<f32>(0.0, 0.0, 0.0);
 
-    // O(N^2) Force Calculation
+    // O(N^2) Force Calculation using updated positions
     for (var i : u32 = 0u; i < params.bodyCount; i = i + 1u) {
-        if (i == index) {
-            continue;
-        }
+        if (i == index) { continue; }
 
-        let otherPos = bodiesIn[i].data0.xyz;
-        let otherMass = bodiesIn[i].data0.w;
+        let otherPos = bodiesOut[i].data0.xyz;
+        let otherMass = bodiesOut[i].data0.w;
 
         let diff = otherPos - myPos;
         let distSq = dot(diff, diff) + params.softening;
@@ -51,40 +89,46 @@ fn main(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
         acc = acc + diff * (params.G * otherMass * invDist3);
     }
 
-    // Integration
-    let oldVel = bodiesIn[index].data1.xyz;
-    let newVel = oldVel + acc * params.dt;
-    let newPos = myPos + newVel * params.dt;
+    // Kick 2
+    let midVel = bodiesOut[index].data1.xyz;
+    let halfDt = params.dt * 0.5;
+    let newVel = midVel + acc * halfDt;
 
-    bodiesOut[index].data0 = vec4<f32>(newPos, myMass);
-    bodiesOut[index].data1 = vec4<f32>(newVel, bodiesIn[index].data1.w);
+    // Write back Final Velocity and New Acceleration
+    bodiesOut[index].data1 = vec4<f32>(newVel, bodiesOut[index].data1.w);
+    bodiesOut[index].data2 = vec4<f32>(acc, 0.0);
 }
 `;
 
 export class GPUPhysicsEngine {
     private device: GPUDevice | null = null;
-    private pipeline: GPUComputePipeline | null = null;
+    private pipelineIntegrate: GPUComputePipeline | null = null;
+    private pipelineForce: GPUComputePipeline | null = null;
 
     // Buffers
-    private bufferA: GPUBuffer | null = null; // Ping
-    private bufferB: GPUBuffer | null = null; // Pong
+    private bufferA: GPUBuffer | null = null;
+    private bufferB: GPUBuffer | null = null;
     private uniformBuffer: GPUBuffer | null = null;
-    private stagingBuffer: GPUBuffer | null = null; // For readback
+    private stagingBuffer: GPUBuffer | null = null;
 
-    private bindGroupA: GPUBindGroup | null = null; // Read A, Write B
-    private bindGroupB: GPUBindGroup | null = null; // Read B, Write A
+    private bindGroupA_Integrate: GPUBindGroup | null = null; // Read A, Write B
+    private bindGroupB_Integrate: GPUBindGroup | null = null; // Read B, Write A
 
-    private currentBufferIndex: 0 | 1 = 0; // 0: Read A, Write B. 1: Read B, Write A.
+    private bindGroupA_Force: GPUBindGroup | null = null;     // Read/Write A
+    private bindGroupB_Force: GPUBindGroup | null = null;     // Read/Write B
+
+    private currentBufferIndex: 0 | 1 = 0;
     private maxBodies: number = 0;
-    public isReady: boolean = false;
+    private _isReady: boolean = false; // Internal ready state
+
+    public get isReady(): boolean {
+        return this._isReady;
+    }
 
     // Parameters
     private G: number = 1.0;
     private softening: number = 0.5 * 0.5;
 
-    /**
-     * Checks if WebGPU is supported.
-     */
     static async isSupported(): Promise<boolean> {
         if (!navigator.gpu) return false;
         try {
@@ -105,62 +149,69 @@ export class GPUPhysicsEngine {
         this.device = await adapter.requestDevice();
         this.maxBodies = maxBodies;
 
-        await this.createPipeline();
+        await this.createPipelines();
         this.createBuffers(maxBodies);
-        this.isReady = true;
-        console.log('GPUPhysicsEngine initialized.');
+        this._isReady = true;
+        console.log('GPUPhysicsEngine initialized (Velocity Verlet).');
     }
 
-    private async createPipeline() {
+    private async createPipelines() {
         if (!this.device) return;
 
         const shaderModule = this.device.createShaderModule({
             code: SHADER_CODE
         });
 
-        this.pipeline = this.device.createComputePipeline({
+        // Pipeline 1: Integration
+        this.pipelineIntegrate = this.device.createComputePipeline({
             layout: 'auto',
             compute: {
                 module: shaderModule,
-                entryPoint: 'main'
+                entryPoint: 'integrate'
+            }
+        });
+
+        // Pipeline 2: Force Calc
+        this.pipelineForce = this.device.createComputePipeline({
+            layout: 'auto',
+            compute: {
+                module: shaderModule,
+                entryPoint: 'calcForces'
             }
         });
     }
 
     private createBuffers(count: number) {
-        if (!this.device || !this.pipeline) return;
+        if (!this.device || !this.pipelineIntegrate || !this.pipelineForce) return;
 
         if (count > this.maxBodies) {
-            console.warn('Body count exceeds GPU buffer capacity. Resizing not implemented yet.');
-            // Future: Resize buffers
+            console.warn('Body count exceeds GPU buffer capacity.');
         }
 
-        // 8 floats * 4 bytes = 32 bytes per body
-        const bufferSize = Math.max(count * 32, 128);
+        // Struct Body is now 3 vec4s = 48 bytes
+        const stride = 48; // 3 * 16
+        const bufferSize = Math.max(count * stride, 128);
 
-        // Create Buffer A & B
         const usage = GPUBufferUsage.STORAGE | GPUBufferUsage.COPY_DST | GPUBufferUsage.COPY_SRC;
         this.bufferA = this.device.createBuffer({ size: bufferSize, usage, label: 'Buffer A' });
         this.bufferB = this.device.createBuffer({ size: bufferSize, usage, label: 'Buffer B' });
 
-        // Uniform Buffer (dt, bodyCount, G, softening)
-        // 4 floats = 16 bytes.
         this.uniformBuffer = this.device.createBuffer({
             size: 16,
             usage: GPUBufferUsage.UNIFORM | GPUBufferUsage.COPY_DST
         });
 
-        // Staging Buffer for Readback
         this.stagingBuffer = this.device.createBuffer({
             size: bufferSize,
             usage: GPUBufferUsage.MAP_READ | GPUBufferUsage.COPY_DST
         });
 
         // Create BindGroups
-        const layout = this.pipeline.getBindGroupLayout(0);
+        // Integrate Layout: (read A, write B, uniforms)
+        const integrateLayout = this.pipelineIntegrate.getBindGroupLayout(0);
 
-        this.bindGroupA = this.device.createBindGroup({
-            layout,
+        this.bindGroupA_Integrate = this.device.createBindGroup({
+            layout: integrateLayout,
             entries: [
                 { binding: 0, resource: { buffer: this.bufferA } },
                 { binding: 1, resource: { buffer: this.bufferB } },
@@ -168,11 +219,49 @@ export class GPUPhysicsEngine {
             ]
         });
 
-        this.bindGroupB = this.device.createBindGroup({
-            layout,
+        this.bindGroupB_Integrate = this.device.createBindGroup({
+            layout: integrateLayout,
             entries: [
-                { binding: 0, resource: { buffer: this.bufferB } },
-                { binding: 1, resource: { buffer: this.bufferA } },
+                { binding: 0, resource: { buffer: this.bufferB } }, // Read B
+                { binding: 1, resource: { buffer: this.bufferA } }, // Write A
+                { binding: 2, resource: { buffer: this.uniformBuffer } }
+            ]
+        });
+
+        // Force Layout: (unused, read_write B, uniforms)
+        // Wait, binding 0 is 'bodiesIn' (read), binding 1 is 'bodiesOut' (read_write)
+        // For Force pass, we only need to access the "Output" buffer of the previous pass.
+        // We bind it to binding 1 (bodiesOut). Binding 0 is unused or can be bound to dummy?
+        // Actually, WGSL validation might require all bindings to be present if declared.
+        // Let's bind 'bodiesIn' to the SAME buffer, or a dummy.
+        // Binding B to both 0(read) and 1(read_write) is NOT allowed in general if write is involved in same dispatch.
+        // BUT, our shader 'calcForces' only reads/writes 'bodiesOut' (binding 1).
+        // It does NOT use 'bodiesIn' (binding 0).
+        // Ideally we should use a different BindGroupLayout for the second pipeline?
+        // Yes, 'auto' layout generates layout based on used bindings. 
+        // If 'calcForces' doesn't use 'bodiesIn', it won't be in the layout!
+        // Let's check the code: 'calcForces' USES 'bodiesOut'. It DOES NOT use 'bodiesIn'.
+        // So Pipeline 2 layout will only have binding 1 and 2.
+
+        // HOWEVER, binding indices must match.
+        // If 'calcForces' only uses binding 1 and 2, binding 0 is skipped.
+        // Let's verify 'auto' layout behavior.
+        // Binding 1: bodiesOut (storage, read_write). Binding 2: params.
+
+        const forceLayout = this.pipelineForce.getBindGroupLayout(0);
+
+        this.bindGroupA_Force = this.device.createBindGroup({
+            layout: forceLayout,
+            entries: [
+                { binding: 1, resource: { buffer: this.bufferA } }, // Update A in place
+                { binding: 2, resource: { buffer: this.uniformBuffer } }
+            ]
+        });
+
+        this.bindGroupB_Force = this.device.createBindGroup({
+            layout: forceLayout,
+            entries: [
+                { binding: 1, resource: { buffer: this.bufferB } }, // Update B in place
                 { binding: 2, resource: { buffer: this.uniformBuffer } }
             ]
         });
@@ -181,73 +270,97 @@ export class GPUPhysicsEngine {
     async setBodies(bodies: CelestialBody[]) {
         if (!this.device || !this.bufferA) return;
 
-        // Pack data
-        const data = new Float32Array(bodies.length * 8);
+        // Pack data (stride 12 floats = 48 bytes)
+        const data = new Float32Array(bodies.length * 12);
         for (let i = 0; i < bodies.length; i++) {
             const b = bodies[i];
-            const offset = i * 8;
+            const offset = i * 12;
+
+            // data0
             data[offset + 0] = b.position.x;
             data[offset + 1] = b.position.y;
             data[offset + 2] = b.position.z;
             data[offset + 3] = b.mass;
+
+            // data1
             data[offset + 4] = b.velocity.x;
             data[offset + 5] = b.velocity.y;
             data[offset + 6] = b.velocity.z;
             data[offset + 7] = b.radius;
+
+            // data2 (acc) - Initialize to 0
+            data[offset + 8] = 0;
+            data[offset + 9] = 0;
+            data[offset + 10] = 0;
+            data[offset + 11] = 0;
         }
 
-        // Upload to Buffer A (Starting state)
         this.device.queue.writeBuffer(this.bufferA, 0, data);
-
         this.currentBufferIndex = 0;
     }
 
     async step(dt: number, bodyCount: number) {
-        if (!this.device || !this.pipeline || !this.uniformBuffer || !this.bindGroupA || !this.bindGroupB) return;
+        if (!this.device || !this.pipelineIntegrate || !this.pipelineForce || !this.uniformBuffer) return;
 
         // Update Uniforms
         const uniforms = new ArrayBuffer(16);
         const floatView = new Float32Array(uniforms);
         const uintView = new Uint32Array(uniforms);
-
         floatView[0] = dt;
         uintView[1] = bodyCount;
         floatView[2] = this.G;
         floatView[3] = this.softening;
-
         this.device.queue.writeBuffer(this.uniformBuffer, 0, uniforms);
 
         const commandEncoder = this.device.createCommandEncoder();
-        const passEncoder = commandEncoder.beginComputePass();
 
-        passEncoder.setPipeline(this.pipeline);
+        // --- PASS 1: Integrate (Read A -> Write B) ---
+        // If current is 0: Read A, Write B.
+        // If current is 1: Read B, Write A.
+        const integrateBindGroup = this.currentBufferIndex === 0 ? this.bindGroupA_Integrate : this.bindGroupB_Integrate;
+        if (!integrateBindGroup) return;
 
-        // Ping-Pong
-        // If index 0: Read A, Write B. (BindGroup A)
-        // If index 1: Read B, Write A. (BindGroup B)
-        const bindGroup = this.currentBufferIndex === 0 ? this.bindGroupA : this.bindGroupB;
-        passEncoder.setBindGroup(0, bindGroup);
+        const pass1 = commandEncoder.beginComputePass({ label: 'Integration Pass' });
+        pass1.setPipeline(this.pipelineIntegrate);
+        pass1.setBindGroup(0, integrateBindGroup);
+        const workgroupCount = Math.ceil(bodyCount / 64);
+        pass1.dispatchWorkgroups(workgroupCount);
+        pass1.end();
 
-        const workgroupSize = 64;
-        const workgroupCount = Math.ceil(bodyCount / workgroupSize);
-        passEncoder.dispatchWorkgroups(workgroupCount);
+        // --- PASS 2: Force Calc (Update B in place) ---
+        // If current is 0: We wrote to B. Now update B.
+        // If current is 1: We wrote to A. Now update A.
+        const forceBindGroup = this.currentBufferIndex === 0 ? this.bindGroupB_Force : this.bindGroupA_Force;
+        if (!forceBindGroup) return;
 
-        passEncoder.end();
+        const pass2 = commandEncoder.beginComputePass({ label: 'Force Pass' });
+        pass2.setPipeline(this.pipelineForce);
+        pass2.setBindGroup(0, forceBindGroup);
+        pass2.dispatchWorkgroups(workgroupCount);
+        pass2.end();
+
         this.device.queue.submit([commandEncoder.finish()]);
 
-        // Swap for next frame
+        // Swap
         this.currentBufferIndex = this.currentBufferIndex === 0 ? 1 : 0;
     }
 
     async getBodies(count: number): Promise<Float32Array | null> {
         if (!this.device || !this.stagingBuffer || !this.bufferA || !this.bufferB) return null;
 
-        // We want to read the buffer that was just WRITTEN to.
-        // If currentBufferIndex is 1, it means we plan to Read B next.
-        // So the LAST op was A -> B. Thus B has the latest data.
-        const sourceBuffer = this.currentBufferIndex === 0 ? this.bufferA : this.bufferB;
+        // Current buffer index points to the ONE TO BE READ NEXT (i.e., the one just written to).
+        // Wait, logic check:
+        // Start: current=0. 
+        // Step: Pass1(A->B), Pass2(Update B). current becomes 1.
+        // Next Step: Pass1(B->A), Pass2(Update A). current becomes 0.
+        // So if current=1, B has data. If current=0, A has data.
 
-        const size = count * 32;
+        const sourceBuffer = this.currentBufferIndex === 1 ? this.bufferB : this.bufferA;
+
+        // Stride is 48 bytes.
+        // But we likely only want to read back position/velocity for rendering, or maybe just packed data?
+        // To be simple, we read back everything. 
+        const size = count * 48;
 
         const commandEncoder = this.device.createCommandEncoder();
         commandEncoder.copyBufferToBuffer(sourceBuffer, 0, this.stagingBuffer, 0, size);
@@ -257,6 +370,16 @@ export class GPUPhysicsEngine {
         const copyArrayBuffer = this.stagingBuffer.getMappedRange(0, size);
         const data = new Float32Array(copyArrayBuffer.slice(0));
         this.stagingBuffer.unmap();
+
+        // Convert back to dense array? Or Component expects strided?
+        // The physicsStore usage expects: 'getBodies' returns Float32Array
+        // And then 'updateBodies' manually unpacks it?
+        // Let's check physicsStore.ts logic. 
+        // It likely assumes 8 floats per body (pos+mass, vel+rad). 
+        // Now it is 12 floats (pos+mass, vel+rad, acc+pad).
+        // We MUST update physicsStore.ts or unpack here.
+        // Efficiency: unpack here? Or update store?
+        // Updating store is better for strictness.
 
         return data;
     }
