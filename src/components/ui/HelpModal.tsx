@@ -13,6 +13,15 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
     const { t } = useTranslation();
     const [activeTab, setActiveTab] = React.useState<'controls' | 'changelog'>('controls');
 
+    // Simple responsive check
+    const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
+
+    React.useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
+
     if (!isOpen) return null;
 
     return createPortal(
@@ -51,7 +60,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    background: 'rgba(255,255,255,0.02)'
+                    background: 'rgba(255,255,255,0.02)',
+                    flexShrink: 0 // Keep header fixed size
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                         <HelpCircle size={20} color="#3b82f6" />
@@ -76,21 +86,26 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                     </button>
                 </div>
 
-                {/* Content */}
-                <div style={{ display: 'flex', flex: 1, minHeight: 0, flexWrap: 'wrap' }}>
+                {/* Content Wrapper */}
+                <div style={{
+                    display: 'flex',
+                    flex: 1,
+                    minHeight: 0,
+                    flexDirection: isMobile ? 'column' : 'row'
+                }}>
 
                     {/* Sidebar / Tabs */}
                     <div style={{
-                        width: '200px',
-                        minWidth: '200px', // Prevent shrinking
-                        borderRight: '1px solid rgba(255,255,255,0.1)',
+                        width: isMobile ? '100%' : '200px',
+                        minWidth: isMobile ? '100%' : '200px',
+                        borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                        borderBottom: isMobile ? '1px solid rgba(255,255,255,0.1)' : 'none',
                         background: 'rgba(0,0,0,0.2)',
-                        padding: '16px 0',
+                        padding: isMobile ? '0' : '16px 0',
                         display: 'flex',
-                        flexDirection: 'column',
-                        // Mobile: Full width if wrapped
-                        flexGrow: 1,
-                        maxWidth: '100%',
+                        flexDirection: isMobile ? 'row' : 'column',
+                        flexShrink: 0,
+                        overflowX: isMobile ? 'auto' : 'hidden' // Scroll tabs horizontally if needed
                     }}>
                         <button
                             onClick={() => setActiveTab('controls')}
@@ -98,16 +113,19 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '10px',
-                                padding: '10px 20px',
-                                width: '100%',
+                                padding: isMobile ? '12px 16px' : '10px 20px',
+                                width: isMobile ? 'auto' : '100%',
+                                flex: isMobile ? 1 : 'none',
+                                justifyContent: isMobile ? 'center' : 'flex-start',
                                 background: activeTab === 'controls' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
                                 border: 'none',
-                                borderLeft: activeTab === 'controls' ? '3px solid #3b82f6' : '3px solid transparent',
+                                borderLeft: (!isMobile && activeTab === 'controls') ? '3px solid #3b82f6' : '3px solid transparent',
+                                borderBottom: (isMobile && activeTab === 'controls') ? '3px solid #3b82f6' : '3px solid transparent',
                                 color: activeTab === 'controls' ? '#3b82f6' : '#94a3b8',
                                 cursor: 'pointer',
-                                textAlign: 'left',
                                 fontSize: '0.9rem',
-                                transition: 'all 0.2s'
+                                transition: 'all 0.2s',
+                                whiteSpace: 'nowrap'
                             }}
                         >
                             <Mouse size={16} />
@@ -119,28 +137,34 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                                 display: 'flex',
                                 alignItems: 'center',
                                 gap: '10px',
-                                padding: '10px 20px',
-                                width: '100%',
+                                padding: isMobile ? '12px 16px' : '10px 20px',
+                                width: isMobile ? 'auto' : '100%',
+                                flex: isMobile ? 1 : 'none',
+                                justifyContent: isMobile ? 'center' : 'flex-start',
                                 background: activeTab === 'changelog' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
                                 border: 'none',
-                                borderLeft: activeTab === 'changelog' ? '3px solid #3b82f6' : '3px solid transparent',
+                                borderLeft: (!isMobile && activeTab === 'changelog') ? '3px solid #3b82f6' : '3px solid transparent',
+                                borderBottom: (isMobile && activeTab === 'changelog') ? '3px solid #3b82f6' : '3px solid transparent',
                                 color: activeTab === 'changelog' ? '#3b82f6' : '#94a3b8',
                                 cursor: 'pointer',
-                                textAlign: 'left',
                                 fontSize: '0.9rem',
-                                transition: 'all 0.2s'
+                                transition: 'all 0.2s',
+                                whiteSpace: 'nowrap'
                             }}
                         >
                             <History size={16} />
                             {t('changelog_header')}
                         </button>
 
-                        <div style={{ flex: 1 }} /> {/* Spacer */}
+                        {!isMobile && <div style={{ flex: 1 }} />} {/* Spacer only for desktop */}
 
-                        {/* Info Block (Moved to Sidebar Bottom) */}
+                        {/* Info Block */}
                         <div style={{
-                            padding: '16px',
-                            borderTop: '1px solid rgba(255,255,255,0.05)',
+                            padding: isMobile ? '0 16px' : '16px',
+                            borderTop: isMobile ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                            display: isMobile ? 'flex' : 'block',
+                            alignItems: 'center',
+                            marginLeft: isMobile ? 'auto' : 0
                         }}>
                             <div style={{
                                 display: 'flex',
@@ -160,7 +184,11 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                     </div>
 
                     {/* Main Panel */}
-                    <div style={{ flex: 1, padding: '24px', overflowY: 'auto' }}>
+                    <div style={{
+                        flex: 1,
+                        padding: '24px',
+                        overflowY: 'auto' // Vertical Scroll
+                    }}>
 
                         {/* Tab Content starts at the very top for both */}
 
@@ -263,10 +291,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                                                     borderRadius: '4px',
                                                     marginRight: '8px'
                                                 }}>新機能</span>
-                                                {t('cl_surface_view')} (地表視点モード)
+                                                地表視点モード・軌道固定視点モード
                                             </li>
-                                            <li>{t('cl_orbit_view')} (軌道固定視点)</li>
-                                            <li>{t('cl_perf')} (パフォーマンス最適化)</li>
+                                            <li>パフォーマンス最適化 (Barnes-Hut, WebWorker, WebGPU準備)</li>
+                                            <li>UI改善 (ヘルプモーダル・操作ガイド)</li>
                                         </ul>
                                     </div>
                                 </div>
