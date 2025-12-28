@@ -33,7 +33,10 @@ const generateBodies = (count: number): CelestialBody[] => {
 /**
  * Runs a performance benchmark comparison
  */
-import { workerManager } from '../store/physicsStore';
+/**
+ * Runs a performance benchmark comparison
+ */
+import { getWorkerManager } from '../store/physicsStore';
 
 /**
  * Runs a performance benchmark comparison
@@ -90,16 +93,17 @@ export const runBenchmark = async (iterations: number = 600, bodyCounts: number[
         let avgWorker = 0;
         let workerSpeedup = 0;
 
-        if (workerManager.isSupported) {
+        const workerMgr = getWorkerManager();
+        if (workerMgr.isSupported) {
             console.log('  Testing Worker...');
-            workerManager.setBodies(bodies);
+            workerMgr.setBodies(bodies);
 
             // Warmup Worker with 1 frame
-            await workerManager.executeStep(count, 1.0);
+            await workerMgr.executeStep(count, 1.0);
 
             const startWorker = performance.now();
             for (let i = 0; i < iterations; i++) {
-                await workerManager.executeStep(count, 1.0);
+                await workerMgr.executeStep(count, 1.0);
             }
             const timeWorker = performance.now() - startWorker;
             avgWorker = timeWorker / iterations;

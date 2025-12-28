@@ -7,10 +7,24 @@ import { createSolarSystem } from '../utils/solarSystem';
 import { PhysicsWorkerManager } from '../workers/physicsWorkerManager';
 import { GPUPhysicsEngine } from '../gpu/GPUPhysicsEngine';
 
-export const workerManager = new PhysicsWorkerManager(20000); // Max 20k bodies
-workerManager.initWorkers(); // Start workers immediately
+import { BUFFER_LIMITS } from '../constants/physics';
 
-export const gpuEngine = new GPUPhysicsEngine();
+let _workerManager: PhysicsWorkerManager | null = null;
+export const getWorkerManager = (): PhysicsWorkerManager => {
+    if (!_workerManager) {
+        _workerManager = new PhysicsWorkerManager(BUFFER_LIMITS.MAX_BODIES);
+        _workerManager.initWorkers();
+    }
+    return _workerManager;
+};
+
+let _gpuEngine: GPUPhysicsEngine | null = null;
+export const getGPUEngine = (): GPUPhysicsEngine => {
+    if (!_gpuEngine) {
+        _gpuEngine = new GPUPhysicsEngine();
+    }
+    return _gpuEngine;
+};
 
 export const physicsStats = {
     fps: 0,
@@ -18,7 +32,13 @@ export const physicsStats = {
     renderDuration: 0, // Assigned by Scene/Loop
     bodyCount: 0,
     mode: 'CPU',
-    totalEnergy: 0,
+    energy: {
+        kinetic: 0,
+        potential: 0,
+        total: 0,
+        initial: 0,
+        drift: 0
+    },
     lastEnergyCheck: 0
 };
 
@@ -91,7 +111,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     useMultithreading: false,
     useGPU: false,
     isCalculating: false,
-    isWorkerSupported: workerManager.isSupported,
+    isWorkerSupported: typeof window !== 'undefined' && !!window.Worker && !!window.SharedArrayBuffer,
     isGPUSupported: null,
 
     checkGPUSupport: async () => {
@@ -154,35 +174,59 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         const now = performance.now();
         if (!physicsStats.lastEnergyCheck || now - physicsStats.lastEnergyCheck > 1000) {
             physicsStats.lastEnergyCheck = now;
+
+            const handleEnergyUpdate = (e: { kinetic: number, potential: number, total: number } | number) => {
+                const current = typeof e === 'number' ? { kinetic: 0, potential: 0, total: e } : e;
+
+                // Initialize Initial Energy if reset or first run
+                if (simulationTime < 0.1 || physicsStats.energy.initial === 0) {
+                    physicsStats.energy.initial = current.total;
+                }
+
+                const drift = physicsStats.energy.initial !== 0
+                    ? (current.total - physicsStats.energy.initial) / Math.abs(physicsStats.energy.initial)
+                    : 0;
+
+                physicsStats.energy = {
+                    ...current,
+                    initial: physicsStats.energy.initial,
+                    drift
+                };
+            };
+
             if (useMultithreading) {
-                workerManager.calculateEnergy(bodies.length).then(e => {
-                    physicsStats.totalEnergy = e;
+                // Determine if worker returns object or number
+                // Worker currently returns number, we will accept it for now or assume implementation plan allows simpler update
+                // For now, let's treat worker result as total
+                getWorkerManager().calculateEnergy(bodies.length).then((e: any) => {
+                    // Temporarily handle both until worker is updated
+                    handleEnergyUpdate(e);
                 });
             } else {
-                // CPU or GPU mode: calculate on main thread (throttled)
                 const energy = calculateTotalEnergy(bodies);
-                physicsStats.totalEnergy = energy;
+                handleEnergyUpdate(energy);
             }
         }
 
         if (useGPU) {
             set({ isCalculating: true });
             try {
-                if (!gpuEngine.isReady) await gpuEngine.init(20000);
+                const navGPU = getGPUEngine();
+                if (!navGPU.isReady) await navGPU.init(BUFFER_LIMITS.MAX_BODIES);
 
                 const steps = Math.ceil(dt / MAX_STABLE_DT);
                 const stepDt = dt / steps;
 
                 // Optimization: Only upload bodies if invalidated or new
-                if (gpuDataInvalidated || !gpuEngine.isReady) {
-                    await gpuEngine.setBodies(bodies);
+                if (gpuDataInvalidated || !navGPU.isReady) {
+                    await navGPU.setBodies(bodies);
                     set({ gpuDataInvalidated: false });
                 }
 
                 for (let i = 0; i < steps; i++) {
-                    await gpuEngine.step(stepDt, bodies.length);
+                    await navGPU.step(stepDt, bodies.length);
                 }
-                const gpuData = await gpuEngine.getBodies(bodies.length);
+                const gpuData = await navGPU.getBodies(bodies.length);
 
                 if (gpuData) {
                     let nextBodies = bodies.map((b, i) => {
@@ -195,7 +239,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                     });
 
                     // GPU Collision Sync/Resolution
-                    const collisions = await gpuEngine.getCollisions();
+                    const collisions = await navGPU.getCollisions();
 
                     if (collisions && collisions.length > 0) {
                         const { bodies: resolvedBodies, hasRemovals } = applyCollisions(nextBodies, collisions);
@@ -221,19 +265,21 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         } else if (useMultithreading) {
             set({ isCalculating: true });
 
+            const workerMgr = getWorkerManager();
+
             if (!physicsState || physicsState.count !== bodies.length) {
-                workerManager.setBodies(bodies);
+                workerMgr.setBodies(bodies);
             }
 
             // Capture collisions
             let collisions: [number, number][] = [];
-            workerManager.onCollision = (pairs) => {
+            workerMgr.onCollision = (pairs: [number, number][]) => {
                 collisions.push(...pairs);
             };
 
-            await workerManager.executeStep(bodies.length, dt);
+            await workerMgr.executeStep(bodies.length, dt);
 
-            const workerState = workerManager.getPhysicsState(bodies.length);
+            const workerState = workerMgr.getPhysicsState(bodies.length);
             workerState.ids = bodies.map(b => b.id);
             let nextBodies = syncStateToBodies(workerState, bodies);
 
@@ -253,6 +299,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                 simulationTime: simulationTime + dt,
                 isCalculating: false
             });
+
 
         } else {
             let currentState = physicsState;

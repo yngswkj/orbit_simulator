@@ -24,9 +24,14 @@ export const PerformanceStats = () => {
             }
 
             if (statsRef.current) {
-                const { physicsDuration, bodyCount, mode, totalEnergy } = physicsStats;
-                const energyDisplay = totalEnergy === 0 ? t('calculating') : totalEnergy.toExponential(4);
+                const { physicsDuration, bodyCount, mode, energy } = physicsStats;
                 const fps = fpsRef.current;
+
+                const absDrift = Math.abs(energy.drift);
+                // Drift Color: < 0.01% Green, < 1% Yellow, > 1% Red
+                const driftColor = absDrift < 0.0001 ? '#44ff44' : (absDrift < 0.01 ? '#ffff44' : '#ff4444');
+                const driftText = (energy.drift * 100).toFixed(4) + '%';
+                const totalText = energy.total.toExponential(4);
 
                 // Direct DOM manipulation for minimal React overhead on high-frequency data
                 statsRef.current.innerHTML = `
@@ -43,8 +48,16 @@ export const PerformanceStats = () => {
                     <div style="display: flex; justify-content: space-between;">
                         <span>${t('perf_physics')}:</span> <span>${physicsDuration.toFixed(1)}ms</span>
                     </div>
-                     <div style="display: flex; justify-content: space-between;">
-                        <span>${t('perf_energy')}:</span> <span style="font-family: monospace; font-size: 0.9em;">${energyDisplay}</span>
+                    <hr style="border: 0; border-top: 1px solid rgba(255,255,255,0.1); margin: 4px 0;" />
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>${t('perf_energy')}:</span> <span style="font-family: monospace; font-size: 0.9em;">${totalText}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Drift:</span> <span style="font-family: monospace; font-size: 0.9em; color: ${driftColor}">${driftText}</span>
+                    </div>
+                    <div style="font-size: 0.85em; opacity: 0.7; margin-top: 2px;">
+                       <div>K: ${energy.kinetic.toExponential(2)}</div>
+                       <div>P: ${energy.potential.toExponential(2)}</div>
                     </div>
                 `;
             }

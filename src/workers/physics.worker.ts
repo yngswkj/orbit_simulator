@@ -1,6 +1,8 @@
 // Physics Worker
 // Handles SoA physics updates in parallel using SharedArrayBuffer
 
+import { PHYSICS_CONSTANTS } from '../constants/physics';
+
 // Shared Views
 let sharedPositions: Float64Array;
 let sharedVelocities: Float64Array;
@@ -15,8 +17,7 @@ let workerId: number;
 let workerCount: number;
 let maxBodies: number;
 
-const G = 1;
-const SOFTENING_SQ = 0.5 * 0.5;
+const { G, SOFTENING_SQ } = PHYSICS_CONSTANTS;
 
 function waitBarrier(targetCount: number) {
     // Phase-based barrier to avoid race conditions
@@ -212,7 +213,7 @@ self.onmessage = (e: MessageEvent) => {
                 }
             }
 
-            self.postMessage({ type: 'energyResult', totalEnergy: kinetic + potential });
+            self.postMessage({ type: 'energyResult', totalEnergy: { kinetic, potential, total: kinetic + potential } });
         } else {
             // Other workers do nothing or could ack
             // self.postMessage({ type: 'energyResult', totalEnergy: 0 }); // Don't confuse manager

@@ -1,12 +1,11 @@
 import { Vector3 } from 'three';
 import type { CelestialBody, PhysicsState } from '../types/physics';
 import { calculateAccelerationsBarnesHut } from './barnesHut';
+import { PHYSICS_CONSTANTS } from '../constants/physics';
 
 // Physics constants
-const G = 1;
-const SOFTENING = 0.5;
-const SOFTENING_SQ = SOFTENING * SOFTENING;
-export const BASE_DT = 0.001; // Base time step
+const { G, SOFTENING_SQ } = PHYSICS_CONSTANTS;
+export const BASE_DT = PHYSICS_CONSTANTS.BASE_DT;
 
 // Object Pool for Vector3 to reduce GC overhead
 const vectorPool = {
@@ -311,7 +310,7 @@ export const updatePhysics = (
     return syncStateToBodies(state, bodies);
 };
 
-export const calculateTotalEnergy = (bodies: CelestialBody[]): number => {
+export const calculateTotalEnergy = (bodies: CelestialBody[]): { kinetic: number; potential: number; total: number } => {
     let kinetic = 0;
     let potential = 0;
     const count = bodies.length;
@@ -331,7 +330,7 @@ export const calculateTotalEnergy = (bodies: CelestialBody[]): number => {
         }
     }
 
-    return kinetic + potential;
+    return { kinetic, potential, total: kinetic + potential };
 };
 
 /**

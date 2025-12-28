@@ -3,6 +3,7 @@
  * Handles N-body simulation using WebGPU Compute Shaders.
  */
 import type { CelestialBody } from '../types/physics';
+import { PHYSICS_CONSTANTS } from '../constants/physics';
 
 // Embedded WGSL Shader with two kernels for Velocity Verlet
 const SHADER_CODE = `
@@ -141,8 +142,8 @@ export class GPUPhysicsEngine {
     }
 
     // Parameters
-    private G: number = 1.0;
-    private softening: number = 0.5 * 0.5;
+    private G: number = PHYSICS_CONSTANTS.G;
+    private softening: number = PHYSICS_CONSTANTS.SOFTENING_SQ;
 
     static async isSupported(): Promise<boolean> {
         if (!navigator.gpu) return false;
