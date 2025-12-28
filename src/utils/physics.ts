@@ -333,3 +333,60 @@ export const calculateTotalEnergy = (bodies: CelestialBody[]): number => {
 
     return kinetic + potential;
 };
+
+/**
+ * Helper to apply collisions to a list of bodies (for Worker/GPU results).
+ * Returns new list of bodies and a boolean indicating if any bodies were removed (merged).
+ */
+export const applyCollisions = (
+    bodies: CelestialBody[],
+    collisions: [number, number][]
+): { bodies: CelestialBody[], hasRemovals: boolean } => {
+    let nextBodies = [...bodies];
+    const removals = new Set<number>();
+
+    collisions.forEach(([i, j]) => {
+        if (removals.has(i) || removals.has(j)) return;
+
+        // Ensure indices are valid
+        if (!nextBodies[i] || !nextBodies[j]) return;
+
+        const b1 = nextBodies[i];
+        const b2 = nextBodies[j];
+
+        const totalMass = b1.mass + b2.mass;
+
+        // Momentum Conservation: v = (m1v1 + m2v2) / (m1+m2)
+        const v1 = b1.velocity.clone().multiplyScalar(b1.mass);
+        const v2 = b2.velocity.clone().multiplyScalar(b2.mass);
+        const newVel = v1.add(v2).divideScalar(totalMass);
+
+        // Center of Mass: p = (m1p1 + m2p2) / (m1+m2)
+        const p1 = b1.position.clone().multiplyScalar(b1.mass);
+        const p2 = b2.position.clone().multiplyScalar(b2.mass);
+        const newPos = p1.add(p2).divideScalar(totalMass);
+
+        // Volume Conservation (approx): r = cbrt(r1^3 + r2^3)
+        const newRadius = Math.cbrt(Math.pow(b1.radius, 3) + Math.pow(b2.radius, 3));
+
+        // Update 'i' (keep ID of b1 for stability, or create new?)
+        // Keeping b1's metadata is usually better.
+        nextBodies[i] = {
+            ...b1,
+            mass: totalMass,
+            position: newPos,
+            velocity: newVel,
+            radius: newRadius,
+            name: `${b1.name} + ${b2.name}`.substring(0, 20) // Debug name update
+        };
+
+        removals.add(j);
+    });
+
+    if (removals.size > 0) {
+        nextBodies = nextBodies.filter((_, idx) => !removals.has(idx));
+        return { bodies: nextBodies, hasRemovals: true };
+    }
+
+    return { bodies: nextBodies, hasRemovals: false };
+};

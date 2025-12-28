@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import type { CelestialBody, SimulationState, CameraMode, PhysicsState } from '../types/physics';
-import { updatePhysicsSoA, createPhysicsState, syncStateToBodies, BASE_DT, calculateTotalEnergy } from '../utils/physics';
+import { updatePhysicsSoA, createPhysicsState, syncStateToBodies, BASE_DT, calculateTotalEnergy, applyCollisions } from '../utils/physics';
 import { Vector3 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { createSolarSystem } from '../utils/solarSystem';
@@ -39,6 +39,7 @@ interface PhysicsStore {
     followingBodyId: string | null;
     selectedBodyId: string | null;
     cameraMode: CameraMode;
+    gpuDataInvalidated: boolean; // Flag to trigger data upload to GPU
 
     // Multithreading
     useMultithreading: boolean;
@@ -85,6 +86,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     followingBodyId: null,
     selectedBodyId: null,
     cameraMode: 'free',
+    gpuDataInvalidated: true,
 
     useMultithreading: false,
     useGPU: false,
@@ -100,24 +102,26 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     toggleMultithreading: () => {
         set((state) => ({
             useMultithreading: !state.useMultithreading,
-            useGPU: false // Disable GPU if CPU multi-threading enabled
+            useGPU: false, // Disable GPU if CPU multi-threading enabled
+            physicsState: null,
+            gpuDataInvalidated: true
         }));
-        set({ physicsState: null });
     },
 
     toggleGPU: () => {
         set((state) => ({
             useGPU: !state.useGPU,
-            useMultithreading: false // Disable CPU multi-threading if GPU enabled
+            useMultithreading: false, // Disable CPU multi-threading if GPU enabled
+            physicsState: null,
+            gpuDataInvalidated: true // Force upload when switching
         }));
-        set({ physicsState: null });
     },
 
     addBody: (body) => {
         const { bodies } = get();
         const newBodies = [...bodies, { ...body, id: uuidv4() }];
         // Invalidate physics state so it rebuilds on next frame
-        set({ bodies: newBodies, physicsState: null });
+        set({ bodies: newBodies, physicsState: null, gpuDataInvalidated: true });
     },
 
     removeBody: (id) => {
@@ -127,14 +131,15 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             bodies: newBodies,
             physicsState: null, // Invalidate state
             followingBodyId: followingBodyId === id ? null : followingBodyId,
-            selectedBodyId: selectedBodyId === id ? null : selectedBodyId
+            selectedBodyId: selectedBodyId === id ? null : selectedBodyId,
+            gpuDataInvalidated: true
         });
     },
 
 
 
     updateBodies: async () => {
-        const { bodies, simulationState, timeScale, simulationTime, physicsState, useMultithreading, useGPU, isCalculating } = get();
+        const { bodies, simulationState, timeScale, simulationTime, physicsState, useMultithreading, useGPU, isCalculating, gpuDataInvalidated } = get();
 
         physicsStats.bodyCount = bodies.length;
         physicsStats.mode = useGPU ? 'GPU' : (useMultithreading ? 'Worker' : 'CPU');
@@ -145,32 +150,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         const start = performance.now();
         const dt = BASE_DT * timeScale;
 
-        // M-01: Energy Calculation (Throttled 1Hz)
-        // Note: Using a closure variable or module-level var for lastEnergyCheck would be cleaner, 
-        // but here we use a static property on the function or check global.
-        // Let's use performance.now() and a simplistic modulo/threshold check roughly?
-        // Or store lastCheck in module scope (which I didn't add).
-        // I'll add `lastEnergyCheck` to module scope in next edit if needed, or just let it fly every frame? 
-        // No, N^2 every frame is bad.
-        // Let's check `physicsStats.totalEnergy` timestamp? No.
-        // Checking `Date.now()` here.
-        if (start % 1000 < 20) { // Extremely crude 1Hz trigger attempt (prob won't work well with variable framerate)
-            // Better: add `lastEnergyCheck` variable outside store.
-        }
-
-        // BETTER: Use module level var added in a previous edit? No, I only moved Stats/Consts.
-        // I will assume `lastEnergyCheck` exists or add it.
-        // Wait, I can't add a variable outside easily in this replacement.
-        // Usage of `(window as any).lastEnergyCheck`? Hacky.
-        // I will just use `Math.random() < 0.01` (approx 60fps -> 0.6Hz)?
-        // Deterministic: `frame` counter in stats?
-        // Let's use `physicsStats.frameId` if I added it? No.
-
-        // OK, I'll use a local static check trick or just add the var in this replacement if I can catch enough context?
-        // No, I'm replacing `updateBodies`.
-        // I will put `lastEnergyCheck` logic here assuming I can't store state easily without editing interface.
-        // ACTUALLY: `physicsStats` is global. I can add `lastCheck` to it.
-
+        // Energy Calculation (Throttled 1Hz)
         const now = performance.now();
         if (!physicsStats.lastEnergyCheck || now - physicsStats.lastEnergyCheck > 1000) {
             physicsStats.lastEnergyCheck = now;
@@ -180,8 +160,6 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                 });
             } else {
                 // CPU or GPU mode: calculate on main thread (throttled)
-                // We use setTimeout to break the sync execution if needed, but here we just run it.
-                // For very large N, this might stutter, but we are throttled to 1Hz.
                 const energy = calculateTotalEnergy(bodies);
                 physicsStats.totalEnergy = energy;
             }
@@ -195,7 +173,12 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                 const steps = Math.ceil(dt / MAX_STABLE_DT);
                 const stepDt = dt / steps;
 
-                await gpuEngine.setBodies(bodies);
+                // Optimization: Only upload bodies if invalidated or new
+                if (gpuDataInvalidated || !gpuEngine.isReady) {
+                    await gpuEngine.setBodies(bodies);
+                    set({ gpuDataInvalidated: false });
+                }
+
                 for (let i = 0; i < steps; i++) {
                     await gpuEngine.step(stepDt, bodies.length);
                 }
@@ -212,44 +195,14 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                     });
 
                     // GPU Collision Sync/Resolution
-                    // We assume getCollisions is available on gpuEngine (added in previous step)
                     const collisions = await gpuEngine.getCollisions();
 
                     if (collisions && collisions.length > 0) {
-                        const removals = new Set<number>();
+                        const { bodies: resolvedBodies, hasRemovals } = applyCollisions(nextBodies, collisions);
+                        nextBodies = resolvedBodies;
 
-                        collisions.forEach(([i, j]) => {
-                            if (removals.has(i) || removals.has(j)) return;
-
-                            const b1 = nextBodies[i];
-                            const b2 = nextBodies[j];
-
-                            const totalMass = b1.mass + b2.mass;
-                            const v1 = b1.velocity.clone().multiplyScalar(b1.mass);
-                            const v2 = b2.velocity.clone().multiplyScalar(b2.mass);
-                            const newVel = v1.add(v2).divideScalar(totalMass);
-
-                            const p1 = b1.position.clone().multiplyScalar(b1.mass);
-                            const p2 = b2.position.clone().multiplyScalar(b2.mass);
-                            const newPos = p1.add(p2).divideScalar(totalMass);
-
-                            const newRadius = Math.cbrt(b1.radius ** 3 + b2.radius ** 3);
-
-                            nextBodies[i] = {
-                                ...b1,
-                                mass: totalMass,
-                                position: newPos,
-                                velocity: newVel,
-                                radius: newRadius
-                            };
-
-                            removals.add(j);
-                        });
-
-                        if (removals.size > 0) {
-                            nextBodies = nextBodies.filter((_, idx) => !removals.has(idx));
-                            // Force re-upload on next frame
-                            set({ physicsState: null });
+                        if (hasRemovals) {
+                            set({ physicsState: null, gpuDataInvalidated: true });
                         }
                     }
 
@@ -286,38 +239,10 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
             // Resolve Collisions (CPU Main Thread)
             if (collisions.length > 0) {
-                const removals = new Set<number>();
+                const { bodies: resolvedBodies, hasRemovals } = applyCollisions(nextBodies, collisions);
+                nextBodies = resolvedBodies;
 
-                collisions.forEach(([i, j]) => {
-                    if (removals.has(i) || removals.has(j)) return;
-
-                    const b1 = nextBodies[i];
-                    const b2 = nextBodies[j];
-
-                    const totalMass = b1.mass + b2.mass;
-                    const v1 = b1.velocity.clone().multiplyScalar(b1.mass);
-                    const v2 = b2.velocity.clone().multiplyScalar(b2.mass);
-                    const newVel = v1.add(v2).divideScalar(totalMass);
-
-                    const p1 = b1.position.clone().multiplyScalar(b1.mass);
-                    const p2 = b2.position.clone().multiplyScalar(b2.mass);
-                    const newPos = p1.add(p2).divideScalar(totalMass);
-
-                    const newRadius = Math.cbrt(b1.radius ** 3 + b2.radius ** 3);
-
-                    nextBodies[i] = {
-                        ...b1,
-                        mass: totalMass,
-                        position: newPos,
-                        velocity: newVel,
-                        radius: newRadius
-                    };
-
-                    removals.add(j);
-                });
-
-                if (removals.size > 0) {
-                    nextBodies = nextBodies.filter((_, idx) => !removals.has(idx));
+                if (hasRemovals) {
                     set({ physicsState: null });
                 }
             }
@@ -364,7 +289,8 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         simulationTime: 0,
         followingBodyId: null,
         selectedBodyId: null,
-        cameraMode: 'free'
+        cameraMode: 'free',
+        gpuDataInvalidated: true
     }),
 
     setTimeScale: (scale) => set({ timeScale: scale }),
@@ -381,7 +307,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     updateBody: (id, updates) => {
         const { bodies } = get();
         const newBodies = bodies.map(b => b.id === id ? { ...b, ...updates } : b);
-        set({ bodies: newBodies, physicsState: null });
+        set({ bodies: newBodies, physicsState: null, gpuDataInvalidated: true });
     },
 
     reset: () => set({
@@ -393,6 +319,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         showGrid: true,
         showRealisticVisuals: true,
         simulationTime: 0,
-        cameraMode: 'free'
+        cameraMode: 'free',
+        gpuDataInvalidated: true
     })
 }));
