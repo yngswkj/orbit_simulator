@@ -94,7 +94,9 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
         }
 
         if (meshRef.current && body.rotationSpeed) {
-            meshRef.current.rotation.y = (body.rotationSpeed * simulationTime);
+            // Visual Rotation: Scale relative speed (Earth=1.0) to Rads/Year (2300)
+            const EARTH_YEAR_RAD = 2300;
+            meshRef.current.rotation.y = (body.rotationSpeed * simulationTime * EARTH_YEAR_RAD);
         }
     });
 

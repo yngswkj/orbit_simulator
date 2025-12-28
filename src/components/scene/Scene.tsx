@@ -7,6 +7,7 @@ import { usePhysicsStore } from '../../store/physicsStore';
 import { CelestialBody } from './CelestialBody';
 import { usePhysicsLoop } from '../../hooks/usePhysicsLoop';
 import { OrbitPrediction } from './OrbitPrediction';
+import { DateDisplay } from '../ui/DateDisplay';
 
 // Wrapper to avoid re-rendering entire Scene on toggle change if possible, 
 // or just standard conditional render.
@@ -267,30 +268,33 @@ export const Scene = () => {
     // Camera tuned to see Neptune (r=250) at 12 o'clock (-Z) from 6 o'clock (+Z)
     // User requested return to original distance feeling
     return (
-        <Canvas camera={{ position: [0, 25, 50], fov: 45, near: 0.1, far: 50000 }}>
-            <color attach="background" args={['#050510']} />
-            <SimulationContent />
-            <OrbitControls makeDefault enablePan={true} minDistance={0.001} />
+        <div style={{ position: 'relative', width: '100%', height: '100%' }}>
+            <Canvas camera={{ position: [0, 25, 50], fov: 45, near: 0.1, far: 50000 }}>
+                <color attach="background" args={['#050510']} />
+                <SimulationContent />
+                <OrbitControls makeDefault enablePan={true} minDistance={0.001} />
 
-            {showGrid && (
-                <>
-                    <Grid
-                        infiniteGrid
-                        fadeDistance={500}
-                        sectionColor="#555555"
-                        cellColor="#333333"
-                        sectionSize={20}
-                        cellSize={10}
-                        // @ts-ignore
-                        depthWrite={false}
-                        // @ts-ignore
-                        side={2}
-                    />
-                    <GizmoHelper alignment="bottom-left" margin={[100, 100]}>
-                        <GizmoViewport axisColors={['#ff3653', '#0adb50', '#2c8fdf']} labelColor="black" />
-                    </GizmoHelper>
-                </>
-            )}
-        </Canvas>
+                {showGrid && (
+                    <>
+                        <Grid
+                            infiniteGrid
+                            fadeDistance={500}
+                            sectionColor="#555555"
+                            cellColor="#333333"
+                            sectionSize={20}
+                            cellSize={10}
+                            // @ts-ignore
+                            depthWrite={false}
+                            // @ts-ignore
+                            side={2}
+                        />
+                        <GizmoHelper alignment="bottom-left" margin={[20, 20]}>
+                            <GizmoViewport axisColors={['#ff3653', '#0adb50', '#2c8fdf']} labelColor="black" />
+                        </GizmoHelper>
+                    </>
+                )}
+            </Canvas>
+            <DateDisplay />
+        </div>
     );
 };

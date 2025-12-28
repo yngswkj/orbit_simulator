@@ -118,20 +118,7 @@ export const SimulationControls: React.FC = () => {
                     style={{ width: '100%', cursor: 'pointer', accentColor: '#3b82f6' }}
                 />
 
-                {/* Elapsed Time Counter */}
-                <div style={{
-                    marginTop: '4px',
-                    padding: '6px',
-                    background: 'rgba(255,255,255,0.05)',
-                    borderRadius: '4px',
-                    textAlign: 'center',
-                    fontSize: '0.85rem',
-                    color: '#a1a1aa'
-                }}>
-                    Time Elapsed: <span style={{ color: 'white', fontWeight: 'bold' }}>
-                        {Math.floor(usePhysicsStore(s => s.simulationTime) * 365.25).toLocaleString()}
-                    </span> Days
-                </div>
+                {/* Time Elapsed moved to DateDisplay Overlay */}
             </div>
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
