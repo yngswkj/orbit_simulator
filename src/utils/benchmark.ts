@@ -156,47 +156,49 @@ export const runBenchmark = async (iterations: number = 600, bodyCounts: number[
     }
 
     return results;
-    /**
-     * Runs ONLY GPU benchmark (skipping CPU/Worker for speed/stability)
-     */
-    export const runGPUBenchmark = async (iterations: number = 600, bodyCounts: number[] = [5000, 10000]) => {
-        console.log(`Starting GPU Benchmark (${iterations} frames)...`);
-        const { GPUPhysicsEngine } = await import('../gpu/GPUPhysicsEngine');
-        const isGPUSupported = await GPUPhysicsEngine.isSupported();
+};
 
-        if (!isGPUSupported) {
-            console.error("WebGPU is not supported.");
-            return;
-        }
+/**
+ * Runs ONLY GPU benchmark (skipping CPU/Worker for speed/stability)
+ */
+export const runGPUBenchmark = async (iterations: number = 600, bodyCounts: number[] = [5000, 10000]) => {
+    console.log(`Starting GPU Benchmark (${iterations} frames)...`);
+    const { GPUPhysicsEngine } = await import('../gpu/GPUPhysicsEngine');
+    const isGPUSupported = await GPUPhysicsEngine.isSupported();
 
-        for (const count of bodyCounts) {
-            console.log(`Testing with ${count} bodies...`);
-            let bodies = generateBodies(count);
-            const gpuEngine = new GPUPhysicsEngine();
+    if (!isGPUSupported) {
+        console.error("WebGPU is not supported.");
+        return;
+    }
 
-            try {
-                await gpuEngine.init(count);
-                await gpuEngine.setBodies(bodies);
+    for (const count of bodyCounts) {
+        console.log(`Testing with ${count} bodies...`);
+        let bodies = generateBodies(count);
+        const gpuEngine = new GPUPhysicsEngine();
 
-                // Warmup
+        try {
+            await gpuEngine.init(count);
+            await gpuEngine.setBodies(bodies);
+
+            // Warmup
+            await gpuEngine.step(1.0, count);
+            await gpuEngine.getBodies(count);
+
+            const startGPU = performance.now();
+            for (let i = 0; i < iterations; i++) {
                 await gpuEngine.step(1.0, count);
                 await gpuEngine.getBodies(count);
-
-                const startGPU = performance.now();
-                for (let i = 0; i < iterations; i++) {
-                    await gpuEngine.step(1.0, count);
-                    await gpuEngine.getBodies(count);
-                }
-                const timeGPU = performance.now() - startGPU;
-                const avgGPU = timeGPU / iterations;
-
-                console.log(`  GPU:            ${avgGPU.toFixed(3)}ms/frame (~${(1000 / avgGPU).toFixed(1)} FPS)`);
-
-            } catch (e) {
-                console.error('GPU Benchmark failed', e);
-            } finally {
-                gpuEngine.dispose();
             }
+            const timeGPU = performance.now() - startGPU;
+            const avgGPU = timeGPU / iterations;
+
+            console.log(`  GPU:            ${avgGPU.toFixed(3)}ms/frame (~${(1000 / avgGPU).toFixed(1)} FPS)`);
+
+        } catch (e) {
+            console.error('GPU Benchmark failed', e);
+        } finally {
+            gpuEngine.dispose();
         }
-    };
+    }
+};
 
