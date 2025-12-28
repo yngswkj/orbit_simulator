@@ -6,10 +6,11 @@ import { Tour } from './components/ui/Tour';
 import { useTranslation } from './utils/i18n';
 import { usePhysicsStore } from './store/physicsStore';
 import './App.css';
-import { runBenchmark } from './utils/benchmark';
+import { runBenchmark, runGPUBenchmark } from './utils/benchmark';
 
 // Expose runBenchmark to window for testing
 (window as any).runBenchmark = runBenchmark;
+(window as any).runGPUBenchmark = runGPUBenchmark;
 
 function App() {
   const { t } = useTranslation();
