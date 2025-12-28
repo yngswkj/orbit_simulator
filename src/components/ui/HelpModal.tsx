@@ -238,7 +238,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                                                     borderRadius: '4px',
                                                     marginRight: '8px'
                                                 }}>新機能</span>
-                                                日付情報の表示 (YYYY/MM/DD および 経過日数・年数)
+                                                シミュレーション日付の表示 (経過日数・年数)
                                             </li>
                                             <li style={{ marginBottom: '8px' }}>
                                                 <span style={{
