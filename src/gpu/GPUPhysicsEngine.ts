@@ -24,9 +24,7 @@ struct Params {
 @group(0) @binding(2) var<uniform> params : Params;
 
 // PASS 1: Integration (Kick1 + Drift)
-// v += 0.5 * a * dt
-// x += v * dt
-// a = 0 (reset for accumulation in next pass, or just overwrite)
+// Read Old State (In), Write New Pos + Mid Vel (Out)
 @compute @workgroup_size(64)
 fn integrate(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     let index = GlobalInvocationID.x;
@@ -45,41 +43,29 @@ fn integrate(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     // Drift
     let newPos = myPos + midVel * params.dt;
 
-    // We write to bodiesOut. Force calc will read from bodiesOut (as Input) or we bind buffer B as both?
-    // In our architecture, we Read A, Write B.
-    // So Pass 1: Read A -> Write B.
-    // Pass 2: Read B -> Write B (Self-update) OR Read B -> Write A?
-    // Velocity Verlet requires updated positions for force calc.
-    // Optimal: 
-    // Pass 1: Read A, Write B (Update Pos, MidVel).
-    // Pass 2: Read B, Write B (Calc Force, FinalVel).
-
     bodiesOut[index].data0 = vec4<f32>(newPos, myMass);
     bodiesOut[index].data1 = vec4<f32>(midVel, bodiesIn[index].data1.w);
-    bodiesOut[index].data2 = vec4<f32>(0.0, 0.0, 0.0, 0.0); // Reset or unused
+    bodiesOut[index].data2 = vec4<f32>(0.0, 0.0, 0.0, 0.0); 
 }
 
 // PASS 2: Force Calculation + Kick2
-// calculate new a(x)
-// v += 0.5 * new_a * dt
+// Read New Pos (In), Write Final Vel + New Acc (Out)
+// NOTE: "In" here MUST be a copy of the "Out" from Pass 1.
 @compute @workgroup_size(64)
 fn calcForces(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     let index = GlobalInvocationID.x;
     if (index >= params.bodyCount) { return; }
 
-    // Note: bodiesOut is bound as read_write. We are reading from the SAME buffer we are writing to?
-    // Or we bind it as Read (Input) and Write (Output).
-    // WebGPU allows storage read/write.
-    
-    let myPos = bodiesOut[index].data0.xyz;
+    // Read from Input (Safe Read-Only)
+    let myPos = bodiesIn[index].data0.xyz;
     var acc = vec3<f32>(0.0, 0.0, 0.0);
 
-    // O(N^2) Force Calculation using updated positions
+    // O(N^2) Force Calculation
     for (var i : u32 = 0u; i < params.bodyCount; i = i + 1u) {
         if (i == index) { continue; }
 
-        let otherPos = bodiesOut[i].data0.xyz;
-        let otherMass = bodiesOut[i].data0.w;
+        let otherPos = bodiesIn[i].data0.xyz;
+        let otherMass = bodiesIn[i].data0.w;
 
         let diff = otherPos - myPos;
         let distSq = dot(diff, diff) + params.softening;
@@ -90,12 +76,12 @@ fn calcForces(@builtin(global_invocation_id) GlobalInvocationID : vec3<u32>) {
     }
 
     // Kick 2
-    let midVel = bodiesOut[index].data1.xyz;
+    let midVel = bodiesIn[index].data1.xyz;
     let halfDt = params.dt * 0.5;
     let newVel = midVel + acc * halfDt;
 
-    // Write back Final Velocity and New Acceleration
-    bodiesOut[index].data1 = vec4<f32>(newVel, bodiesOut[index].data1.w);
+    // Write back Final Velocity and New Acceleration to Output
+    bodiesOut[index].data1 = vec4<f32>(newVel, bodiesIn[index].data1.w);
     bodiesOut[index].data2 = vec4<f32>(acc, 0.0);
 }
 `;
@@ -114,8 +100,9 @@ export class GPUPhysicsEngine {
     private bindGroupA_Integrate: GPUBindGroup | null = null; // Read A, Write B
     private bindGroupB_Integrate: GPUBindGroup | null = null; // Read B, Write A
 
-    private bindGroupA_Force: GPUBindGroup | null = null;     // Read/Write A
-    private bindGroupB_Force: GPUBindGroup | null = null;     // Read/Write B
+    // Force Bind Groups: Read Copy, Write Target
+    private bindGroup_Force_ReadA_WriteB: GPUBindGroup | null = null; // Read A (Copy), Write B (Target)
+    private bindGroup_Force_ReadB_WriteA: GPUBindGroup | null = null; // Read B (Copy), Write A (Target)
 
     private currentBufferIndex: 0 | 1 = 0;
     private maxBodies: number = 0;
@@ -228,40 +215,23 @@ export class GPUPhysicsEngine {
             ]
         });
 
-        // Force Layout: (unused, read_write B, uniforms)
-        // Wait, binding 0 is 'bodiesIn' (read), binding 1 is 'bodiesOut' (read_write)
-        // For Force pass, we only need to access the "Output" buffer of the previous pass.
-        // We bind it to binding 1 (bodiesOut). Binding 0 is unused or can be bound to dummy?
-        // Actually, WGSL validation might require all bindings to be present if declared.
-        // Let's bind 'bodiesIn' to the SAME buffer, or a dummy.
-        // Binding B to both 0(read) and 1(read_write) is NOT allowed in general if write is involved in same dispatch.
-        // BUT, our shader 'calcForces' only reads/writes 'bodiesOut' (binding 1).
-        // It does NOT use 'bodiesIn' (binding 0).
-        // Ideally we should use a different BindGroupLayout for the second pipeline?
-        // Yes, 'auto' layout generates layout based on used bindings. 
-        // If 'calcForces' doesn't use 'bodiesIn', it won't be in the layout!
-        // Let's check the code: 'calcForces' USES 'bodiesOut'. It DOES NOT use 'bodiesIn'.
-        // So Pipeline 2 layout will only have binding 1 and 2.
-
-        // HOWEVER, binding indices must match.
-        // If 'calcForces' only uses binding 1 and 2, binding 0 is skipped.
-        // Let's verify 'auto' layout behavior.
-        // Binding 1: bodiesOut (storage, read_write). Binding 2: params.
-
+        // Force Layout: (0: In, 1: Out, 2: Uniforms)
         const forceLayout = this.pipelineForce.getBindGroupLayout(0);
 
-        this.bindGroupA_Force = this.device.createBindGroup({
+        this.bindGroup_Force_ReadA_WriteB = this.device.createBindGroup({
             layout: forceLayout,
             entries: [
-                { binding: 1, resource: { buffer: this.bufferA } }, // Update A in place
+                { binding: 0, resource: { buffer: this.bufferA } }, // Read A (Copy)
+                { binding: 1, resource: { buffer: this.bufferB } }, // Write B (Target)
                 { binding: 2, resource: { buffer: this.uniformBuffer } }
             ]
         });
 
-        this.bindGroupB_Force = this.device.createBindGroup({
+        this.bindGroup_Force_ReadB_WriteA = this.device.createBindGroup({
             layout: forceLayout,
             entries: [
-                { binding: 1, resource: { buffer: this.bufferB } }, // Update B in place
+                { binding: 0, resource: { buffer: this.bufferB } }, // Read B (Copy)
+                { binding: 1, resource: { buffer: this.bufferA } }, // Write A (Target)
                 { binding: 2, resource: { buffer: this.uniformBuffer } }
             ]
         });
@@ -310,15 +280,21 @@ export class GPUPhysicsEngine {
         new Float32Array(uniforms)[3] = this.softening;
         this.device.queue.writeBuffer(this.uniformBuffer!, 0, uniforms);
 
-        // 2. Run Force Pass on Buffer A
+        // 2. Copy A -> B (A contains Init Pos/Vel)
         const commandEncoder = this.device.createCommandEncoder();
+        commandEncoder.copyBufferToBuffer(this.bufferA, 0, this.bufferB!, 0, this.bufferA.size);
+
+        // 3. Run Force Pass (Read B -> Write A)
+        // We read the copy (B) and write back to A (Target).
         const pass = commandEncoder.beginComputePass({ label: 'Init Acc Pass' });
         pass.setPipeline(this.pipelineForce!);
-        pass.setBindGroup(0, this.bindGroupA_Force!); // Update A in place
+        pass.setBindGroup(0, this.bindGroup_Force_ReadB_WriteA!);
         pass.dispatchWorkgroups(Math.ceil(bodies.length / 64));
         pass.end();
+
         this.device.queue.submit([commandEncoder.finish()]);
 
+        // Final state is in A.
         this.currentBufferIndex = 0;
     }
 
@@ -336,35 +312,61 @@ export class GPUPhysicsEngine {
         this.device.queue.writeBuffer(this.uniformBuffer, 0, uniforms);
 
         const commandEncoder = this.device.createCommandEncoder();
-
-        // --- PASS 1: Integrate (Read A -> Write B) ---
-        // If current is 0: Read A, Write B.
-        // If current is 1: Read B, Write A.
-        const integrateBindGroup = this.currentBufferIndex === 0 ? this.bindGroupA_Integrate : this.bindGroupB_Integrate;
-        if (!integrateBindGroup) return;
-
-        const pass1 = commandEncoder.beginComputePass({ label: 'Integration Pass' });
-        pass1.setPipeline(this.pipelineIntegrate);
-        pass1.setBindGroup(0, integrateBindGroup);
+        const bufferSize = this.bufferA!.size;
         const workgroupCount = Math.ceil(bodyCount / 64);
-        pass1.dispatchWorkgroups(workgroupCount);
-        pass1.end();
 
-        // --- PASS 2: Force Calc (Update B in place) ---
-        // If current is 0: We wrote to B. Now update B.
-        // If current is 1: We wrote to A. Now update A.
-        const forceBindGroup = this.currentBufferIndex === 0 ? this.bindGroupB_Force : this.bindGroupA_Force;
-        if (!forceBindGroup) return;
+        if (this.currentBufferIndex === 0) {
+            // Cycle: Read A -> Write B -> Copy B->A -> Read A -> Write B.
 
-        const pass2 = commandEncoder.beginComputePass({ label: 'Force Pass' });
-        pass2.setPipeline(this.pipelineForce);
-        pass2.setBindGroup(0, forceBindGroup);
-        pass2.dispatchWorkgroups(workgroupCount);
-        pass2.end();
+            // PASS 1: Integrate (Read A, Write B)
+            // B gets NewPos, MidVel.
+            const pass1 = commandEncoder.beginComputePass({ label: 'Integration Pass' });
+            pass1.setPipeline(this.pipelineIntegrate);
+            pass1.setBindGroup(0, this.bindGroupA_Integrate!);
+            pass1.dispatchWorkgroups(workgroupCount);
+            pass1.end();
+
+            // COPY B -> A (Snapshot NewPos for Force Read)
+            commandEncoder.copyBufferToBuffer(this.bufferB!, 0, this.bufferA!, 0, bufferSize);
+
+            // PASS 2: Force (Read A, Write B)
+            // Read A (Safe), Write B (Update Vel/Acc).
+            const pass2 = commandEncoder.beginComputePass({ label: 'Force Pass' });
+            pass2.setPipeline(this.pipelineForce);
+            pass2.setBindGroup(0, this.bindGroup_Force_ReadA_WriteB!);
+            pass2.dispatchWorkgroups(workgroupCount);
+            pass2.end();
+
+            // Result is in B. Next frame should read B.
+            // currentBufferIndex will toggle to 1.
+
+        } else {
+            // Cycle: Read B -> Write A -> Copy A->B -> Read B -> Write A.
+
+            // PASS 1: Integrate (Read B, Write A)
+            const pass1 = commandEncoder.beginComputePass({ label: 'Integration Pass' });
+            pass1.setPipeline(this.pipelineIntegrate);
+            pass1.setBindGroup(0, this.bindGroupB_Integrate!);
+            pass1.dispatchWorkgroups(workgroupCount);
+            pass1.end();
+
+            // COPY A -> B
+            commandEncoder.copyBufferToBuffer(this.bufferA!, 0, this.bufferB!, 0, bufferSize);
+
+            // PASS 2: Force (Read B, Write A)
+            const pass2 = commandEncoder.beginComputePass({ label: 'Force Pass' });
+            pass2.setPipeline(this.pipelineForce);
+            pass2.setBindGroup(0, this.bindGroup_Force_ReadB_WriteA!);
+            pass2.dispatchWorkgroups(workgroupCount);
+            pass2.end();
+
+            // Result is in A. Next frame should read A.
+            // currentBufferIndex will toggle to 0.
+        }
 
         this.device.queue.submit([commandEncoder.finish()]);
 
-        // Swap
+        // Swap to point to the valid buffer for next frame's READ
         this.currentBufferIndex = this.currentBufferIndex === 0 ? 1 : 0;
     }
 
