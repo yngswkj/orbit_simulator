@@ -1,22 +1,18 @@
 import React from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { updatePhysics } from '../../utils/physics';
+import { createPhysicsState, updatePhysicsSoA, BASE_DT } from '../../utils/physics';
 import { Vector3 } from 'three';
 import { Line } from '@react-three/drei';
 
-const PREDICTION_STEPS = 300; // Lookahead steps
-const TIME_MULTIPLIER = 2.0;
+const PREDICTION_STEPS = 1200; // Increased steps for smoothness
+const TIME_MULTIPLIER = 1.0; // Reduced multiplier for better accuracy (smaller dt)
 
 export const OrbitPrediction: React.FC = () => {
     const bodies = usePhysicsStore((state) => state.bodies);
     const simulationState = usePhysicsStore((state) => state.simulationState);
 
-    // Fallback to simpler implementation:
-    // Just use regular State update but throttled.
-
     const [paths, setPaths] = React.useState<{ id: string; points: Vector3[]; color: string }[]>([]);
 
-    // Use useEffect for lower frequency updates (Web Worker would be ideal for heavy N, but this suffices for now)
     React.useEffect(() => {
         if (simulationState === 'paused') return;
 
@@ -24,41 +20,56 @@ export const OrbitPrediction: React.FC = () => {
             const currentBodies = usePhysicsStore.getState().bodies;
             if (currentBodies.length === 0) return;
 
-            let simBodies = currentBodies.map(b => ({
-                ...b,
-                position: b.position.clone(),
-                velocity: b.velocity.clone()
-            }));
+            // 1. Create SoA state ONCE (Drastic allocation reduction)
+            // We clone initial state implicitly by creating a new PhysicsState from bodies
+            const state = createPhysicsState(currentBodies);
+
+            // Map IDs to indices for easy access
+            const ids = state.ids;
+            const colors: { [key: string]: string } = {};
+            currentBodies.forEach(b => colors[b.id] = b.color);
 
             const newPaths: { [key: string]: Vector3[] } = {};
-            currentBodies.forEach(b => {
-                if (!b.isFixed) newPaths[b.id] = [b.position.clone()];
-            });
+            for (let i = 0; i < state.count; i++) {
+                // Initialize paths with current position
+                newPaths[ids[i]] = [new Vector3(state.positions[i * 3], state.positions[i * 3 + 1], state.positions[i * 3 + 2])];
+            }
 
-            // Reduce steps or increase multipliers for longer range with less precision
-            const steps = PREDICTION_STEPS;
+            // 2. Integration Loop using SoA
+            const dt = BASE_DT * TIME_MULTIPLIER;
+            // Use local variables for speed
+            const shouldSaveFrequency = 10; // Save every 10 steps (120 points total)
 
-            for (let i = 0; i < steps; i++) {
-                simBodies = updatePhysics(simBodies, TIME_MULTIPLIER);
-                // Save point every 5 steps to reduce vertex count
-                if (i % 5 === 0) {
-                    simBodies.forEach(b => {
-                        if (newPaths[b.id]) newPaths[b.id].push(b.position.clone());
-                    });
+            for (let i = 0; i < PREDICTION_STEPS; i++) {
+                // Direct Symplectic Integration (Velocity Verlet)
+                updatePhysicsSoA(state, dt, false, false); // No BarnesHut, No Collision for prediction (faster)
+
+                if (i % shouldSaveFrequency === 0) {
+                    for (let j = 0; j < state.count; j++) {
+                        const id = ids[j];
+                        // Only add points for bodies that exist in initial set
+                        if (newPaths[id]) {
+                            newPaths[id].push(new Vector3(
+                                state.positions[j * 3],
+                                state.positions[j * 3 + 1],
+                                state.positions[j * 3 + 2]
+                            ));
+                        }
+                    }
                 }
             }
 
             const result = Object.keys(newPaths).map(id => ({
                 id,
                 points: newPaths[id],
-                color: currentBodies.find(b => b.id === id)?.color || 'white'
+                color: colors[id] || 'white'
             }));
 
             setPaths(result);
-        }, 200); // Update 5 times per second (200ms) instead of frame-bound
+        }, 100); // 10fps update rate (smooth enough for prediction lines)
 
         return () => clearInterval(interval);
-    }, [simulationState, bodies.length]); // Re-run if bodies count changes significantly or paused state toggles
+    }, [simulationState, bodies.length]);
 
     return (
         <group>
