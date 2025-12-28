@@ -288,7 +288,7 @@ export const Scene = () => {
                             // @ts-ignore
                             side={2}
                         />
-                        <GizmoHelper alignment="bottom-left" margin={[20, 20]}>
+                        <GizmoHelper alignment="bottom-left" margin={[100, 100]}>
                             <GizmoViewport axisColors={['#ff3653', '#0adb50', '#2c8fdf']} labelColor="black" />
                         </GizmoHelper>
                     </>

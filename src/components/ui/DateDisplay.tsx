@@ -4,39 +4,53 @@ import { usePhysicsStore } from '../../store/physicsStore';
 export const DateDisplay: React.FC = () => {
     const simulationTime = usePhysicsStore(state => state.simulationTime);
 
-    // Initial Date: Jan 1, 2025
-    // simulationTime is in Years
-    // 1 Year = 365.25 Days
-    const initialDate = new Date('2025-01-01T00:00:00');
+    // Calculate cumulative days and years
+    const totalDays = Math.floor(simulationTime * 365.25);
+    const totalYears = simulationTime.toFixed(1);
 
-    // Calculate current date
-    const daysElapsed = simulationTime * 365.25;
-    const currentDate = new Date(initialDate.getTime() + daysElapsed * 24 * 60 * 60 * 1000);
-
-    // Format: YYYY/MM/DD
-    const year = currentDate.getFullYear();
-    const month = (currentDate.getMonth() + 1).toString().padStart(2, '0');
-    const day = currentDate.getDate().toString().padStart(2, '0');
-    const formattedDate = `${year}/${month}/${day}`;
+    // Format: "X日 (N年)"
+    const formattedDate = `${totalDays.toLocaleString()}日 (${totalYears}年)`;
 
     return (
         <div style={{
             position: 'absolute',
-            bottom: '120px', // Just above Gizmo (which is at bottom-left)
-            left: '20px',
-            background: 'rgba(0, 0, 0, 0.5)',
-            padding: '8px 12px',
-            borderRadius: '8px',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            bottom: '160px',
+            left: '10px',
+            background: 'rgba(20, 30, 40, 0.1)', // More transparent
+            backdropFilter: 'blur(4px)', // Glass effect
+            padding: '12px 18px',
+            borderRadius: '12px',
+            border: '1px solid rgba(255, 255, 255, 0.08)',
             color: 'white',
-            fontFamily: 'monospace',
-            fontSize: '1.2rem',
+            fontFamily: '"Inter", system-ui, -apple-system, sans-serif', // Clean sans-serif
             userSelect: 'none',
             pointerEvents: 'none',
-            zIndex: 10
+            zIndex: 10,
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '2px',
+            boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
         }}>
-            <div style={{ fontSize: '0.7rem', color: '#94a3b8', marginBottom: '2px' }}>DATE</div>
-            {formattedDate}
+            <div style={{
+                fontSize: '0.7rem',
+                color: '#94a3b8',
+                letterSpacing: '0.2em',
+                textTransform: 'uppercase',
+                fontWeight: 600
+            }}>
+                Simulation Date
+            </div>
+            <div style={{
+                fontSize: '1.3rem',
+                fontWeight: 300, // Light weight
+                letterSpacing: '0.05em',
+                fontVariantNumeric: 'tabular-nums', // Aligns numbers nicely
+                background: 'linear-gradient(to right, #fff, #cbd5e1)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent'
+            }}>
+                {formattedDate}
+            </div>
         </div>
     );
 };
