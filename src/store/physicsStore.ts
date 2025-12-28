@@ -87,6 +87,7 @@ interface PhysicsStore {
     updateBody: (id: string, updates: Partial<CelestialBody>) => void;
     setCameraMode: (mode: CameraMode) => void;
     reset: () => void;
+    cleanup: () => void;
 }
 
 // Use the shared solar system generator to ensure consistency between Initial Load and Reset
@@ -119,19 +120,62 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         set({ isGPUSupported: supported });
     },
 
+    cleanup: () => {
+        if (_workerManager) {
+            _workerManager.terminate();
+            _workerManager = null;
+        }
+        if (_gpuEngine) {
+            _gpuEngine.dispose();
+            _gpuEngine = null;
+        }
+    },
+
     toggleMultithreading: () => {
+        const { useMultithreading } = get();
+        // If we are currently using MT, we are disabling it -> Clean up Worker
+        if (useMultithreading) {
+            if (_workerManager) {
+                _workerManager.terminate();
+                _workerManager = null;
+            }
+        }
+        // If we are enabling MT, we must ensure GPU is off and cleaned up
+        if (!useMultithreading) {
+            if (_gpuEngine) {
+                _gpuEngine.dispose();
+                _gpuEngine = null;
+            }
+        }
+
         set((state) => ({
             useMultithreading: !state.useMultithreading,
-            useGPU: false, // Disable GPU if CPU multi-threading enabled
+            useGPU: false, // Ensure GPU off
             physicsState: null,
             gpuDataInvalidated: true
         }));
     },
 
     toggleGPU: () => {
+        const { useGPU } = get();
+        // If currently using GPU, disabling it -> Clean up GPU
+        if (useGPU) {
+            if (_gpuEngine) {
+                _gpuEngine.dispose();
+                _gpuEngine = null;
+            }
+        }
+        // If enabling GPU, ensure Worker is off and cleaned up
+        if (!useGPU) {
+            if (_workerManager) {
+                _workerManager.terminate();
+                _workerManager = null;
+            }
+        }
+
         set((state) => ({
             useGPU: !state.useGPU,
-            useMultithreading: false, // Disable CPU multi-threading if GPU enabled
+            useMultithreading: false, // Ensure MT off
             physicsState: null,
             gpuDataInvalidated: true // Force upload when switching
         }));

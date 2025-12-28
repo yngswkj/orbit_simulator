@@ -50,6 +50,11 @@ function App() {
     } else {
       setOverlayOpacity(0);
     }
+
+    // Cleanup physics resources on unmount
+    return () => {
+      usePhysicsStore.getState().cleanup();
+    };
   }, [followedBodyName, checkGPUSupport]);
 
   useEffect(() => {
