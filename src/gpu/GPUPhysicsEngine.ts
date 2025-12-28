@@ -296,6 +296,29 @@ export class GPUPhysicsEngine {
         }
 
         this.device.queue.writeBuffer(this.bufferA, 0, data);
+
+        // --- Initialize Acceleration (Critical for Velocity Verlet) ---
+        // A is currently (pos, vel, 0). We need (pos, vel, acc) for the first step.
+        // We use the 'calcForces' pipeline, but we must ensure it doesn't modify Velocity.
+        // By setting dt=0 in params, the kick "v += a * 0.5 * dt" becomes "v += 0".
+
+        // 1. Write Uniforms with dt=0
+        const uniforms = new ArrayBuffer(16);
+        new Float32Array(uniforms)[0] = 0; // dt = 0
+        new Uint32Array(uniforms)[1] = bodies.length;
+        new Float32Array(uniforms)[2] = this.G;
+        new Float32Array(uniforms)[3] = this.softening;
+        this.device.queue.writeBuffer(this.uniformBuffer!, 0, uniforms);
+
+        // 2. Run Force Pass on Buffer A
+        const commandEncoder = this.device.createCommandEncoder();
+        const pass = commandEncoder.beginComputePass({ label: 'Init Acc Pass' });
+        pass.setPipeline(this.pipelineForce!);
+        pass.setBindGroup(0, this.bindGroupA_Force!); // Update A in place
+        pass.dispatchWorkgroups(Math.ceil(bodies.length / 64));
+        pass.end();
+        this.device.queue.submit([commandEncoder.finish()]);
+
         this.currentBufferIndex = 0;
     }
 
