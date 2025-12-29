@@ -124,7 +124,7 @@ export class PhysicsWorkerManager {
         Atomics.store(this.syncCounter, 0, 0);
 
         const stepPromise = Promise.all(this.workers.map(worker =>
-            new Promise<void>((resolve, reject) => {
+            new Promise<void>((resolve) => {
                 const handler = (e: MessageEvent) => {
                     if (e.data.type === 'done') {
                         worker.removeEventListener('message', handler);
