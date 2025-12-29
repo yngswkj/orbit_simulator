@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { Play, Pause, RefreshCw, Camera, Maximize, Menu, LayoutGrid } from 'lucide-react';
+import { Play, Pause, RefreshCw, Camera, Maximize, Menu, Orbit } from 'lucide-react';
 import { useTranslation } from '../../utils/i18n';
 import { StarSystemGallery } from './StarSystemGallery';
 
@@ -126,7 +126,7 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
                     }}
                     title={t('star_system_gallery')}
                 >
-                    <LayoutGrid size={20} />
+                    <Orbit size={20} />
                 </button>
 
                 <button
