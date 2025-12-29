@@ -30,10 +30,10 @@ const SUN_MASS = 333000;
 
 export const THREE_BODY_SYSTEM: StarSystemPreset = {
     id: 'three-body',
-    name: 'Three-Body Problem',
-    nameJa: '三体問題',
-    description: 'Three stars in chaotic gravitational dance. Inspired by the novel "The Three-Body Problem".',
-    descriptionJa: '3つの恒星がカオス的な重力相互作用を行う。小説「三体」にインスパイア。',
+    name: 'Three-Body System',
+    nameJa: '三体星系',
+    description: 'Three stars orbiting each other in chaotic gravitational dance. Inspired by the novel "The Three-Body Problem".',
+    descriptionJa: 'ケンタウルス座アルファ星系の3つの恒星がカオスな重力相互作用を行う。小説「三体」にインスパイア。',
     category: 'multi-star',
     initialCamera: {
         position: [-100, 60, 0],
@@ -59,7 +59,7 @@ export const THREE_BODY_SYSTEM: StarSystemPreset = {
             name: 'Era of Stability',
             nameJa: '恒紀',
             description: 'A scientifically stable hierarchical triple system. Trisolaris orbits Star A safely.',
-            descriptionJa: '科学的に安定した階層的三連星。Trisolarisは主星Aの周りを安全に周回する。'
+            descriptionJa: '科学的に安定した階層的三連星。Trisolarisはアルファ・ケンタウリAの周りを安全に周回する。'
         },
         {
             id: 'chaotic',
