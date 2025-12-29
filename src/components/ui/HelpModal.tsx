@@ -144,7 +144,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                                 justifyContent: 'center'
                             }}>
                                 <Info size={14} />
-                                <span style={{ fontFamily: 'monospace' }}>v{pkg.version}</span>
+                                <span style={{ fontFamily: 'var(--font-mono)' }}>v{pkg.version}</span>
                             </div>
                         </div>
                     </div>

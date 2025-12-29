@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { Play, Pause, RefreshCw, AlertCircle, Trash2, Zap } from 'lucide-react';
+import { Play, Pause, RefreshCw, AlertCircle, Trash2, Zap, LayoutGrid } from 'lucide-react';
 import { useTranslation } from '../../utils/i18n';
 import { StarSystemGallery } from './StarSystemGallery';
 
@@ -97,7 +97,8 @@ export const SimulationControls: React.FC = () => {
                     gap: '6px'
                 }}
             >
-                <span>🌌 {t('star_system_gallery')}</span>
+                <LayoutGrid size={16} />
+                <span>{t('star_system_gallery')}</span>
             </button>
 
             <StarSystemGallery
@@ -106,7 +107,7 @@ export const SimulationControls: React.FC = () => {
             />
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>Time Scale: {timeScale.toFixed(1)}x</label>
+                <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>{t('time_scale')}: {timeScale.toFixed(1)}x</label>
                 <input
                     type="range"
                     min="0.1"

@@ -131,10 +131,12 @@ const translations = {
         star_system_gallery: 'Star System Gallery',
         gallery_title: 'Star System Gallery',
         gallery_select_mode: 'Select Mode',
-        gallery_load: 'Load',
         gallery_close: 'Close',
         stable_era: 'Stable Era',
         chaotic_era: 'Chaotic Era',
+
+        // Time
+        time_scale: 'Time Scale',
     },
     ja: {
         // App
@@ -269,6 +271,9 @@ const translations = {
         gallery_close: '閉じる',
         stable_era: '安定期',
         chaotic_era: '乱紀',
+
+        // Time
+        time_scale: '時間スケール',
     }
 };
 
