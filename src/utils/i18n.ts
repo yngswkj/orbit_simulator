@@ -11,6 +11,9 @@ const translations = {
         // Control Panel
         controls_title: 'CONTROLS',
         simulation_title: 'SIMULATION',
+        open_controls: 'Open Controls',
+        zen_mode: 'Zen Mode',
+        camera_mode: 'Camera Mode',
         pause: 'PAUSE',
         resume: 'RESUME',
         reset: 'Reset Simulation',
@@ -21,6 +24,7 @@ const translations = {
         show_grid: 'Show Grid & Axes',
         show_realistic: 'Show Realistic Textures',
         show_habitable: 'Show Habitable Zone',
+        show_realistic_distances: 'Realistic Orbit Distances',
 
         // Camera
         camera_follow: 'Camera Follow',
@@ -112,6 +116,22 @@ const translations = {
         cl_item_energy: 'Energy Monitoring (Kinetic, Potential, Drift)',
         cl_item_hybrid: 'Hybrid Engine (Optimized CPU/Worker/GPU switching)',
         cl_item_cleanup: 'Resource Management (Reduced Memory Leaks)',
+
+        // Changelog v0.4.0
+        cl_v0_4_0_title: 'v0.4.0 - UI Polish & Zen Mode',
+        cl_item_compact: 'Compact Controls (Unified width, collapsed view)',
+        cl_item_zen: 'Zen Mode (Hide UI, Logo, Grid for immersion)',
+        cl_item_ui: 'UI Refinement (Cleaner layout, Consistent visual style)',
+        cl_item_gallery: 'Star System Gallery (Visual selector for presets)',
+
+        // Star System Gallery
+        star_system_gallery: 'Star System Gallery',
+        gallery_title: 'Star System Gallery',
+        gallery_select_mode: 'Select Mode',
+        gallery_load: 'Load',
+        gallery_close: 'Close',
+        stable_era: 'Stable Era',
+        chaotic_era: 'Chaotic Era',
     },
     ja: {
         // App
@@ -121,6 +141,9 @@ const translations = {
         // Control Panel
         controls_title: 'コントロールパネル',
         simulation_title: 'シミュレーション',
+        open_controls: 'コントロールパネルを開く',
+        zen_mode: 'Zenモード',
+        camera_mode: 'カメラモード切替',
         pause: '一時停止',
         resume: '再開',
         reset: 'リセット',
@@ -131,6 +154,7 @@ const translations = {
         show_grid: 'グリッドを表示',
         show_realistic: 'リアルなテクスチャを表示',
         show_habitable: 'ハビタブルゾーンを表示',
+        show_realistic_distances: '軌道距離をリアル寄りにする',
 
         // Camera
         camera_follow: 'カメラ追従',
@@ -223,6 +247,22 @@ const translations = {
         cl_item_energy: 'エネルギー監視 (運動・位置エネルギー、誤差率)',
         cl_item_hybrid: 'ハイブリッドエンジン (CPU/Worker/GPU の最適化と切替)',
         cl_item_cleanup: 'リソース管理の改善 (メモリリーク低減)',
+
+        // Changelog v0.4.0
+        cl_v0_4_0_title: 'v0.4.0 - UI改善とZenモード',
+        cl_item_compact: 'コンパクトコントロール (幅統一・折りたたみ表示)',
+        cl_item_zen: 'Zenモード (UI・ロゴ・グリッド非表示による没入感)',
+        cl_item_ui: 'UI調整 (レイアウトの整理・視覚スタイルの統一)',
+        cl_item_gallery: '恒星系ギャラリー (プリセットの視覚的選択機能)',
+
+        // Star System Gallery
+        star_system_gallery: '恒星系ギャラリー',
+        gallery_title: '恒星系ギャラリー',
+        gallery_select_mode: 'モード選択',
+        gallery_load: '読み込み',
+        gallery_close: '閉じる',
+        stable_era: '安定期',
+        chaotic_era: '乱紀',
     }
 };
 

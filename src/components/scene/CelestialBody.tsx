@@ -3,7 +3,7 @@ import { useFrame } from '@react-three/fiber';
 import { Sphere, Text, Billboard, useTexture, Line } from '@react-three/drei';
 import { usePhysicsStore } from '../../store/physicsStore';
 import type { CelestialBody as BodyType } from '../../types/physics';
-import { Vector3 } from 'three';
+import { Vector3, CatmullRomCurve3 } from 'three';
 
 interface CelestialBodyProps {
     body: BodyType;
@@ -21,40 +21,95 @@ const TextureOrb = ({ body }: { body: BodyType }) => {
     return (
         <meshStandardMaterial
             map={texture}
-            emissiveMap={body.name === 'Sun' ? texture : undefined}
-            emissive={body.name === 'Sun' ? 'white' : 'black'}
-            emissiveIntensity={body.name === 'Sun' ? 2.0 : 0.0}
+            emissiveMap={body.isStar ? texture : undefined}
+            emissive={body.isStar ? 'white' : 'black'}
+            emissiveIntensity={body.isStar ? 2.0 : 0.0}
             roughness={1}
             metalness={0}
         />
     );
 };
 
-// Internal component for constant width trail
+// Trail configuration
+const TRAIL_CONFIG = {
+    RECENT_MAX: 60,       // High-res recent points to keep after compression
+    RECENT_INTERVAL: 2,   // Sample every 2 frames (smooth)
+    COMPRESSED_MAX: 120,  // Compressed old points
+    COMPRESS_RATIO: 4,    // Keep 1 out of 4 points when compressing
+    COMPRESS_TRIGGER: 80  // Compress when recent exceeds this (must be > RECENT_MAX)
+};
+
+// Spline interpolation for smooth curves (memoized)
+const useSplinePoints = (controlPoints: Vector3[], segments: number): Vector3[] => {
+    return useMemo(() => {
+        if (controlPoints.length < 4) return controlPoints;
+        try {
+            const curve = new CatmullRomCurve3(controlPoints, false, 'catmullrom', 0.5);
+            return curve.getPoints(segments);
+        } catch {
+            return controlPoints;
+        }
+    }, [controlPoints, segments]);
+};
+
+// Internal component for constant width trail with LOD compression
 const ConstantWidthTrail = ({ position, color }: { position: Vector3, color: string }) => {
-    const [points, setPoints] = React.useState<Vector3[]>([]);
+    // Two-tier storage: recent (high-res) + compressed (low-res, longer)
+    const recentPoints = React.useRef<Vector3[]>([]);
+    const compressedPoints = React.useRef<Vector3[]>([]);
+    const [renderPoints, setRenderPoints] = React.useState<Vector3[]>([]);
     const frameCount = React.useRef(0);
+    const useRealisticDistances = usePhysicsStore(state => state.useRealisticDistances);
+    const resetToken = usePhysicsStore(state => state.resetToken);
+    const simulationState = usePhysicsStore(state => state.simulationState);
+
+    // Reset trail when distance scale changes OR when resetToken increments
+    React.useEffect(() => {
+        recentPoints.current = [];
+        compressedPoints.current = [];
+        setRenderPoints([]);
+    }, [useRealisticDistances, resetToken]);
 
     useFrame(() => {
+        if (simulationState !== 'running') return;
+
         frameCount.current++;
-        // Update every 3 frames for smoothness vs performance
-        if (frameCount.current % 3 === 0) {
-            setPoints(prev => {
-                const newPoints = [...prev, position.clone()];
-                // Limit trail length
-                if (newPoints.length > 150) newPoints.shift();
-                return newPoints;
-            });
+
+        // Add new point at high frequency
+        if (frameCount.current % TRAIL_CONFIG.RECENT_INTERVAL === 0) {
+            recentPoints.current.push(position.clone());
+
+            // Compress old points when recent buffer is full
+            if (recentPoints.current.length > TRAIL_CONFIG.COMPRESS_TRIGGER) {
+                // Take oldest points from recent and compress them
+                const toCompress = recentPoints.current.splice(0, TRAIL_CONFIG.COMPRESS_TRIGGER - TRAIL_CONFIG.RECENT_MAX);
+
+                // Keep every Nth point (downsample)
+                for (let i = 0; i < toCompress.length; i += TRAIL_CONFIG.COMPRESS_RATIO) {
+                    compressedPoints.current.push(toCompress[i]);
+                }
+
+                // Limit compressed buffer
+                while (compressedPoints.current.length > TRAIL_CONFIG.COMPRESSED_MAX) {
+                    compressedPoints.current.shift();
+                }
+            }
+
+            // Update render points (merge compressed + recent)
+            setRenderPoints([...compressedPoints.current, ...recentPoints.current]);
         }
     });
 
-    if (points.length < 2) return null;
+    // Apply spline interpolation for smooth curves
+    const smoothPoints = useSplinePoints(renderPoints, Math.min(renderPoints.length * 2, 400));
+
+    if (smoothPoints.length < 2) return null;
 
     return (
         <Line
-            points={points}
+            points={smoothPoints}
             color={color}
-            lineWidth={2.5} // Constant screen-space width
+            lineWidth={2.5}
             opacity={0.6}
             transparent
         />

@@ -203,11 +203,74 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
 
                         {activeTab === 'changelog' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                {/* v0.3.0 */}
+                                {/* v0.4.0 */}
                                 <div>
                                     <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {t('cl_v0_3_0_title')}
+                                        {t('cl_v0_4_0_title')}
                                         <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'normal' }}>Current</span>
+                                    </h4>
+                                    <div style={{
+                                        background: 'rgba(255,255,255,0.02)',
+                                        borderRadius: '8px',
+                                        padding: '16px',
+                                        border: '1px solid rgba(255,255,255,0.05)'
+                                    }}>
+                                        <ul style={{ paddingLeft: '20px', margin: 0, color: '#e2e8f0', lineHeight: 1.8, fontSize: '0.9rem' }}>
+                                            <li style={{ marginBottom: '8px' }}>
+                                                <span style={{
+                                                    color: '#3b82f6',
+                                                    fontWeight: 'bold',
+                                                    fontSize: '0.75rem',
+                                                    border: '1px solid rgba(59, 130, 246, 0.3)',
+                                                    padding: '1px 4px',
+                                                    borderRadius: '4px',
+                                                    marginRight: '8px'
+                                                }}>改善</span>
+                                                {t('cl_item_compact')}
+                                            </li>
+                                            <li style={{ marginBottom: '8px' }}>
+                                                <span style={{
+                                                    color: '#10b981',
+                                                    fontWeight: 'bold',
+                                                    fontSize: '0.75rem',
+                                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                                    padding: '1px 4px',
+                                                    borderRadius: '4px',
+                                                    marginRight: '8px'
+                                                }}>新機能</span>
+                                                {t('cl_item_zen')}
+                                            </li>
+                                            <li>
+                                                <span style={{
+                                                    color: '#f59e0b',
+                                                    fontWeight: 'bold',
+                                                    fontSize: '0.75rem',
+                                                    border: '1px solid rgba(245, 158, 11, 0.3)',
+                                                    padding: '1px 4px',
+                                                    borderRadius: '4px',
+                                                    marginRight: '8px'
+                                                }}>技術</span>
+                                                {t('cl_item_ui')}
+                                            </li>
+                                            <li>
+                                                <span style={{
+                                                    color: '#10b981',
+                                                    fontWeight: 'bold',
+                                                    fontSize: '0.75rem',
+                                                    border: '1px solid rgba(16, 185, 129, 0.3)',
+                                                    padding: '1px 4px',
+                                                    borderRadius: '4px',
+                                                    marginRight: '8px'
+                                                }}>新機能</span>
+                                                {t('cl_item_gallery')}
+                                            </li>
+                                        </ul>
+                                    </div>
+                                </div>
+                                {/* v0.3.0 */}
+                                <div>
+                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {t('cl_v0_3_0_title')}
                                     </h4>
                                     <div style={{
                                         background: 'rgba(255,255,255,0.02)',

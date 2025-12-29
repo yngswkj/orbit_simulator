@@ -1,13 +1,16 @@
 import { create } from 'zustand';
 import type { CelestialBody, SimulationState, CameraMode, PhysicsState } from '../types/physics';
+import type { StarSystemMode } from '../types/starSystem';
 import { updatePhysicsSoA, createPhysicsState, syncStateToBodies, BASE_DT, calculateTotalEnergy, applyCollisions } from '../utils/physics';
 import { Vector3 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { createSolarSystem } from '../utils/solarSystem';
+import { getPresetById } from '../utils/starSystems';
 import { PhysicsWorkerManager } from '../workers/physicsWorkerManager';
 import { GPUPhysicsEngine } from '../gpu/GPUPhysicsEngine';
 
 import { BUFFER_LIMITS } from '../constants/physics';
+import { DISTANCE_SCALE_FACTOR } from '../utils/solarSystem';
 
 let _workerManager: PhysicsWorkerManager | null = null;
 export const getWorkerManager = (): PhysicsWorkerManager => {
@@ -39,7 +42,8 @@ export const physicsStats = {
         initial: 0,
         drift: 0
     },
-    lastEnergyCheck: 0
+    lastEnergyCheck: 0,
+    cameraPosition: [0, 0, 0]
 };
 
 const MAX_STABLE_DT = 0.02; // Threshold to split steps
@@ -60,6 +64,13 @@ interface PhysicsStore {
     selectedBodyId: string | null;
     cameraMode: CameraMode;
     gpuDataInvalidated: boolean; // Flag to trigger data upload to GPU
+    zenMode: boolean;
+    resetToken: number; // Increment to signal forced visual resets
+
+    // Distance Scale
+    useRealisticDistances: boolean;
+    toggleRealisticDistances: () => void;
+    toggleZenMode: () => void;
 
     // Multithreading
     useMultithreading: boolean;
@@ -70,6 +81,11 @@ interface PhysicsStore {
     toggleMultithreading: () => void;
     toggleGPU: () => void;
     checkGPUSupport: () => Promise<void>;
+
+    // Star System
+    currentSystemId: string | null;
+    currentSystemMode: StarSystemMode | null;
+    loadStarSystem: (systemId: string, mode?: StarSystemMode) => void;
 
     addBody: (body: Omit<CelestialBody, 'id'>) => void;
     removeBody: (id: string) => void;
@@ -103,11 +119,20 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     showGrid: true,
     showRealisticVisuals: true,
     showHabitableZone: false,
-    showPerformance: true,
+    showPerformance: false,
     followingBodyId: null,
     selectedBodyId: null,
     cameraMode: 'free',
     gpuDataInvalidated: true,
+
+    // Star System
+    currentSystemId: 'solar-system',
+    currentSystemMode: null,
+
+    useRealisticDistances: false,
+
+    zenMode: false,
+    resetToken: 0,
 
     useMultithreading: false,
     useGPU: false,
@@ -179,6 +204,57 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             physicsState: null,
             gpuDataInvalidated: true // Force upload when switching
         }));
+    },
+
+    toggleRealisticDistances: () => {
+        const { useRealisticDistances, bodies } = get();
+        const newScale = !useRealisticDistances;
+
+        // Scale factor: REALISTIC (1AU=50) / COMPRESSED (1AU=20) = 2.5
+        // NOTE: Updated constants make this 4.0 (200/50).
+        const factor = newScale ? DISTANCE_SCALE_FACTOR : 1 / DISTANCE_SCALE_FACTOR;
+
+        // Velocity scaling: v = sqrt(GM/r), so when r -> r*factor, v -> v/sqrt(factor)
+        const velocityFactor = 1 / Math.sqrt(factor);
+
+        // Auto-adjust time scale to keep visual pacing consistent
+        // If distances x4, periods x8. To make it look "same speed", we speed up time x8.
+        const newTimeScale = newScale ? 8.0 : 1.0;
+
+        // Transform all body positions and velocities (except fixed bodies at origin)
+        const scaledBodies = bodies.map(body => {
+            // Skip fixed bodies (usually central star)
+            if (body.isFixed) return body;
+
+            return {
+                ...body,
+                position: new Vector3(
+                    body.position.x * factor,
+                    body.position.y * factor,
+                    body.position.z * factor
+                ),
+                velocity: new Vector3(
+                    body.velocity.x * velocityFactor,
+                    body.velocity.y * velocityFactor,
+                    body.velocity.z * velocityFactor
+                )
+            };
+        });
+
+        // Dispatch event for camera adjustment
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('distanceScaleChanged', {
+                detail: { realistic: newScale, factor }
+            }));
+        }
+
+        set({
+            useRealisticDistances: newScale,
+            timeScale: newTimeScale,
+            bodies: scaledBodies,
+            physicsState: null,
+            gpuDataInvalidated: true
+        });
     },
 
     addBody: (body) => {
@@ -385,8 +461,58 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         followingBodyId: null,
         selectedBodyId: null,
         cameraMode: 'free',
-        gpuDataInvalidated: true
+        gpuDataInvalidated: true,
+        useRealisticDistances: false,
+        currentSystemId: 'solar-system',
+        currentSystemMode: null,
+        resetToken: 0
     }),
+
+    loadStarSystem: (systemId: string, mode?: StarSystemMode) => {
+        const preset = getPresetById(systemId);
+        if (!preset) return;
+
+        const bodies = preset.createBodies(mode).map(body => ({
+            ...body,
+            id: uuidv4()
+        }));
+
+        // Get camera config: use mode-specific if available, otherwise default
+        const cameraConfig = (mode && preset.getCameraForMode)
+            ? preset.getCameraForMode(mode)
+            : preset.initialCamera;
+
+        // Dispatch event for camera reset
+        if (typeof window !== 'undefined') {
+            window.dispatchEvent(new CustomEvent('starSystemChanged', {
+                detail: {
+                    systemId,
+                    mode,
+                    camera: cameraConfig
+                }
+            }));
+        }
+
+        set({
+            bodies,
+            currentSystemId: systemId,
+            currentSystemMode: mode || null,
+            physicsState: null,
+            timeScale: 1.0,
+            simulationState: 'running',
+            simulationTime: 0,
+            followingBodyId: null,
+            selectedBodyId: null,
+            cameraMode: 'free',
+            gpuDataInvalidated: true,
+            useRealisticDistances: false,
+            // Zen Mode
+            zenMode: false,
+            resetToken: 0
+        });
+    },
+
+    toggleZenMode: () => set((state) => ({ zenMode: !state.zenMode })),
 
     setTimeScale: (scale) => set({ timeScale: scale }),
 
@@ -405,16 +531,68 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         set({ bodies: newBodies, physicsState: null, gpuDataInvalidated: true });
     },
 
-    reset: () => set({
-        bodies: INITIAL_BODIES,
-        physicsState: null,
-        followingBodyId: null,
-        selectedBodyId: null,
-        showHabitableZone: false,
-        showGrid: true,
-        showRealisticVisuals: true,
-        simulationTime: 0,
-        cameraMode: 'free',
-        gpuDataInvalidated: true
-    })
+    reset: () => {
+        const { currentSystemId, currentSystemMode, bodies, resetToken } = get();
+
+        // Determine which bodies to load
+        let initialBodies = INITIAL_BODIES;
+        if (currentSystemId && currentSystemId !== 'solar-system') {
+            const preset = getPresetById(currentSystemId);
+            if (preset) {
+                initialBodies = preset.createBodies(currentSystemMode || undefined).map(body => ({
+                    ...body,
+                    id: uuidv4()
+                }));
+            }
+        } else {
+            initialBodies = createSolarSystem();
+        }
+
+        // PRESERVE IDs: Overwrite new IDs with existing ones for matching bodies
+        // This ensures the Scene/Camera component doesn't see them as "new" objects
+        const existingIdMap = new Map(bodies.map(b => [b.name, b.id]));
+
+        const bodiesWithPreservedIds = initialBodies.map(newBody => {
+            if (existingIdMap.has(newBody.name)) {
+                return { ...newBody, id: existingIdMap.get(newBody.name)! };
+            }
+            return newBody;
+        });
+
+        // If realistic mode is on, we must re-apply the scaling to the freshly loaded bodies
+        // becasue createSolarSystem/createBodies generates them at "Normal" (Compressed) scale.
+        const useRealisticDistances = get().useRealisticDistances;
+        let finalBodies = bodiesWithPreservedIds;
+
+        if (useRealisticDistances) {
+            const factor = DISTANCE_SCALE_FACTOR;
+            const velocityFactor = 1 / Math.sqrt(factor);
+
+            finalBodies = finalBodies.map(body => {
+                if (body.isFixed) return body;
+                return {
+                    ...body,
+                    position: new Vector3(
+                        body.position.x * factor,
+                        body.position.y * factor,
+                        body.position.z * factor
+                    ),
+                    velocity: new Vector3(
+                        body.velocity.x * velocityFactor,
+                        body.velocity.y * velocityFactor,
+                        body.velocity.z * velocityFactor
+                    )
+                };
+            });
+        }
+
+        set({
+            bodies: finalBodies,
+            physicsState: null,
+            simulationTime: 0,
+            gpuDataInvalidated: true,
+            resetToken: resetToken + 1,
+            // We don't touch followingBodyId/cameraMode here, relying on ID preservation.
+        });
+    }
 }));

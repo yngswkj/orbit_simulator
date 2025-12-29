@@ -1,86 +1,160 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { createPhysicsState, updatePhysicsSoA, BASE_DT } from '../../utils/physics';
-import { Vector3 } from 'three';
+import { BASE_DT } from '../../utils/physics';
+import { Vector3, CatmullRomCurve3 } from 'three';
 import { Line } from '@react-three/drei';
 
-const PREDICTION_STEPS = 1200; // Increased steps for smoothness
-const TIME_MULTIPLIER = 1.0; // Reduced multiplier for better accuracy (smaller dt)
+const PREDICTION_STEPS = 1200;
+const TIME_MULTIPLIER = 1.0;
+const SAVE_FREQUENCY = 10; // Save every 10 steps (120 points total)
+
+// Dynamic update intervals based on timeScale
+// Higher timeScale = more frequent updates needed
+const getUpdateInterval = (timeScale: number): number => {
+    if (timeScale >= 10) return 50;   // 20fps for fast simulation
+    if (timeScale >= 5) return 80;    // 12.5fps
+    if (timeScale >= 2) return 100;   // 10fps (default)
+    if (timeScale >= 1) return 150;   // 6.7fps for normal speed
+    return 200;                        // 5fps for slow simulation
+};
+
+// Worker singleton
+let predictionWorker: Worker | null = null;
+let pendingRequest = false;
+
+const getPredictionWorker = (): Worker | null => {
+    if (typeof window === 'undefined') return null;
+
+    if (!predictionWorker) {
+        try {
+            predictionWorker = new Worker(
+                new URL('../../workers/predictionWorker.ts', import.meta.url),
+                { type: 'module' }
+            );
+        } catch (e) {
+            console.warn('Prediction worker not available, using main thread fallback');
+            return null;
+        }
+    }
+    return predictionWorker;
+};
+
+interface PathData {
+    id: string;
+    points: Vector3[];
+    color: string;
+}
+
+// Smooth orbit line with Catmull-Rom spline interpolation
+const SmoothOrbitLine: React.FC<{ points: Vector3[]; color: string }> = ({ points, color }) => {
+    const smoothPoints = useMemo(() => {
+        if (points.length < 4) return points;
+        try {
+            const curve = new CatmullRomCurve3(points, false, 'catmullrom', 0.5);
+            // Interpolate to ~3x the original points for smooth curves
+            return curve.getPoints(Math.min(points.length * 3, 360));
+        } catch {
+            return points;
+        }
+    }, [points]);
+
+    if (smoothPoints.length < 2) return null;
+
+    return (
+        <Line
+            points={smoothPoints}
+            color={color}
+            lineWidth={1.5}
+            opacity={0.4}
+            transparent
+        />
+    );
+};
 
 export const OrbitPrediction: React.FC = () => {
     const bodies = usePhysicsStore((state) => state.bodies);
     const simulationState = usePhysicsStore((state) => state.simulationState);
+    const timeScale = usePhysicsStore((state) => state.timeScale);
+    const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
 
-    const [paths, setPaths] = React.useState<{ id: string; points: Vector3[]; color: string }[]>([]);
+    const [paths, setPaths] = React.useState<PathData[]>([]);
 
+    // Reset paths when distance scale changes
+    React.useEffect(() => {
+        setPaths([]);
+    }, [useRealisticDistances]);
+
+    // Worker message handler
+    React.useEffect(() => {
+        const worker = getPredictionWorker();
+        if (!worker) return;
+
+        const handleMessage = (e: MessageEvent) => {
+            if (e.data.type === 'result') {
+                pendingRequest = false;
+                const result = e.data.paths.map((p: { id: string; points: number[][]; color: string }) => ({
+                    id: p.id,
+                    points: p.points.map((pt: number[]) => new Vector3(pt[0], pt[1], pt[2])),
+                    color: p.color
+                }));
+                setPaths(result);
+            }
+        };
+
+        worker.addEventListener('message', handleMessage);
+        return () => {
+            worker.removeEventListener('message', handleMessage);
+        };
+    }, []);
+
+    // Main prediction loop with dynamic frequency
     React.useEffect(() => {
         if (simulationState === 'paused') return;
+
+        const updateInterval = getUpdateInterval(timeScale);
 
         const interval = setInterval(() => {
             const currentBodies = usePhysicsStore.getState().bodies;
             if (currentBodies.length === 0) return;
 
-            // 1. Create SoA state ONCE (Drastic allocation reduction)
-            // We clone initial state implicitly by creating a new PhysicsState from bodies
-            const state = createPhysicsState(currentBodies);
-
-            // Map IDs to indices for easy access
-            const ids = state.ids;
-            const colors: { [key: string]: string } = {};
-            currentBodies.forEach(b => colors[b.id] = b.color);
-
-            const newPaths: { [key: string]: Vector3[] } = {};
-            for (let i = 0; i < state.count; i++) {
-                // Initialize paths with current position
-                newPaths[ids[i]] = [new Vector3(state.positions[i * 3], state.positions[i * 3 + 1], state.positions[i * 3 + 2])];
-            }
-
-            // 2. Integration Loop using SoA
+            const worker = getPredictionWorker();
             const dt = BASE_DT * TIME_MULTIPLIER;
-            // Use local variables for speed
-            const shouldSaveFrequency = 10; // Save every 10 steps (120 points total)
 
-            for (let i = 0; i < PREDICTION_STEPS; i++) {
-                // Direct Symplectic Integration (Velocity Verlet)
-                updatePhysicsSoA(state, dt, false, false); // No BarnesHut, No Collision for prediction (faster)
+            if (worker && !pendingRequest) {
+                // Use Worker for calculation
+                pendingRequest = true;
 
-                if (i % shouldSaveFrequency === 0) {
-                    for (let j = 0; j < state.count; j++) {
-                        const id = ids[j];
-                        // Only add points for bodies that exist in initial set
-                        if (newPaths[id]) {
-                            newPaths[id].push(new Vector3(
-                                state.positions[j * 3],
-                                state.positions[j * 3 + 1],
-                                state.positions[j * 3 + 2]
-                            ));
-                        }
-                    }
-                }
+                const bodyData = currentBodies.map(b => ({
+                    id: b.id,
+                    position: { x: b.position.x, y: b.position.y, z: b.position.z },
+                    velocity: { x: b.velocity.x, y: b.velocity.y, z: b.velocity.z },
+                    mass: b.mass,
+                    radius: b.radius,
+                    color: b.color
+                }));
+
+                worker.postMessage({
+                    type: 'predict',
+                    bodies: bodyData,
+                    steps: PREDICTION_STEPS,
+                    dt,
+                    saveFrequency: SAVE_FREQUENCY
+                });
             }
-
-            const result = Object.keys(newPaths).map(id => ({
-                id,
-                points: newPaths[id],
-                color: colors[id] || 'white'
-            }));
-
-            setPaths(result);
-        }, 100); // 10fps update rate (smooth enough for prediction lines)
+            // Note: Main thread fallback removed for performance
+            // If worker is unavailable, prediction lines won't update
+        }, updateInterval);
 
         return () => clearInterval(interval);
-    }, [simulationState, bodies.length]);
+    }, [simulationState, timeScale, bodies.length]);
 
     return (
         <group>
             {paths.map(p => (
-                <Line
+                <SmoothOrbitLine
                     key={p.id}
                     points={p.points}
                     color={p.color}
-                    lineWidth={1.5}
-                    opacity={0.4}
-                    transparent
                 />
             ))}
         </group>

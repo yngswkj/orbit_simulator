@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
 import { Play, Pause, RefreshCw, AlertCircle, Trash2, Zap } from 'lucide-react';
 import { useTranslation } from '../../utils/i18n';
+import { StarSystemGallery } from './StarSystemGallery';
 
 export const SimulationControls: React.FC = () => {
     const simulationState = usePhysicsStore((state) => state.simulationState);
@@ -9,12 +10,13 @@ export const SimulationControls: React.FC = () => {
     const setSimulationState = usePhysicsStore((state) => state.setSimulationState);
     const setTimeScale = usePhysicsStore((state) => state.setTimeScale);
     const reset = usePhysicsStore((state) => state.reset);
-    const loadSolarSystem = usePhysicsStore((state) => state.loadSolarSystem);
     const followingBodyId = usePhysicsStore((state) => state.followingBodyId);
     const removeBody = usePhysicsStore((state) => state.removeBody);
     const cameraMode = usePhysicsStore((state) => state.cameraMode);
     const setCameraMode = usePhysicsStore((state) => state.setCameraMode);
     const { t } = useTranslation();
+
+    const [showGallery, setShowGallery] = useState(false);
 
     const togglePause = () => {
         setSimulationState(simulationState === 'running' ? 'paused' : 'running');
@@ -80,7 +82,7 @@ export const SimulationControls: React.FC = () => {
             </div>
 
             <button
-                onClick={loadSolarSystem}
+                onClick={() => setShowGallery(true)}
                 style={{
                     background: 'rgba(255, 255, 255, 0.1)',
                     border: '1px solid rgba(255, 255, 255, 0.1)',
@@ -95,8 +97,13 @@ export const SimulationControls: React.FC = () => {
                     gap: '6px'
                 }}
             >
-                <span>🪐 {t('load_solar')}</span>
+                <span>🌌 {t('star_system_gallery')}</span>
             </button>
+
+            <StarSystemGallery
+                isOpen={showGallery}
+                onClose={() => setShowGallery(false)}
+            />
 
             <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
                 <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>Time Scale: {timeScale.toFixed(1)}x</label>
@@ -148,6 +155,14 @@ export const SimulationControls: React.FC = () => {
                         onChange={() => usePhysicsStore.getState().toggleHabitableZone()}
                     />
                     {t('show_habitable')}
+                </label>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
+                    <input
+                        type="checkbox"
+                        checked={usePhysicsStore(state => state.useRealisticDistances)}
+                        onChange={() => usePhysicsStore.getState().toggleRealisticDistances()}
+                    />
+                    {t('show_realistic_distances')}
                 </label>
 
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>

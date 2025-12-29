@@ -8,34 +8,31 @@ import { v4 as uuidv4 } from 'uuid';
 
 const SUN_MASS = 333000;
 
+// Distance Scale Constants
+// COMPRESSED: Standard "Normal" view (1 AU = 50 units) - Was 20
+// REALISTIC: Expanded view (1 AU = 200 units) - Was 50
+export const DISTANCE_SCALES = {
+    COMPRESSED: {
+        AU_UNIT: 50,
+    },
+    REALISTIC: {
+        AU_UNIT: 200,
+    }
+} as const;
+
+// Scale factor for converting between compressed and realistic distances
+export const DISTANCE_SCALE_FACTOR = DISTANCE_SCALES.REALISTIC.AU_UNIT / DISTANCE_SCALES.COMPRESSED.AU_UNIT; // 4.0
+
 // Helper to calculate initial state with inclination
-const getOrbitState = (distance: number, inclinationDeg: number) => {
-    const speed = Math.sqrt(SUN_MASS / distance);
+// Distance is now in AU
+const getOrbitState = (distanceAU: number, inclinationDeg: number) => {
+    // Convert AU to Simulation Units based on "Compressed" (Default) scale
+    const distanceSim = distanceAU * DISTANCE_SCALES.COMPRESSED.AU_UNIT;
+
+    const speed = Math.sqrt(SUN_MASS / distanceSim);
     const incRad = (inclinationDeg * Math.PI) / 180;
 
-    // Start at 12 o'clock (Negative Z axis)
-    // Applying -90 degree rotation around Y axis to previous (X-axis) setup
-    const position = new Vector3(0, 0, -distance);
-
-    // Velocity is perpendicular. For CCW orbit, at -Z (12h), velocity points Left (-X).
-    // Inclination tilt was in Y (rotating around X axis). 
-    // After migrating to Z-axis start, the node line is still X-axis?
-    // Let's just rotate the previous velocity vector (0, -sin, cos) by -90 deg around Y.
-    // V_old = (0, -v*sin, v*cos)
-    // V_new_x = V_old_z * sin(-90) + V_old_x * cos(-90) = v*cos * (-1) = -v*cos
-    // V_new_y = V_old_y = -v*sin
-    // V_new_z = V_old_z * cos(-90) - V_old_x * sin(-90) = 0
-    // So New Vel = (-speed * cos, -speed * sin, 0)
-
-    // Actually, let's simplify.
-    // If flat orbit: Pos(0,0,-d), Vel(-v,0,0).
-    // With inclination 'inc':
-    // Usually inclination is rotation around the line of nodes.
-    // If we start at -Z, and line of nodes is X-axis.
-    // Then we are at 90 degrees/max latitude.
-    // Position z should be affected?
-    // No, if we rotate the whole system, the node line rotates too.
-    // That's fine. We simply want the "visual start" to be 12h.
+    const position = new Vector3(0, 0, -distanceSim);
 
     const velocity = new Vector3(
         -speed * Math.cos(incRad),
@@ -61,6 +58,7 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         color: '#ffdd00',
         texturePath: 'textures/sun_texture.png',
         isFixed: true,
+        isStar: true,
         axialTilt: 7.25,
         rotationSpeed: 0.04, // 25 days (1/25)
     },
@@ -68,7 +66,7 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         name: 'Mercury',
         mass: 0.055,
         radius: 0.08,
-        ...getOrbitState(10, 7.0),
+        ...getOrbitState(0.39, 7.0), // 0.39 AU
         color: '#a1a1a1',
         texturePath: 'textures/mercury_texture.png',
         axialTilt: 0.03,
@@ -78,7 +76,7 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         name: 'Venus',
         mass: 0.815,
         radius: 0.12,
-        ...getOrbitState(15, 3.4),
+        ...getOrbitState(0.72, 3.4), // 0.72 AU
         color: '#e3bb76',
         texturePath: 'textures/venus_texture.png',
         axialTilt: 177.3,
@@ -88,7 +86,7 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         name: 'Earth',
         mass: 1.0,
         radius: 0.13,
-        ...getOrbitState(20, 0.0),
+        ...getOrbitState(1.0, 0.0), // 1.0 AU
         color: '#22aaff',
         texturePath: 'textures/earth_texture.png',
         axialTilt: 23.4,
@@ -98,7 +96,7 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         name: 'Mars',
         mass: 0.107,
         radius: 0.09,
-        ...getOrbitState(30, 1.85),
+        ...getOrbitState(1.52, 1.85), // 1.52 AU
         color: '#ff4400',
         texturePath: 'textures/mars_texture.png',
         axialTilt: 25.2,
@@ -108,7 +106,7 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         name: 'Jupiter',
         mass: 317.8,
         radius: 0.8,
-        ...getOrbitState(60, 1.3),
+        ...getOrbitState(5.2, 1.3), // 5.2 AU
         color: '#d9a066',
         texturePath: 'textures/jupiter_texture.png',
         axialTilt: 3.1,
@@ -118,7 +116,7 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         name: 'Saturn',
         mass: 95.2,
         radius: 0.7,
-        ...getOrbitState(100, 2.49),
+        ...getOrbitState(9.5, 2.49), // 9.5 AU
         color: '#eaddb1',
         texturePath: 'textures/saturn_texture.png',
         axialTilt: 26.7,
@@ -128,7 +126,7 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         name: 'Uranus',
         mass: 14.5,
         radius: 0.4,
-        ...getOrbitState(180, 0.77),
+        ...getOrbitState(19.2, 0.77), // 19.2 AU
         color: '#b2f0ff',
         texturePath: 'textures/uranus_texture.png',
         axialTilt: 97.8,
@@ -138,7 +136,7 @@ export const SOLAR_SYSTEM_DATA: Omit<CelestialBody, 'id'>[] = [
         name: 'Neptune',
         mass: 17.1,
         radius: 0.4,
-        ...getOrbitState(250, 1.77),
+        ...getOrbitState(30.1, 1.77), // 30.1 AU
         color: '#3366ff',
         texturePath: 'textures/neptune_texture.png',
         axialTilt: 28.3,

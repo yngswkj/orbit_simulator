@@ -3,13 +3,21 @@ import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars, Grid, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { Vector3 } from 'three';
 import * as THREE from 'three';
-import { usePhysicsStore } from '../../store/physicsStore';
+import { usePhysicsStore, physicsStats } from '../../store/physicsStore';
 import { CelestialBody } from './CelestialBody';
 import { usePhysicsLoop } from '../../hooks/usePhysicsLoop';
 import { OrbitPrediction } from './OrbitPrediction';
 import { DateDisplay } from '../ui/DateDisplay';
+import type { CelestialBody as BodyType } from '../../types/physics';
 
-// Wrapper to avoid re-rendering entire Scene on toggle change if possible, 
+// Helper to find the primary star (most massive star body)
+const findPrimaryStar = (bodies: BodyType[]): BodyType | undefined => {
+    const stars = bodies.filter(b => b.isStar);
+    if (stars.length === 0) return undefined;
+    return stars.reduce((max, star) => star.mass > max.mass ? star : max, stars[0]);
+};
+
+// Wrapper to avoid re-rendering entire Scene on toggle change if possible,
 // or just standard conditional render.
 const OrbitPredictionWrapper = () => {
     const showPrediction = usePhysicsStore((state) => state.showPrediction);
@@ -52,36 +60,26 @@ const CameraController = () => {
                         // Look at Direction of Motion (Tangent)
 
                         // 1. Calculate safe Forward direction (Tangent to Orbit)
-                        // Use Sun-Body vector to derive tangent, ensuring validity even if velocity is 0
-                        const sun = usePhysicsStore.getState().bodies.find(b => b.name === 'Sun');
+                        // Use Star-Body vector to derive tangent, ensuring validity even if velocity is 0
+                        const primaryStar = findPrimaryStar(usePhysicsStore.getState().bodies);
                         let forwardDir = new Vector3(0, 0, -1);
                         let radialDir = new Vector3(1, 0, 0);
 
-                        if (sun) {
-                            const sunPos = new Vector3(sun.position.x, sun.position.y, sun.position.z);
-                            const toSun = sunPos.clone().sub(bodyPos).normalize();
-                            radialDir = toSun.clone().negate(); // Radial Out (Midnight)
+                        if (primaryStar) {
+                            const starPos = new Vector3(primaryStar.position.x, primaryStar.position.y, primaryStar.position.z);
+                            const toStar = starPos.clone().sub(bodyPos).normalize();
+                            radialDir = toStar.clone().negate(); // Radial Out (Midnight)
 
-                            // Tangent = Up x toSun (Assuming CCW orbit implies Left Hand Rule? or Right?)
-                            // Standard: Counter-Clockwise.
-                            // Radial In x Up = Tangent? 
-                            // (1,0,0) x (0,1,0) = (0,0,1).
-                            // If Orbit is in X-Z. Sun at 0. Earth at (1,0,0).
-                            // Velocity is (0,0,-1) or (0,0,1)?
-                            // Usually CCW viewed from Top (Y+).
-                            // (1,0,0) -> (0,0,-1).
-                            // toSun = (-1, 0, 0).
-                            // (-1,0,0) x (0,1,0) = (0,0,-1).
-                            // So Tangent = toSun x Up.
-                            forwardDir = toSun.clone().cross(new Vector3(0, 1, 0)).normalize();
+                            // Tangent = toStar x Up (for CCW orbit)
+                            forwardDir = toStar.clone().cross(new Vector3(0, 1, 0)).normalize();
                         } else {
-                            // Fallback to Velocity if no sun
+                            // Fallback to Velocity if no star
                             const v = new Vector3(body.velocity.x, body.velocity.y, body.velocity.z);
                             if (v.lengthSq() > 0.0001) forwardDir = v.normalize();
                         }
 
                         // Position: "Midnight" (Outer Edge)
-                        // Radial Outwards from Sun
+                        // Radial Outwards from Star
                         const surfaceOffset = radialDir.multiplyScalar(body.radius * 1.05);
                         const camPos = bodyPos.clone().add(surfaceOffset);
 
@@ -119,10 +117,17 @@ const CameraController = () => {
 
     // Continuous Follow Logic
     useFrame((state) => {
+        // Update stats (Always run this, even if not following)
+        physicsStats.cameraPosition = [
+            state.camera.position.x,
+            state.camera.position.y,
+            state.camera.position.z
+        ];
+
         if (!followingBodyId) return;
 
         const body = bodies.find(b => b.id === followingBodyId);
-        const sun = bodies.find(b => b.name === 'Sun'); // Assuming Sun is named 'Sun' or has ID 'sun'
+        const primaryStar = findPrimaryStar(bodies);
 
         if (body && state.controls) {
             const controls = state.controls as any;
@@ -152,16 +157,15 @@ const CameraController = () => {
                 controls.target.add(deltaMove);
 
             } else if (cameraMode === 'sun_lock' || cameraMode === 'surface_lock') {
-                // Sun-Lock & Surface-Lock: Orbit Fixed View
-                // Both modes lock the camera orientation relative to the Orbit (Sun direction).
+                // Orbit Fixed View: Lock camera orientation relative to primary star
                 // The only difference is the initial distance/position (handled in useEffect).
 
-                if (sun) {
-                    // 1. Calculate the rotation of the Sun->Body vector
-                    const sunPos = new Vector3(sun.position.x, sun.position.y, sun.position.z);
+                if (primaryStar) {
+                    // 1. Calculate the rotation of the Star->Body vector
+                    const starPos = new Vector3(primaryStar.position.x, primaryStar.position.y, primaryStar.position.z);
 
-                    const prevRel = prevBodyPos.current.clone().sub(sunPos);
-                    const currRel = currentBodyPos.clone().sub(sunPos);
+                    const prevRel = prevBodyPos.current.clone().sub(starPos);
+                    const currRel = currentBodyPos.clone().sub(starPos);
 
                     // Avoid division by zero or unstable rotation
                     if (prevRel.lengthSq() > 0.0001 && currRel.lengthSq() > 0.0001) {
@@ -177,12 +181,7 @@ const CameraController = () => {
                         // 3. Move camera to new position
                         state.camera.position.copy(currentBodyPos.clone().add(camToBody));
 
-                        // 4. Update target
-                        // For Surface Lock, we might want to rotate the target too if it's offset?
-                        // If target is Body Center (default for sun_lock), this is fine.
-                        // For Surface Lock init, target is set to Surface Point.
-                        // We should rotate the Target vector (Target - Body) as well to keep viewing direction fixed relative to orbit.
-
+                        // 4. Update target (rotate Target-Body vector to keep viewing direction fixed)
                         const targetToBody = controls.target.clone().sub(prevBodyPos.current);
                         targetToBody.applyQuaternion(quaternion);
                         controls.target.copy(currentBodyPos.clone().add(targetToBody));
@@ -193,7 +192,7 @@ const CameraController = () => {
                         controls.target.add(deltaMove);
                     }
                 } else {
-                    // Fallback if no Sun (Simple Translation)
+                    // Fallback if no star (Simple Translation)
                     const deltaMove = currentBodyPos.clone().sub(prevBodyPos.current);
                     state.camera.position.add(deltaMove);
                     controls.target.add(deltaMove);
@@ -209,11 +208,76 @@ const CameraController = () => {
     return null;
 };
 
+// Component to handle camera adjustment when distance scale changes
+const CameraScaleAdjuster = () => {
+    const { camera, controls } = useThree();
+
+    React.useEffect(() => {
+        const handleScaleChange = (e: Event) => {
+            const customEvent = e as CustomEvent<{ realistic: boolean; factor: number }>;
+            const { factor } = customEvent.detail;
+
+            // Scale camera position
+            camera.position.multiplyScalar(factor);
+
+            // Scale OrbitControls target
+            if (controls) {
+                const orbitControls = controls as any;
+                orbitControls.target.multiplyScalar(factor);
+                orbitControls.update();
+            }
+
+            // Update camera far value dynamically
+            camera.far = customEvent.detail.realistic ? 100000 : 50000;
+            camera.updateProjectionMatrix();
+        };
+
+        const handleSystemChange = (e: Event) => {
+            const customEvent = e as CustomEvent<{
+                systemId: string;
+                mode?: string;
+                camera: { position: [number, number, number]; target: [number, number, number] };
+            }>;
+
+            const { camera: camConfig } = customEvent.detail;
+
+            // Reset camera to preset position
+            camera.position.set(camConfig.position[0], camConfig.position[1], camConfig.position[2]);
+
+            if (controls) {
+                const orbitControls = controls as any;
+                orbitControls.target.set(camConfig.target[0], camConfig.target[1], camConfig.target[2]);
+                orbitControls.update();
+            }
+        };
+
+        window.addEventListener('distanceScaleChanged', handleScaleChange);
+        window.addEventListener('starSystemChanged', handleSystemChange);
+        return () => {
+            window.removeEventListener('distanceScaleChanged', handleScaleChange);
+            window.removeEventListener('starSystemChanged', handleSystemChange);
+        };
+    }, [camera, controls]);
+
+    return null;
+};
+
 const SimulationContent = () => {
     usePhysicsLoop();
     const bodies = usePhysicsStore((state) => state.bodies);
     const showHabitableZone = usePhysicsStore((state) => state.showHabitableZone);
-    const sun = bodies.find(b => b.name === 'Sun');
+    const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
+
+    // Find all stars and determine if we should show habitable zone
+    // Only show for single-star systems (multi-star habitable zones are complex)
+    const stars = bodies.filter(b => b.isStar);
+    const isSingleStarSystem = stars.length === 1;
+    const primaryStar = isSingleStarSystem ? stars[0] : undefined;
+
+    // Habitable zone distances (0.95 AU to 1.4 AU)
+    const scale = useRealisticDistances ? DISTANCE_SCALES.REALISTIC.AU_UNIT : DISTANCE_SCALES.COMPRESSED.AU_UNIT;
+    const habitableInner = 0.95 * scale;
+    const habitableOuter = 1.4 * scale;
 
     return (
         <>
@@ -223,9 +287,9 @@ const SimulationContent = () => {
 
             <Stars radius={300} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
 
-            {showHabitableZone && sun && (
-                <mesh position={[sun.position.x, sun.position.y, sun.position.z]} rotation={[-Math.PI / 2, 0, 0]}>
-                    <ringGeometry args={[19, 28, 64]} />
+            {showHabitableZone && primaryStar && (
+                <mesh position={[primaryStar.position.x, primaryStar.position.y, primaryStar.position.z]} rotation={[-Math.PI / 2, 0, 0]}>
+                    <ringGeometry args={[habitableInner, habitableOuter, 64]} />
                     <meshBasicMaterial color="#44ff44" opacity={0.15} transparent side={2} />
                 </mesh>
             )}
@@ -240,36 +304,57 @@ const SimulationContent = () => {
 };
 
 import { PerformanceStats } from '../ui/PerformanceStats';
+import { DISTANCE_SCALES } from '../../utils/solarSystem';
 
 export const Scene = () => {
     const showPerformance = usePhysicsStore((state) => state.showPerformance);
     const showGrid = usePhysicsStore((state) => state.showGrid);
     const cameraMode = usePhysicsStore((state) => state.cameraMode);
+    const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
     const isSurfaceLock = cameraMode === 'surface_lock';
+
+    // Grid settings based on distance scale
+    // Standard: 1AU=50 -> Grid 50
+    // Wide: 1AU=200 -> Grid 200
+    const gridConfig = useRealisticDistances
+        ? { fadeDistance: 5000, sectionSize: 200, cellSize: 50 }
+        : { fadeDistance: 2000, sectionSize: 50, cellSize: 10 };
+
+    // Camera far value based on distance scale
+    // Compressed: Neptune at ~1500 (30AU * 50) -> Far 10000 -> 50000 safe
+    // Realistic: Neptune at ~6000 (30AU * 200) -> Far 50000 -> 100000 safe
+    const cameraFar = useRealisticDistances ? 200000 : 50000;
 
     // Camera tuned to see Neptune (r=250) at 12 o'clock (-Z) from 6 o'clock (+Z)
     // User requested return to original distance feeling
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            <Canvas camera={{ position: [0, 25, 50], fov: 45, near: 0.1, far: 50000 }}>
+            <Canvas camera={{ position: [0, 25, 50], fov: 45, near: 0.1, far: cameraFar }}>
                 <color attach="background" args={['#050510']} />
                 <SimulationContent />
+                <CameraScaleAdjuster />
                 <OrbitControls
                     makeDefault
                     enablePan={true}
                     minDistance={0.001}
-                    enableZoom={!isSurfaceLock} // Lock zoom in Surface View
+                    maxDistance={100000}
+                    enableZoom={!isSurfaceLock}
+                    enableDamping={true}
+                    dampingFactor={0.1}
+                    zoomSpeed={1.5}
+                    panSpeed={1.2}
+                    rotateSpeed={0.8}
                 />
 
-                {showGrid && (
+                {showGrid && !usePhysicsStore(state => state.zenMode) && (
                     <>
                         <Grid
                             infiniteGrid
-                            fadeDistance={500}
+                            fadeDistance={gridConfig.fadeDistance}
                             sectionColor="#555555"
                             cellColor="#333333"
-                            sectionSize={20}
-                            cellSize={10}
+                            sectionSize={gridConfig.sectionSize}
+                            cellSize={gridConfig.cellSize}
                             // @ts-ignore
                             depthWrite={false}
                             // @ts-ignore

@@ -10,6 +10,7 @@ export interface CelestialBody {
   color: string;
   texturePath?: string;
   isFixed?: boolean; // For sun-like objects that shouldn't move
+  isStar?: boolean; // For star objects (affects rendering glow)
   axialTilt?: number; // In degrees
   rotationSpeed?: number; // Multiplier relative to Earth (1.0)
 }

@@ -112,7 +112,9 @@ function App() {
         color: 'white',
         fontFamily: "'Inter', sans-serif",
         pointerEvents: 'none',
-        textShadow: '0 2px 4px rgba(0,0,0,0.5)'
+        textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+        opacity: usePhysicsStore(state => state.zenMode) ? 0 : 1,
+        transition: 'opacity 0.5s ease-in-out'
       }}>
         <h1 style={{ margin: 0, fontWeight: 300, fontSize: '2rem', letterSpacing: '-0.02em' }}>{t('app_title')}</h1>
         <p style={{ margin: 0, opacity: 0.7, fontSize: '0.9rem' }}>{t('app_subtitle')}</p>

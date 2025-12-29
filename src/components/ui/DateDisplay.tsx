@@ -1,56 +1,78 @@
 import React from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
 
+
+// Date Display Overlay (JAXA/NASA Style)
+// Date Display Overlay (JAXA/NASA Style)
 export const DateDisplay: React.FC = () => {
-    const simulationTime = usePhysicsStore(state => state.simulationTime);
+    const simulationTime = usePhysicsStore((state) => state.simulationTime);
+    const zenMode = usePhysicsStore(state => state.zenMode);
 
-    // Calculate cumulative days and years
-    const totalDays = Math.floor(simulationTime * 365.25);
-    const totalYears = simulationTime.toFixed(1);
+    const useRealisticDistances = usePhysicsStore(state => state.useRealisticDistances);
 
-    // Format: "X日 (N年)"
-    const formattedDate = `${totalDays.toLocaleString()}日 (${totalYears}年)`;
+    // Calibration:
+    // Earth (r=50, M=333000) takes ~3.85 simulation units to orbit.
+    // We want this to display as 365.25 days.
+    // Factor = 365.25 / 3.85 ≈ 94.88 days per unit.
+    const DAYS_PER_UNIT = 94.88;
+
+    // Calculate "Calendar Days" elapsed
+    let totalDays = simulationTime * DAYS_PER_UNIT;
+
+    // If in Realistic Mode:
+    // Distances are x4.0. Physics Period increases by x8.0 (Kepler's 3rd Law).
+    // We also auto-scaled timeScale by x8.0 so visual speed matches.
+    // Because simulationTime runs 8x faster per "visual orbit", we must divide by 8
+    // to map back to a standard "1 Orbit = 1 Year" calendar progression.
+    if (useRealisticDistances) {
+        totalDays /= 8.0;
+    }
+
+    // Calculate Years and Days
+    const years = Math.floor(totalDays / 365.25);
+    const days = Math.floor(totalDays % 365.25);
+
+    if (zenMode) return null;
 
     return (
         <div style={{
             position: 'absolute',
-            bottom: '160px',
-            left: '10px',
-            width: '220px',
-            background: 'rgba(20, 30, 40, 0.1)', // More transparent
-            backdropFilter: 'blur(4px)', // Glass effect
-            padding: '12px 18px',
-            borderRadius: '12px',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
-            color: 'white',
-            fontFamily: '"Inter", system-ui, -apple-system, sans-serif', // Clean sans-serif
-            userSelect: 'none',
+            bottom: '160px', // Above Gizmo (margin 100 + size)
+            left: '20px',
+            width: '200px',
             pointerEvents: 'none',
-            zIndex: 10,
+            zIndex: 900,
             display: 'flex',
             flexDirection: 'column',
             gap: '2px',
-            boxShadow: '0 4px 20px rgba(0,0,0,0.1)'
+            // Minimal style as requested? Reverting to previous style implies maybe simpler?
+            // User asked for "Format to Days (Years)"
         }}>
             <div style={{
-                fontSize: '0.7rem',
-                color: '#94a3b8',
-                letterSpacing: '0.2em',
+                color: 'rgba(255, 255, 255, 0.6)',
+                fontSize: '0.75rem',
                 textTransform: 'uppercase',
-                fontWeight: 600
+                letterSpacing: '0.1em',
+                marginBottom: '4px',
+                fontFamily: 'Inter, sans-serif'
             }}>
-                Simulation Date
+                MISSION TIME
             </div>
             <div style={{
-                fontSize: '1.3rem',
-                fontWeight: 300, // Light weight
-                letterSpacing: '0.05em',
-                fontVariantNumeric: 'tabular-nums', // Aligns numbers nicely
-                background: 'linear-gradient(to right, #fff, #cbd5e1)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent'
+                color: '#fff',
+                fontSize: '1.5rem',
+                fontFamily: 'Inter, sans-serif',
+                fontWeight: 300,
+                fontVariantNumeric: 'tabular-nums'
             }}>
-                {formattedDate}
+                {days} <span style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.5)' }}>DAYS</span>
+            </div>
+            <div style={{
+                color: 'rgba(255, 255, 255, 0.5)',
+                fontSize: '0.9rem',
+                fontFamily: 'Inter, sans-serif'
+            }}>
+                ({years} YEARS)
             </div>
         </div>
     );

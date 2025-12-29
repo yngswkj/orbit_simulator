@@ -1,26 +1,64 @@
 import React, { useState, useEffect } from 'react';
-import { SimulationControls } from './SimulationControls';
-import { BodyCreator } from './BodyCreator';
-import { ChevronRight, Menu, HelpCircle } from 'lucide-react';
+import { CompactControls } from './CompactControls';
+import { HelpCircle, Minimize, ChevronRight } from 'lucide-react';
 import { useTranslation } from '../../utils/i18n';
 import { HelpModal } from './HelpModal';
+import { usePhysicsStore } from '../../store/physicsStore';
+import { SimulationControls } from './SimulationControls';
+import { BodyCreator } from './BodyCreator';
 
 export const ControlPanel: React.FC = () => {
     const [isOpen, setIsOpen] = useState(true);
     const [isHovering, setIsHovering] = useState(false);
     const [showHelp, setShowHelp] = useState(false);
     const { t } = useTranslation();
+    const zenMode = usePhysicsStore(state => state.zenMode);
+    const toggleZenMode = usePhysicsStore(state => state.toggleZenMode);
 
-    // Auto-collapse after 5 seconds of inactivity (no hover)
+    // Auto-collapse after 5 seconds of inactivity (no hover), BUT NOT if help is open
     useEffect(() => {
         let timer: number | undefined;
-        if (isOpen && !isHovering) {
+        if (isOpen && !isHovering && !showHelp) {
             timer = setTimeout(() => {
                 setIsOpen(false);
             }, 5000);
         }
         return () => clearTimeout(timer);
-    }, [isOpen, isHovering]);
+    }, [isOpen, isHovering, showHelp]);
+
+    if (zenMode) {
+        return (
+            <button
+                onClick={toggleZenMode}
+                style={{
+                    position: 'absolute',
+                    top: 20,
+                    right: 20,
+                    zIndex: 2000,
+                    background: 'rgba(20, 20, 30, 0.4)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    color: 'rgba(255, 255, 255, 0.5)',
+                    padding: '8px',
+                    borderRadius: '8px',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    transition: 'all 0.2s'
+                }}
+                className="zen-exit-btn"
+                onMouseOver={(e) => (e.currentTarget.style.opacity = '1')}
+                onMouseOut={(e) => (e.currentTarget.style.opacity = '0.3')}
+                title="Exit Zen Mode"
+            >
+                <Minimize size={20} />
+            </button>
+        );
+    }
+
+    if (!isOpen) {
+        return <CompactControls onOpenPanel={() => setIsOpen(true)} />;
+    }
 
     return (
         <>
@@ -29,7 +67,7 @@ export const ControlPanel: React.FC = () => {
                 style={{
                     position: 'absolute',
                     top: 20,
-                    right: 70, // Left of the menu button
+                    right: 340, // Left of the panel (320px + 20px padding)
                     zIndex: 1001,
                     background: 'rgba(20, 20, 30, 0.6)',
                     border: '1px solid rgba(255, 255, 255, 0.2)',
@@ -40,33 +78,12 @@ export const ControlPanel: React.FC = () => {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    transition: 'all 0.2s',
-                    opacity: isOpen ? 0 : 1,
-                    pointerEvents: isOpen ? 'none' : 'auto'
+                    transition: 'all 0.2s'
                 }}
                 className="help-toggle-btn"
                 title={t('help_title')}
             >
                 <HelpCircle size={20} />
-            </button>
-
-            <button
-                onClick={() => setIsOpen(!isOpen)}
-                style={{
-                    position: 'absolute',
-                    top: 20,
-                    right: 20,
-                    zIndex: 1001,
-                    background: 'rgba(20, 20, 30, 0.8)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    color: 'white',
-                    padding: '8px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    display: isOpen ? 'none' : 'flex'
-                }}
-            >
-                <Menu size={20} />
             </button>
 
             <div
@@ -82,8 +99,6 @@ export const ControlPanel: React.FC = () => {
                     background: 'rgba(10, 10, 15, 0.85)',
                     backdropFilter: 'blur(12px)',
                     borderLeft: '1px solid rgba(255, 255, 255, 0.1)',
-                    transform: isOpen ? 'translateX(0)' : 'translateX(100%)',
-                    transition: 'transform 0.3s cubic-bezier(0.2, 0, 0, 1)',
                     display: 'flex',
                     flexDirection: 'column',
                     padding: '20px',

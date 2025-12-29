@@ -1,8 +1,10 @@
 import { useEffect, useRef } from 'react';
-import { physicsStats } from '../../store/physicsStore';
+import { physicsStats, usePhysicsStore } from '../../store/physicsStore';
 import { useTranslation } from '../../utils/i18n';
 
+// PhysicsStats component
 export const PerformanceStats = () => {
+    const zenMode = usePhysicsStore(state => state.zenMode);
     const statsRef = useRef<HTMLDivElement>(null);
     const fpsRef = useRef(0);
     const lastTimeRef = useRef(performance.now());
@@ -10,6 +12,8 @@ export const PerformanceStats = () => {
     const { t, lang } = useTranslation();
 
     useEffect(() => {
+        if (zenMode) return;
+
         let animationFrameId: number;
 
         const loop = () => {
@@ -23,7 +27,7 @@ export const PerformanceStats = () => {
                 lastTimeRef.current = now;
             }
 
-            if (statsRef.current) {
+            if (statsRef.current && !zenMode) {
                 const { physicsDuration, bodyCount, mode, energy } = physicsStats;
                 const fps = fpsRef.current;
 
@@ -33,11 +37,18 @@ export const PerformanceStats = () => {
                 const driftText = (energy.drift * 100).toFixed(4) + '%';
                 const totalText = energy.total.toExponential(4);
 
+                // Correctly typed cameraPosition from the extended physicsStats object
+                const camPos = (physicsStats as any).cameraPosition || [0, 0, 0];
+                const camText = `[${Math.round(camPos[0])}, ${Math.round(camPos[1])}, ${Math.round(camPos[2])}]`;
+
                 // Direct DOM manipulation for minimal React overhead on high-frequency data
                 statsRef.current.innerHTML = `
                     <div style="font-weight: bold; margin-bottom: 4px;">${t('perf_stats')}</div>
                     <div style="display: flex; justify-content: space-between; gap: 12px;">
                         <span>${t('perf_fps')}:</span> <span style="color: ${fps < 30 ? '#ff4444' : '#44ff44'}">${fps}</span>
+                    </div>
+                    <div style="display: flex; justify-content: space-between;">
+                        <span>Cam:</span> <span style="font-family: monospace; color: #aaaaff;">${camText}</span>
                     </div>
                     <div style="display: flex; justify-content: space-between;">
                         <span>${t('perf_mode')}:</span> <span style="color: #44aaff">${mode}</span>
@@ -70,7 +81,9 @@ export const PerformanceStats = () => {
         return () => {
             cancelAnimationFrame(animationFrameId);
         };
-    }, [t, lang]);
+    }, [t, lang, zenMode]);
+
+    if (zenMode) return null;
 
     return (
         <div
@@ -79,8 +92,8 @@ export const PerformanceStats = () => {
                 position: 'absolute',
                 bottom: '250px',
                 left: '10px',
-                background: 'rgba(10, 10, 20, 0.8)',
-                backdropFilter: 'blur(8px)',
+                background: 'rgba(20, 30, 40, 0.1)', // More transparent
+                backdropFilter: 'blur(4px)', // Glass effect
                 padding: '12px',
                 borderRadius: '8px',
                 color: '#e0e0e0',
