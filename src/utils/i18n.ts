@@ -24,6 +24,9 @@ const translations = {
         show_grid: 'Show Grid & Axes',
         show_realistic: 'Show Realistic Textures',
         show_habitable: 'Show Habitable Zone',
+        show_hill_sphere: 'Show Hill Sphere',
+        show_gravity_field: 'Show Gravity Field',
+        show_lagrange_points: 'Show Lagrange Points',
         show_realistic_distances: 'Realistic Orbit Distances',
 
         // Camera
@@ -154,6 +157,9 @@ const translations = {
         show_grid: 'グリッドを表示',
         show_realistic: 'リアルなテクスチャを表示',
         show_habitable: 'ハビタブルゾーンを表示',
+        show_hill_sphere: 'ヒル球を表示',
+        show_gravity_field: '重力場を表示',
+        show_lagrange_points: 'ラグランジュ点を表示',
         show_realistic_distances: '軌道距離をリアル寄りにする',
 
         // Camera

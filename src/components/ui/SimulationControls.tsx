@@ -165,6 +165,17 @@ export const SimulationControls: React.FC = () => {
                     {t('show_realistic_distances')}
                 </label>
 
+                <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
+
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
+                    <input
+                        type="checkbox"
+                        checked={usePhysicsStore(state => state.showGravityField)}
+                        onChange={() => usePhysicsStore.getState().toggleGravityField()}
+                    />
+                    {t('show_gravity_field')}
+                </label>
                 <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
                     <input
                         type="checkbox"

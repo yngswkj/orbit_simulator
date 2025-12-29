@@ -9,6 +9,7 @@ import { usePhysicsLoop } from '../../hooks/usePhysicsLoop';
 import { OrbitPrediction } from './OrbitPrediction';
 import { DateDisplay } from '../ui/DateDisplay';
 import type { CelestialBody as BodyType } from '../../types/physics';
+import { GravityHeatmap } from './GravityHeatmap';
 
 // Helper to find the primary star (most massive star body)
 const findPrimaryStar = (bodies: BodyType[]): BodyType | undefined => {
@@ -299,6 +300,8 @@ const SimulationContent = () => {
             })}
 
             <OrbitPredictionWrapper />
+
+            <GravityHeatmap />
         </>
     );
 };
@@ -312,6 +315,7 @@ export const Scene = () => {
     const cameraMode = usePhysicsStore((state) => state.cameraMode);
     const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
     const isSurfaceLock = cameraMode === 'surface_lock';
+    const zenMode = usePhysicsStore((state) => state.zenMode);
 
     // Grid settings based on distance scale
     // Standard: 1AU=50 -> Grid 50
@@ -346,7 +350,7 @@ export const Scene = () => {
                     rotateSpeed={0.8}
                 />
 
-                {showGrid && !usePhysicsStore(state => state.zenMode) && (
+                {showGrid && !zenMode && (
                     <>
                         <Grid
                             infiniteGrid

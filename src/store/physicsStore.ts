@@ -72,6 +72,10 @@ interface PhysicsStore {
     toggleRealisticDistances: () => void;
     toggleZenMode: () => void;
 
+    // Gravity Visualization
+    showGravityField: boolean;
+    toggleGravityField: () => void;
+
     // Multithreading
     useMultithreading: boolean;
     useGPU: boolean;
@@ -124,6 +128,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     selectedBodyId: null,
     cameraMode: 'free',
     gpuDataInvalidated: true,
+    showGravityField: false,
 
     // Star System
     currentSystemId: 'solar-system',
@@ -177,7 +182,8 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             useMultithreading: !state.useMultithreading,
             useGPU: false, // Ensure GPU off
             physicsState: null,
-            gpuDataInvalidated: true
+            gpuDataInvalidated: true,
+            isCalculating: false // Reset in case we were stuck
         }));
     },
 
@@ -202,7 +208,8 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             useGPU: !state.useGPU,
             useMultithreading: false, // Ensure MT off
             physicsState: null,
-            gpuDataInvalidated: true // Force upload when switching
+            gpuDataInvalidated: true, // Force upload when switching
+            isCalculating: false // Reset in case we were stuck
         }));
     },
 
@@ -217,9 +224,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         // Velocity scaling: v = sqrt(GM/r), so when r -> r*factor, v -> v/sqrt(factor)
         const velocityFactor = 1 / Math.sqrt(factor);
 
-        // Auto-adjust time scale to keep visual pacing consistent
-        // If distances x4, periods x8. To make it look "same speed", we speed up time x8.
-        const newTimeScale = newScale ? 8.0 : 1.0;
+
 
         // Transform all body positions and velocities (except fixed bodies at origin)
         const scaledBodies = bodies.map(body => {
@@ -250,12 +255,15 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
         set({
             useRealisticDistances: newScale,
-            timeScale: newTimeScale,
+            // timeScale: newTimeScale, // Do NOT overwrite user setting. We handle scaling dynamically in updateBodies
             bodies: scaledBodies,
             physicsState: null,
             gpuDataInvalidated: true
         });
     },
+
+
+    toggleGravityField: () => set((state) => ({ showGravityField: !state.showGravityField })),
 
     addBody: (body) => {
         const { bodies } = get();
@@ -288,7 +296,15 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         if ((useMultithreading || useGPU) && isCalculating) return;
 
         const start = performance.now();
-        const dt = BASE_DT * timeScale;
+
+
+
+        // Correction: We actually want this applied regardless of CPU/GPU IF we want visual parity.
+        // However, GPU/Worker might need dt passed explicitly.
+        // Wait, 'useRealisticDistances' is state.
+        const distModeMultiplier = get().useRealisticDistances ? 8.0 : 1.0;
+
+        const dt = BASE_DT * timeScale * distModeMultiplier;
 
         // Energy Calculation (Throttled 1Hz)
         const now = performance.now();
@@ -401,28 +417,33 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                 collisions.push(...pairs);
             };
 
-            await workerMgr.executeStep(bodies.length, dt);
+            try {
+                await workerMgr.executeStep(bodies.length, dt);
 
-            const workerState = workerMgr.getPhysicsState(bodies.length);
-            workerState.ids = bodies.map(b => b.id);
-            let nextBodies = syncStateToBodies(workerState, bodies);
+                const workerState = workerMgr.getPhysicsState(bodies.length);
+                workerState.ids = bodies.map(b => b.id);
+                let nextBodies = syncStateToBodies(workerState, bodies);
 
-            // Resolve Collisions (CPU Main Thread)
-            if (collisions.length > 0) {
-                const { bodies: resolvedBodies, hasRemovals } = applyCollisions(nextBodies, collisions);
-                nextBodies = resolvedBodies;
+                // Resolve Collisions (CPU Main Thread)
+                if (collisions.length > 0) {
+                    const { bodies: resolvedBodies, hasRemovals } = applyCollisions(nextBodies, collisions);
+                    nextBodies = resolvedBodies;
 
-                if (hasRemovals) {
-                    set({ physicsState: null });
+                    if (hasRemovals) {
+                        set({ physicsState: null });
+                    }
                 }
-            }
 
-            set({
-                bodies: nextBodies,
-                physicsState: workerState,
-                simulationTime: simulationTime + dt,
-                isCalculating: false
-            });
+                set({
+                    bodies: nextBodies,
+                    physicsState: workerState,
+                    simulationTime: simulationTime + dt,
+                    isCalculating: false
+                });
+            } catch (e) {
+                console.warn("Worker Step Failed / Terminated", e);
+                set({ isCalculating: false, useMultithreading: false });
+            }
 
 
         } else {
@@ -592,6 +613,9 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             simulationTime: 0,
             gpuDataInvalidated: true,
             resetToken: resetToken + 1,
+            // Reset visualization states
+
+            showGravityField: false,
             // We don't touch followingBodyId/cameraMode here, relying on ID preservation.
         });
     }

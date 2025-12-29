@@ -70,6 +70,9 @@ self.onmessage = (e: MessageEvent) => {
         syncCounter = new Int32Array(sharedBuffer, offset, 2);
 
         console.log(`Worker ${workerId} initialized.`);
+
+        // Notify manager that initialization is complete
+        self.postMessage({ type: 'initDone', workerId });
     }
 
     if (type === 'step') {

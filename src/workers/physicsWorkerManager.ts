@@ -65,13 +65,30 @@ export class PhysicsWorkerManager {
     }
 
     public onCollision: ((pairs: [number, number][]) => void) | null = null;
+    private initialized: boolean = false;
+    private initPromise: Promise<void> | null = null;
+    private pendingReject: ((reason?: any) => void) | null = null;
 
     public initWorkers(): void {
         if (!this.isSupported) return;
+        if (this.initialized || this.initPromise) return;
+
+        const initPromises: Promise<void>[] = [];
 
         for (let i = 0; i < this.workerCount; i++) {
             const worker = new Worker(new URL('./physics.worker.ts', import.meta.url), {
                 type: 'module'
+            });
+
+            // Wait for worker to confirm initialization
+            const initPromise = new Promise<void>((resolve) => {
+                const handler = (e: MessageEvent) => {
+                    if (e.data.type === 'initDone') {
+                        worker.removeEventListener('message', handler);
+                        resolve();
+                    }
+                };
+                worker.addEventListener('message', handler);
             });
 
             worker.postMessage({
@@ -83,16 +100,31 @@ export class PhysicsWorkerManager {
             });
 
             this.workers.push(worker);
+            initPromises.push(initPromise);
+        }
+
+        // Store promise so we can await it before executeStep
+        this.initPromise = Promise.all(initPromises).then(() => {
+            this.initialized = true;
+        });
+    }
+
+    public async waitForInit(): Promise<void> {
+        if (this.initPromise) {
+            await this.initPromise;
         }
     }
 
-    public executeStep(count: number, dt: number): Promise<void> {
-        if (!this.isSupported) return Promise.resolve();
+    public async executeStep(count: number, dt: number): Promise<void> {
+        if (!this.isSupported) return;
+
+        // Wait for workers to be initialized
+        await this.waitForInit();
 
         Atomics.store(this.syncCounter, 0, 0);
 
-        const promises = this.workers.map(worker =>
-            new Promise<void>((resolve) => {
+        const stepPromise = Promise.all(this.workers.map(worker =>
+            new Promise<void>((resolve, reject) => {
                 const handler = (e: MessageEvent) => {
                     if (e.data.type === 'done') {
                         worker.removeEventListener('message', handler);
@@ -111,9 +143,15 @@ export class PhysicsWorkerManager {
                     dt
                 });
             })
-        );
+        )).then(() => {
+            this.pendingReject = null;
+        });
 
-        return Promise.all(promises).then(() => { });
+        // Allow external rejection (termination)
+        return new Promise<void>((resolve, reject) => {
+            this.pendingReject = reject;
+            stepPromise.then(resolve).catch(reject);
+        });
     }
 
     public calculateEnergy(count: number): Promise<number> {
@@ -133,8 +171,14 @@ export class PhysicsWorkerManager {
     }
 
     public terminate(): void {
+        if (this.pendingReject) {
+            this.pendingReject(new Error('WorkerManager terminated'));
+            this.pendingReject = null;
+        }
         this.workers.forEach(w => w.terminate());
         this.workers = [];
+        this.initialized = false;
+        this.initPromise = null;
     }
 
     public setBodies(bodies: any[]): void {

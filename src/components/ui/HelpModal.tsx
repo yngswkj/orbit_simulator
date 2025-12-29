@@ -107,54 +107,20 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                         flexShrink: 0,
                         overflowX: isMobile ? 'auto' : 'hidden' // Scroll tabs horizontally if needed
                     }}>
-                        <button
+                        <TabButton
+                            active={activeTab === 'controls'}
                             onClick={() => setActiveTab('controls')}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px',
-                                padding: isMobile ? '12px 16px' : '10px 20px',
-                                width: isMobile ? 'auto' : '100%',
-                                flex: isMobile ? 1 : 'none',
-                                justifyContent: isMobile ? 'center' : 'flex-start',
-                                background: activeTab === 'controls' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                                border: 'none',
-                                borderLeft: (!isMobile && activeTab === 'controls') ? '3px solid #3b82f6' : '3px solid transparent',
-                                borderBottom: (isMobile && activeTab === 'controls') ? '3px solid #3b82f6' : '3px solid transparent',
-                                color: activeTab === 'controls' ? '#3b82f6' : '#94a3b8',
-                                cursor: 'pointer',
-                                fontSize: '0.9rem',
-                                transition: 'all 0.2s',
-                                whiteSpace: 'nowrap'
-                            }}
-                        >
-                            <Mouse size={16} />
-                            {t('controls_header')}
-                        </button>
-                        <button
+                            icon={<Mouse size={16} />}
+                            label={t('controls_header')}
+                            isMobile={isMobile}
+                        />
+                        <TabButton
+                            active={activeTab === 'changelog'}
                             onClick={() => setActiveTab('changelog')}
-                            style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '10px',
-                                padding: isMobile ? '12px 16px' : '10px 20px',
-                                width: isMobile ? 'auto' : '100%',
-                                flex: isMobile ? 1 : 'none',
-                                justifyContent: isMobile ? 'center' : 'flex-start',
-                                background: activeTab === 'changelog' ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
-                                border: 'none',
-                                borderLeft: (!isMobile && activeTab === 'changelog') ? '3px solid #3b82f6' : '3px solid transparent',
-                                borderBottom: (isMobile && activeTab === 'changelog') ? '3px solid #3b82f6' : '3px solid transparent',
-                                color: activeTab === 'changelog' ? '#3b82f6' : '#94a3b8',
-                                cursor: 'pointer',
-                                fontSize: '0.9rem',
-                                transition: 'all 0.2s',
-                                whiteSpace: 'nowrap'
-                            }}
-                        >
-                            <History size={16} />
-                            {t('changelog_header')}
-                        </button>
+                            icon={<History size={16} />}
+                            label={t('changelog_header')}
+                            isMobile={isMobile}
+                        />
 
                         {!isMobile && <div style={{ flex: 1 }} />} {/* Spacer only for desktop */}
 
@@ -203,265 +169,30 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
 
                         {activeTab === 'changelog' && (
                             <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                {/* v0.4.0 */}
-                                <div>
-                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {t('cl_v0_4_0_title')}
-                                        <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'normal' }}>Current</span>
-                                    </h4>
-                                    <div style={{
-                                        background: 'rgba(255,255,255,0.02)',
-                                        borderRadius: '8px',
-                                        padding: '16px',
-                                        border: '1px solid rgba(255,255,255,0.05)'
-                                    }}>
-                                        <ul style={{ paddingLeft: '20px', margin: 0, color: '#e2e8f0', lineHeight: 1.8, fontSize: '0.9rem' }}>
-                                            <li style={{ marginBottom: '8px' }}>
-                                                <span style={{
-                                                    color: '#3b82f6',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>改善</span>
-                                                {t('cl_item_compact')}
-                                            </li>
-                                            <li style={{ marginBottom: '8px' }}>
-                                                <span style={{
-                                                    color: '#10b981',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>新機能</span>
-                                                {t('cl_item_zen')}
-                                            </li>
-                                            <li>
-                                                <span style={{
-                                                    color: '#f59e0b',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>技術</span>
-                                                {t('cl_item_ui')}
-                                            </li>
-                                            <li>
-                                                <span style={{
-                                                    color: '#10b981',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>新機能</span>
-                                                {t('cl_item_gallery')}
-                                            </li>
-                                        </ul>
+                                {getChangelogData(t).map((log, index) => (
+                                    <div key={log.version}>
+                                        <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: log.isCurrent ? '#10b981' : '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                            {log.title || `v${log.version}`}
+                                            {log.isCurrent && <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'normal' }}>Current</span>}
+                                        </h4>
+                                        <div style={{
+                                            background: 'rgba(255,255,255,0.02)',
+                                            borderRadius: '8px',
+                                            padding: '16px',
+                                            border: '1px solid rgba(255,255,255,0.05)',
+                                            opacity: index > 2 ? 0.7 : 1
+                                        }}>
+                                            <ul style={{ paddingLeft: '20px', margin: 0, color: '#e2e8f0', lineHeight: 1.8, fontSize: '0.9rem' }}>
+                                                {log.changes.map((change, i) => (
+                                                    <li key={i} style={{ marginBottom: i === log.changes.length - 1 ? 0 : '8px' }}>
+                                                        <ChangeBadge type={change.type} />
+                                                        {change.content}
+                                                    </li>
+                                                ))}
+                                            </ul>
+                                        </div>
                                     </div>
-                                </div>
-                                {/* v0.3.0 */}
-                                <div>
-                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {t('cl_v0_3_0_title')}
-                                    </h4>
-                                    <div style={{
-                                        background: 'rgba(255,255,255,0.02)',
-                                        borderRadius: '8px',
-                                        padding: '16px',
-                                        border: '1px solid rgba(255,255,255,0.05)'
-                                    }}>
-                                        <ul style={{ paddingLeft: '20px', margin: 0, color: '#e2e8f0', lineHeight: 1.8, fontSize: '0.9rem' }}>
-                                            <li style={{ marginBottom: '8px' }}>
-                                                <span style={{
-                                                    color: '#3b82f6',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>改善</span>
-                                                {t('cl_item_energy')}
-                                            </li>
-                                            <li style={{ marginBottom: '8px' }}>
-                                                <span style={{
-                                                    color: '#10b981',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>新機能</span>
-                                                {t('cl_item_hybrid')}
-                                            </li>
-                                            <li>
-                                                <span style={{
-                                                    color: '#f59e0b',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>技術</span>
-                                                {t('cl_item_cleanup')}
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                <div>
-                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: '#10b981', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        {t('cl_v0_2_1_title')}
-                                        <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'normal' }}>Current</span>
-                                    </h4>
-                                    <div style={{
-                                        background: 'rgba(255,255,255,0.02)',
-                                        borderRadius: '8px',
-                                        padding: '16px',
-                                        border: '1px solid rgba(255,255,255,0.05)'
-                                    }}>
-                                        <ul style={{ paddingLeft: '20px', margin: 0, color: '#e2e8f0', lineHeight: 1.8, fontSize: '0.9rem' }}>
-                                            <li style={{ marginBottom: '8px' }}>
-                                                <span style={{
-                                                    color: '#3b82f6',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>改善</span>
-                                                {t('cl_item_surface')}
-                                            </li>
-                                            <li style={{ marginBottom: '8px' }}>
-                                                <span style={{
-                                                    color: '#10b981',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>新機能</span>
-                                                {t('cl_item_perf')}
-                                            </li>
-                                            <li>
-                                                <span style={{
-                                                    color: '#f59e0b',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>技術</span>
-                                                {t('cl_item_physics')}
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
-                                <div>
-                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        v0.2.0
-                                    </h4>
-                                    <div style={{
-                                        background: 'rgba(255,255,255,0.02)',
-                                        borderRadius: '8px',
-                                        padding: '16px',
-                                        border: '1px solid rgba(255,255,255,0.05)'
-                                    }}>
-                                        <ul style={{ paddingLeft: '20px', margin: 0, color: '#e2e8f0', lineHeight: 1.8, fontSize: '0.9rem' }}>
-                                            <li style={{ marginBottom: '8px' }}>
-                                                <span style={{
-                                                    color: '#3b82f6',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>改善</span>
-                                                惑星自転の精密化 (地球を基準とした1日1回転の正確な同期)
-                                            </li>
-                                            <li style={{ marginBottom: '8px' }}>
-                                                <span style={{
-                                                    color: '#10b981',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(16, 185, 129, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>新機能</span>
-                                                シミュレーション日付の表示 (経過日数・年数)
-                                            </li>
-                                            <li style={{ marginBottom: '8px' }}>
-                                                <span style={{
-                                                    color: '#a855f7',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(168, 85, 247, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>修正</span>
-                                                カメラ初期位置と距離感の再調整・初期状態の同期修正
-                                            </li>
-                                            <li>
-                                                <span style={{
-                                                    color: '#f59e0b',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(245, 158, 11, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>技術</span>
-                                                WebGPU安定性の向上 (バッファ競合回避による安全性確保)
-                                            </li>
-                                        </ul>
-                                    </div>
-                                </div>
-
-                                {/* v0.1.0 */}
-                                <div>
-                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                        v0.1.0
-                                    </h4>
-                                    <div style={{
-                                        background: 'rgba(255,255,255,0.02)',
-                                        borderRadius: '8px',
-                                        padding: '16px',
-                                        border: '1px solid rgba(255,255,255,0.05)',
-                                        opacity: 0.7
-                                    }}>
-                                        <ul style={{ paddingLeft: '20px', margin: 0, color: '#e2e8f0', lineHeight: 1.8, fontSize: '0.9rem' }}>
-                                            <li style={{ marginBottom: '8px' }}>
-                                                <span style={{
-                                                    color: '#3b82f6',
-                                                    fontWeight: 'bold',
-                                                    fontSize: '0.75rem',
-                                                    border: '1px solid rgba(59, 130, 246, 0.3)',
-                                                    padding: '1px 4px',
-                                                    borderRadius: '4px',
-                                                    marginRight: '8px'
-                                                }}>新機能</span>
-                                                地表視点モード・軌道固定視点モード
-                                            </li>
-                                            <li>パフォーマンス最適化 (Barnes-Hut, WebWorker, WebGPU準備)</li>
-                                            <li>UI改善 (ヘルプモーダル・操作ガイド)</li>
-                                        </ul>
-                                    </div>
-                                </div>
+                                ))}
                             </div>
                         )}
                     </div>
@@ -471,6 +202,35 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
         document.body
     );
 };
+
+// --- Sub Components ---
+
+const TabButton = ({ active, onClick, icon, label, isMobile }: { active: boolean, onClick: () => void, icon: React.ReactNode, label: string, isMobile: boolean }) => (
+    <button
+        onClick={onClick}
+        style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '10px',
+            padding: isMobile ? '12px 16px' : '10px 20px',
+            width: isMobile ? 'auto' : '100%',
+            flex: isMobile ? 1 : 'none',
+            justifyContent: isMobile ? 'center' : 'flex-start',
+            background: active ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+            border: 'none',
+            borderLeft: (!isMobile && active) ? '3px solid #3b82f6' : '3px solid transparent',
+            borderBottom: (isMobile && active) ? '3px solid #3b82f6' : '3px solid transparent',
+            color: active ? '#3b82f6' : '#94a3b8',
+            cursor: 'pointer',
+            fontSize: '0.9rem',
+            transition: 'all 0.2s',
+            whiteSpace: 'nowrap'
+        }}
+    >
+        {icon}
+        {label}
+    </button>
+);
 
 const ControlItem = ({ icon, label, desc }: { icon: React.ReactNode, label: string, desc: string }) => (
     <div style={{
@@ -493,3 +253,105 @@ const ControlItem = ({ icon, label, desc }: { icon: React.ReactNode, label: stri
         </div>
     </div>
 );
+
+// --- Changelog Data & types ---
+
+type ChangeType = 'new' | 'improve' | 'fix' | 'remove' | 'tech' | 'none';
+
+interface ChangeItemData {
+    type: ChangeType;
+    content: string;
+}
+
+interface VersionLog {
+    version: string;
+    title?: string;
+    isCurrent?: boolean;
+    changes: ChangeItemData[];
+}
+
+const ChangeBadge = ({ type }: { type: ChangeType }) => {
+    if (type === 'none') return null;
+
+    let color = '#94a3b8';
+    let label = 'Other';
+
+    switch (type) {
+        case 'new': color = '#10b981'; label = '新機能'; break;
+        case 'improve': color = '#3b82f6'; label = '改善'; break;
+        case 'fix': color = '#a855f7'; label = '修正'; break;
+        case 'remove': color = '#ef4444'; label = '削除'; break;
+        case 'tech': color = '#f59e0b'; label = '技術'; break;
+    }
+
+    return (
+        <span style={{
+            color: color,
+            fontWeight: 'bold',
+            fontSize: '0.75rem',
+            border: `1px solid ${color}4d`, // 30% alpha roughly
+            padding: '1px 4px',
+            borderRadius: '4px',
+            marginRight: '8px'
+        }}>
+            {label}
+        </span>
+    );
+};
+
+const getChangelogData = (t: any): VersionLog[] => [
+    {
+        version: '0.4.1',
+        isCurrent: true,
+        changes: [
+            { type: 'improve', content: 'リアル距離モードの時間進行速度調整 (8倍速)' },
+            { type: 'new', content: '重力場を表示する機能' },
+            { type: 'fix', content: 'グリッド表示切り替え時のエラー修正' }
+        ]
+    },
+    {
+        version: '0.4.0',
+        title: t('cl_v0_4_0_title'),
+        changes: [
+            { type: 'improve', content: t('cl_item_compact') },
+            { type: 'new', content: t('cl_item_zen') },
+            { type: 'tech', content: t('cl_item_ui') },
+            { type: 'new', content: t('cl_item_gallery') }
+        ]
+    },
+    {
+        version: '0.3.0',
+        title: t('cl_v0_3_0_title'),
+        changes: [
+            { type: 'improve', content: t('cl_item_energy') },
+            { type: 'new', content: t('cl_item_hybrid') },
+            { type: 'tech', content: t('cl_item_cleanup') }
+        ]
+    },
+    {
+        version: '0.2.1',
+        title: t('cl_v0_2_1_title'),
+        changes: [
+            { type: 'improve', content: t('cl_item_surface') },
+            { type: 'new', content: t('cl_item_perf') },
+            { type: 'tech', content: t('cl_item_physics') }
+        ]
+    },
+    {
+        version: '0.2.0',
+        changes: [
+            { type: 'improve', content: '惑星自転の精密化 (地球を基準とした1日1回転の正確な同期)' },
+            { type: 'new', content: 'シミュレーション日付の表示 (経過日数・年数)' },
+            { type: 'fix', content: 'カメラ初期位置と距離感の再調整・初期状態の同期修正' },
+            { type: 'tech', content: 'WebGPU安定性の向上 (バッファ競合回避による安全性確保)' }
+        ]
+    },
+    {
+        version: '0.1.0',
+        changes: [
+            { type: 'new', content: '地表視点モード・軌道固定視点モード' },
+            { type: 'none', content: 'パフォーマンス最適化 (Barnes-Hut, WebWorker, WebGPU準備)' },
+            { type: 'none', content: 'UI改善 (ヘルプモーダル・操作ガイド)' }
+        ]
+    }
+];
