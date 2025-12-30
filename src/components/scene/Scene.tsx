@@ -10,6 +10,10 @@ import { OrbitPrediction } from './OrbitPrediction';
 import { DateDisplay } from '../ui/DateDisplay';
 import type { CelestialBody as BodyType } from '../../types/physics';
 import { GravityHeatmap } from './GravityHeatmap';
+import { calculateSingleStarHZ } from '../../utils/habitableZone';
+import { HabitableZoneMap } from './HabitableZoneMap';
+import { TidalDisruptionEffect } from '../effects/TidalDisruptionEffect';
+import { ShockwaveEffect } from '../effects/ShockwaveEffect';
 
 // Helper to find the primary star (most massive star body)
 const findPrimaryStar = (bodies: BodyType[]): BodyType | undefined => {
@@ -268,6 +272,10 @@ const SimulationContent = () => {
     const bodies = usePhysicsStore((state) => state.bodies);
     const showHabitableZone = usePhysicsStore((state) => state.showHabitableZone);
     const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
+    const tidallyDisruptedEvents = usePhysicsStore((state) => state.tidallyDisruptedEvents);
+    const removeTidalDisruptionEvent = usePhysicsStore((state) => state.removeTidalDisruptionEvent);
+    const collisionEvents = usePhysicsStore((state) => state.collisionEvents);
+    const removeCollisionEvent = usePhysicsStore((state) => state.removeCollisionEvent);
 
     // Find all stars and determine if we should show habitable zone
     // Only show for single-star systems (multi-star habitable zones are complex)
@@ -275,10 +283,13 @@ const SimulationContent = () => {
     const isSingleStarSystem = stars.length === 1;
     const primaryStar = isSingleStarSystem ? stars[0] : undefined;
 
-    // Habitable zone distances (0.95 AU to 1.4 AU)
+    // Habitable zone distances (using dynamic calculation)
     const scale = useRealisticDistances ? DISTANCE_SCALES.REALISTIC.AU_UNIT : DISTANCE_SCALES.COMPRESSED.AU_UNIT;
-    const habitableInner = 0.95 * scale;
-    const habitableOuter = 1.4 * scale;
+
+    const habitableZone = React.useMemo(() => {
+        if (!primaryStar) return null;
+        return calculateSingleStarHZ(primaryStar, scale);
+    }, [primaryStar, scale]);
 
     return (
         <>
@@ -288,12 +299,46 @@ const SimulationContent = () => {
 
             <Stars radius={300} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
 
-            {showHabitableZone && primaryStar && (
+            {showHabitableZone && habitableZone && primaryStar && (
                 <mesh position={[primaryStar.position.x, primaryStar.position.y, primaryStar.position.z]} rotation={[-Math.PI / 2, 0, 0]}>
-                    <ringGeometry args={[habitableInner, habitableOuter, 64]} />
-                    <meshBasicMaterial color="#44ff44" opacity={0.15} transparent side={2} />
+                    <ringGeometry args={[habitableZone.inner, habitableZone.outer, 64]} />
+                    <meshBasicMaterial color="#22aa44" opacity={0.15} transparent side={THREE.DoubleSide} />
                 </mesh>
             )}
+
+            <HabitableZoneMap />
+
+            {tidallyDisruptedEvents.map(event => {
+                const primary = bodies.find(b => b.id === event.primaryId);
+                const body = bodies.find(b => b.id === event.bodyId);
+                // Fallbacks if body is already gone
+                const primaryPos = primary ? primary.position : new THREE.Vector3(0, 0, 0);
+                const radius = body ? body.radius : 10;
+                const color = body ? body.color : '#aaaaaa';
+
+                return (
+                    <TidalDisruptionEffect
+                        key={event.bodyId + '_' + event.startTime}
+                        position={new THREE.Vector3(event.position.x, event.position.y, event.position.z)}
+                        primaryPosition={new THREE.Vector3(primaryPos.x, primaryPos.y, primaryPos.z)}
+                        bodyRadius={radius}
+                        bodyColor={color}
+                        startTime={event.startTime}
+                        duration={event.duration}
+                        onComplete={() => removeTidalDisruptionEvent(event.bodyId)}
+                    />
+                );
+            })}
+
+            {collisionEvents.map(event => (
+                <ShockwaveEffect
+                    key={event.id}
+                    position={new THREE.Vector3(event.position.x, event.position.y, event.position.z)}
+                    startTime={event.startTime}
+                    color={event.color}
+                    onComplete={() => removeCollisionEvent(event.id)}
+                />
+            ))}
 
             {bodies.map((body) => {
                 return <CelestialBody key={body.id} body={body} />;

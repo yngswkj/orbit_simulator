@@ -1,7 +1,9 @@
 import { create } from 'zustand';
-import type { CelestialBody, SimulationState, CameraMode, PhysicsState } from '../types/physics';
+import type { CelestialBody, SimulationState, CameraMode, PhysicsState, TidalDisruptionEvent, CollisionEvent } from '../types/physics';
 import type { StarSystemMode } from '../types/starSystem';
 import { updatePhysicsSoA, createPhysicsState, syncStateToBodies, BASE_DT, calculateTotalEnergy, applyCollisions } from '../utils/physics';
+import { checkRocheLimit } from '../utils/rocheLimit';
+
 import { Vector3 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { createSolarSystem } from '../utils/solarSystem';
@@ -93,6 +95,14 @@ interface PhysicsStore {
 
     addBody: (body: Omit<CelestialBody, 'id'>) => void;
     removeBody: (id: string) => void;
+    // Destruction Events
+    tidallyDisruptedEvents: TidalDisruptionEvent[];
+    collisionEvents: CollisionEvent[];
+    addTidalDisruptionEvent: (event: TidalDisruptionEvent) => void;
+    removeTidalDisruptionEvent: (bodyId: string) => void;
+    addCollisionEvent: (event: CollisionEvent) => void;
+    removeCollisionEvent: (eventId: string) => void;
+
     updateBodies: () => void;
     loadSolarSystem: () => void;
     setSimulationState: (state: SimulationState) => void;
@@ -129,6 +139,9 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     cameraMode: 'free',
     gpuDataInvalidated: true,
     showGravityField: false,
+
+    tidallyDisruptedEvents: [],
+    collisionEvents: [],
 
     // Star System
     currentSystemId: 'solar-system',
@@ -263,6 +276,22 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     },
 
 
+    addTidalDisruptionEvent: (event) => set((state) => ({
+        tidallyDisruptedEvents: [...state.tidallyDisruptedEvents, event]
+    })),
+
+    removeTidalDisruptionEvent: (bodyId) => set((state) => ({
+        tidallyDisruptedEvents: state.tidallyDisruptedEvents.filter(e => e.bodyId !== bodyId)
+    })),
+
+    addCollisionEvent: (event) => set((state) => ({
+        collisionEvents: [...state.collisionEvents, event]
+    })),
+
+    removeCollisionEvent: (eventId) => set((state) => ({
+        collisionEvents: state.collisionEvents.filter(e => e.id !== eventId)
+    })),
+
     toggleGravityField: () => set((state) => ({ showGravityField: !state.showGravityField })),
 
     addBody: (body) => {
@@ -378,8 +407,20 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                     const collisions = await navGPU.getCollisions();
 
                     if (collisions && collisions.length > 0) {
-                        const { bodies: resolvedBodies, hasRemovals } = applyCollisions(nextBodies, collisions);
+                        const { bodies: resolvedBodies, hasRemovals, events } = applyCollisions(nextBodies, collisions);
                         nextBodies = resolvedBodies;
+
+                        // Dispatch events
+                        if (events && events.length > 0) {
+                            events.forEach(e => {
+                                get().addCollisionEvent({
+                                    id: uuidv4(),
+                                    position: e.position,
+                                    color: e.color,
+                                    startTime: performance.now()
+                                });
+                            });
+                        }
 
                         if (hasRemovals) {
                             set({ physicsState: null, gpuDataInvalidated: true });
@@ -426,8 +467,19 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
                 // Resolve Collisions (CPU Main Thread)
                 if (collisions.length > 0) {
-                    const { bodies: resolvedBodies, hasRemovals } = applyCollisions(nextBodies, collisions);
+                    const { bodies: resolvedBodies, hasRemovals, events } = applyCollisions(nextBodies, collisions);
                     nextBodies = resolvedBodies;
+
+                    if (events && events.length > 0) {
+                        events.forEach(e => {
+                            get().addCollisionEvent({
+                                id: uuidv4(),
+                                position: e.position,
+                                color: e.color,
+                                startTime: performance.now()
+                            });
+                        });
+                    }
 
                     if (hasRemovals) {
                         set({ physicsState: null });
@@ -459,7 +511,60 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                 updatePhysicsSoA(currentState, stepDt, false, true);
             }
 
-            const nextBodies = syncStateToBodies(currentState, bodies);
+            let nextBodies = syncStateToBodies(currentState, bodies);
+
+            // Roche Limit Check (CPU only for Phase 1 verification)
+            // Naive O(N^2) check, but optimized: only check if distance is reasonably close
+            // and only for pairs involving a massive body (Star/Gas Giant)
+            const massiveBodies = nextBodies.filter(b => b.mass > 1000); // Threshold for primary
+            const disruptedIds = new Set<string>();
+
+            for (const primary of massiveBodies) {
+                for (const other of nextBodies) {
+                    if (primary.id === other.id) continue;
+                    if (other.isStar) continue; // Stars don't get disrupted by other stars in this sim
+                    if (disruptedIds.has(other.id)) continue;
+                    if (other.isBeingDestroyed) continue; // Already dying
+
+                    const dx = primary.position.x - other.position.x;
+                    const dy = primary.position.y - other.position.y;
+                    const dz = primary.position.z - other.position.z;
+                    const distSq = dx * dx + dy * dy + dz * dz;
+
+                    // Quick pre-check: 1000 units
+                    if (distSq > 1000000) continue;
+
+                    const result = checkRocheLimit(primary, other);
+                    if (result) {
+                        // Trigger Disruption
+                        const event: TidalDisruptionEvent = {
+                            bodyId: other.id,
+                            primaryId: primary.id,
+                            position: { x: other.position.x, y: other.position.y, z: other.position.z },
+                            startTime: performance.now(),
+                            duration: 5000
+                        };
+
+                        get().addTidalDisruptionEvent(event);
+
+                        // Mark as being destroyed
+                        other.isBeingDestroyed = true;
+                        other.destructionStartTime = performance.now();
+                        disruptedIds.add(other.id);
+                    }
+                }
+            }
+
+            // If any bodies started destruction, update them
+            if (disruptedIds.size > 0) {
+                nextBodies = nextBodies.map(b => disruptedIds.has(b.id) ? { ...b, isBeingDestroyed: true, destructionStartTime: performance.now() } : b);
+            }
+
+            // Remove bodies that have finished destruction (simple timeout for simplicity in this phase)
+            // Or rely on Scene to show effect and then we remove it?
+            // For now, let's keep them 'isBeingDestroyed' and maybe handle removal later.
+            // Actually, if we want them to disappear, we should remove them or stop simulating them.
+            // Let's just keep them for now, the effect will overlay.
 
             set({
                 bodies: nextBodies,

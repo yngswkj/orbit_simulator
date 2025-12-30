@@ -13,6 +13,11 @@ export interface CelestialBody {
   isStar?: boolean; // For star objects (affects rendering glow)
   axialTilt?: number; // In degrees
   rotationSpeed?: number; // Multiplier relative to Earth (1.0)
+
+  // Phase 2: Destruction State
+  isBeingDestroyed?: boolean;
+  destructionProgress?: number; // 0-1
+  destructionStartTime?: number;
 }
 
 export type SimulationState = 'running' | 'paused';
@@ -35,4 +40,20 @@ export interface PhysicsState {
   ids: string[];
   // Map entity ID to internal index
   idToIndex: Map<string, number>;
+}
+
+// 破壊イベント
+export interface TidalDisruptionEvent {
+  bodyId: string;
+  primaryId: string;
+  position: { x: number; y: number; z: number };
+  startTime: number;
+  duration: number;
+}
+
+export interface CollisionEvent {
+  id: string;
+  position: { x: number; y: number; z: number };
+  startTime: number;
+  color: string;
 }

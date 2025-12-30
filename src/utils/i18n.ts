@@ -137,6 +137,12 @@ const translations = {
 
         // Time
         time_scale: 'Time Scale',
+
+        // Habitable Zone
+        habitable_zone_multi_star: 'Multi-Star Habitable Zone',
+        hz_cold: 'Too Cold',
+        hz_habitable: 'Habitable',
+        hz_hot: 'Too Hot',
     },
     ja: {
         // App
@@ -274,6 +280,12 @@ const translations = {
 
         // Time
         time_scale: '時間スケール',
+
+        // Habitable Zone
+        habitable_zone_multi_star: '連星系ハビタブルゾーン',
+        hz_cold: '寒冷域',
+        hz_habitable: 'ハビタブル',
+        hz_hot: '高温域',
     }
 };
 

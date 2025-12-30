@@ -340,9 +340,10 @@ export const calculateTotalEnergy = (bodies: CelestialBody[]): { kinetic: number
 export const applyCollisions = (
     bodies: CelestialBody[],
     collisions: [number, number][]
-): { bodies: CelestialBody[], hasRemovals: boolean } => {
+): { bodies: CelestialBody[], hasRemovals: boolean, events: { position: Vector3, color: string }[] } => {
     let nextBodies = [...bodies];
     const removals = new Set<number>();
+    const events: { position: Vector3, color: string }[] = [];
 
     collisions.forEach(([i, j]) => {
         if (removals.has(i) || removals.has(j)) return;
@@ -368,6 +369,12 @@ export const applyCollisions = (
         // Volume Conservation (approx): r = cbrt(r1^3 + r2^3)
         const newRadius = Math.cbrt(Math.pow(b1.radius, 3) + Math.pow(b2.radius, 3));
 
+        // Record collision event
+        events.push({
+            position: newPos.clone(), // Use new position (center of mass)
+            color: b1.mass > b2.mass ? b1.color : b2.color // Use dominant color
+        });
+
         // Update 'i' (keep ID of b1 for stability, or create new?)
         // Keeping b1's metadata is usually better.
         nextBodies[i] = {
@@ -384,8 +391,8 @@ export const applyCollisions = (
 
     if (removals.size > 0) {
         nextBodies = nextBodies.filter((_, idx) => !removals.has(idx));
-        return { bodies: nextBodies, hasRemovals: true };
+        return { bodies: nextBodies, hasRemovals: true, events };
     }
 
-    return { bodies: nextBodies, hasRemovals: false };
+    return { bodies: nextBodies, hasRemovals: false, events: [] };
 };
