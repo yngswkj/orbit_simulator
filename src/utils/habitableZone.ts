@@ -3,22 +3,45 @@
  * Calculates the habitable zone (liquid water region) around stars
  */
 
-const sqrtL = Math.sqrt(luminosity);
+import { SOLAR_CONSTANTS } from '../constants/physics';
+import type { CelestialBody } from '../types/physics';
 
-return {
-    inner: sqrtL * SOLAR_CONSTANTS.HZ_INNER_AU * auScale,
-    outer: sqrtL * SOLAR_CONSTANTS.HZ_OUTER_AU * auScale,
-};
+/**
+ * Calculate stellar luminosity from mass using mass-luminosity relation
+ * For main sequence stars: L ∝ M^3.5
+ * @param starMass Star mass in simulation units
+ * @returns Luminosity relative to the Sun
+ */
+export const calculateLuminosity = (starMass: number): number => {
+    const solarMassRatio = starMass / SOLAR_CONSTANTS.SOLAR_MASS;
+    return Math.pow(Math.max(solarMassRatio, 0.001), SOLAR_CONSTANTS.MASS_LUMINOSITY_EXPONENT);
 };
 
 /**
+ * Calculate habitable zone boundaries for a single star
+ * @param star The star body
+ * @param auScale Scale factor (simulation units per AU)
+ * @returns Inner and outer boundary distances in simulation units
+ */
+export const calculateSingleStarHZ = (
+    star: CelestialBody,
+    auScale: number
+): { inner: number; outer: number } => {
+    const luminosity = calculateLuminosity(star.mass);
+    const sqrtL = Math.sqrt(luminosity);
+
+    return {
+        inner: sqrtL * SOLAR_CONSTANTS.HZ_INNER_AU * auScale,
+        outer: sqrtL * SOLAR_CONSTANTS.HZ_OUTER_AU * auScale,
+    };
+};
+
 /**
  * Calculate radiation flux at a specific point from multiple stars
  * @param x X coordinate
  * @param z Z coordinate
  * @param stars Array of star bodies
  * @returns Total radiation flux (arbitrary units, normalized later)
- */
  */
 export const calculateFluxAt = (
     x: number,
@@ -41,7 +64,6 @@ export const calculateFluxAt = (
     return totalFlux;
 };
 
-/**
 /**
  * Classify habitability based on radiation flux
  * @param flux Radiation flux value
