@@ -1,9 +1,19 @@
-position: { x: number; y: number; z: number };
-startTime: number;
-duration: number;
-maxRadius: number;
-color: string;
-onComplete ?: () => void;
+/**
+ * ShockwaveEffect.tsx
+ * Rich expanding shockwave ring effect with glow and fade
+ */
+
+import React, { useRef, useMemo } from 'react';
+import { useFrame } from '@react-three/fiber';
+import * as THREE from 'three';
+
+interface ShockwaveEffectProps {
+    position: { x: number; y: number; z: number };
+    startTime: number;
+    duration: number;
+    maxRadius: number;
+    color: string;
+    onComplete?: () => void;
 }
 
 // Custom shader for glowing shockwave ring
@@ -74,6 +84,7 @@ export const ShockwaveEffect: React.FC<ShockwaveEffectProps> = ({
         const progress = Math.min(elapsed / duration, 1);
 
         if (progress >= 1 && !completedRef.current) {
+            completedRef.current = true;
             onComplete?.();
             return;
         }
@@ -117,15 +128,6 @@ export const ShockwaveEffect: React.FC<ShockwaveEffectProps> = ({
                 depthWrite={false}
                 blending={THREE.AdditiveBlending}
                 side={THREE.DoubleSide}
-            <ringGeometry args={[0.8, 1, 64]} />
-            <meshBasicMaterial
-                color={color}
-                transparent
-                opacity={0}
-                side={THREE.DoubleSide}
-                depthWrite={false}
-                blending={THREE.AdditiveBlending}
->>>>>>> advanced-visualization-week1
             />
         </mesh>
     );
