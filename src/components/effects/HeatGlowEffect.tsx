@@ -94,7 +94,8 @@ export const HeatGlowEffect: React.FC<HeatGlowEffectProps> = ({
     useFrame(({ clock }) => {
         if (!materialRef.current || completedRef.current) return;
 
-        const elapsed = performance.now() - startTime;
+        const gap = performance.now() - startTime;
+        const elapsed = gap > 0 ? gap : 0;
         const progress = Math.min(elapsed / duration, 1);
 
         if (progress >= 1 && !completedRef.current) {
@@ -111,6 +112,9 @@ export const HeatGlowEffect: React.FC<HeatGlowEffectProps> = ({
             const breathe = 1 + 0.1 * Math.sin(clock.elapsedTime * 3) * (1 - progress);
             const baseScale = radius * 1.15 * (1 + (1 - progress) * 0.1);
             meshRef.current.scale.setScalar(baseScale * breathe);
+
+            // Sync position if it changes (though usually effect is static or anchored via prop updates)
+            meshRef.current.position.set(position.x, position.y, position.z);
         }
     });
 

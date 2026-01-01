@@ -16,15 +16,14 @@ export const GPU_CONFIG = {
     BYTES_PER_BODY: 32, // Simplified for now, actual struct alignments may vary in WGSL
 } as const;
 
+<<<<<<< HEAD
 // Solar constants for habitable zone calculations
 export const SOLAR_CONSTANTS = {
     SOLAR_MASS: 333000,        // Solar mass in simulation units (Earth mass = 1)
-    SOLAR_LUMINOSITY: 1.0,     // Reference luminosity (Sun = 1)
-
-    // Habitable zone boundaries (in AU, for solar luminosity = 1)
-    HZ_INNER_AU: 0.95,         // Inner edge (too hot beyond this)
-    HZ_OUTER_AU: 1.4,          // Outer edge (too cold beyond this)
-
-    // Mass-Luminosity relation exponent for main sequence stars
-    MASS_LUMINOSITY_EXPONENT: 3.5,
-} as const;
+    export const SOLAR_CONSTANTS = {
+        SOLAR_MASS: 333000, // Earth masses
+        SOLAR_LUMINOSITY: 3.828e26, // Watts
+        // Habitable zone boundaries approx (in AU)
+        HZ_INNER_AU: 0.95,
+        HZ_OUTER_AU: 1.37
+    } as const;

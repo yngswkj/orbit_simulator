@@ -16,6 +16,8 @@ import { calculateSingleStarHZ } from '../../utils/habitableZone';
 import { DISTANCE_SCALES } from '../../utils/solarSystem';
 import { EffectComposer } from '@react-three/postprocessing';
 import { GravitationalLensEffect } from '../effects/GravitationalLensEffect';
+import { TidalDisruptionEffect } from '../effects/TidalDisruptionEffect';
+import { ShockwaveEffect } from '../effects/ShockwaveEffect';
 
 // Helper to find the primary star (most massive star body)
 const findPrimaryStar = (bodies: BodyType[]): BodyType | undefined => {
@@ -303,6 +305,10 @@ const SimulationContent = () => {
     const bodies = usePhysicsStore((state) => state.bodies);
     const showHabitableZone = usePhysicsStore((state) => state.showHabitableZone);
     const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
+    const tidallyDisruptedEvents = usePhysicsStore((state) => state.tidallyDisruptedEvents);
+    const removeTidalDisruptionEvent = usePhysicsStore((state) => state.removeTidalDisruptionEvent);
+    const collisionEvents = usePhysicsStore((state) => state.collisionEvents);
+    const removeCollisionEvent = usePhysicsStore((state) => state.removeCollisionEvent);
 
     // Find all stars and determine if we should show habitable zone
     const stars = useMemo(() => bodies.filter(b => b.isStar), [bodies]);
@@ -329,20 +335,54 @@ const SimulationContent = () => {
             {/* Single star system: Ring-based habitable zone */}
             {showHabitableZone && habitableZone && primaryStar && isSingleStarSystem && (
                 <mesh
-                    position={[primaryStar.position.x, -0.5, primaryStar.position.z]}
+                    position={[primaryStar.position.x, primaryStar.position.y, primaryStar.position.z]}
                     rotation={[-Math.PI / 2, 0, 0]}
                 >
                     <ringGeometry args={[habitableZone.inner, habitableZone.outer, 64]} />
-                    <meshBasicMaterial color="#22aa44" opacity={0.2} transparent side={THREE.DoubleSide} depthWrite={false} />
+                    <meshBasicMaterial color="#22aa44" opacity={0.15} transparent side={THREE.DoubleSide} depthWrite={false} />
                 </mesh>
             )}
 
             {/* Multi-star system: 2D heatmap-based habitable zone */}
             {showHabitableZone && isMultiStarSystem && <HabitableZoneMap />}
 
-            {bodies.map((body) => {
-                return <CelestialBody key={body.id} body={body} />;
+            {/* Legacy: Tidal Disruption & Shockwave rendered directly here for Week 1 compatibility */}
+            {tidallyDisruptedEvents.map(event => {
+                const primary = bodies.find(b => b.id === event.primaryId);
+                const body = bodies.find(b => b.id === event.bodyId);
+                const primaryPos = primary ? primary.position : new THREE.Vector3(0, 0, 0);
+                const radius = body ? body.radius : 10;
+                const color = body ? body.color : '#aaaaaa';
+
+                return (
+                    <TidalDisruptionEffect
+                        key={event.bodyId + '_' + event.startTime}
+                        position={new THREE.Vector3(event.position.x, event.position.y, event.position.z)}
+                        primaryPosition={new THREE.Vector3(primaryPos.x, primaryPos.y, primaryPos.z)}
+                        bodyRadius={radius}
+                        bodyColor={color}
+                        startTime={event.startTime}
+                        duration={event.duration}
+                        onComplete={() => removeTidalDisruptionEvent(event.bodyId)}
+                    />
+                );
             })}
+
+            {collisionEvents.map(event => (
+                <ShockwaveEffect
+                    key={event.id}
+                    position={new THREE.Vector3(event.position.x, event.position.y, event.position.z)}
+                    startTime={event.startTime}
+                    color={event.color}
+                    onComplete={() => removeCollisionEvent(event.id)}
+                />
+            ))}
+
+            {
+                bodies.map((body) => {
+                    return <CelestialBody key={body.id} body={body} />;
+                })
+            }
 
             <OrbitPredictionWrapper />
 

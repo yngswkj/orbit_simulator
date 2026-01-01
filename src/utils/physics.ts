@@ -352,10 +352,11 @@ export interface CollisionEvent {
 export const applyCollisions = (
     bodies: CelestialBody[],
     collisions: [number, number][]
-): { bodies: CelestialBody[], hasRemovals: boolean, collisionEvents: CollisionEvent[] } => {
+): { bodies: CelestialBody[], hasRemovals: boolean, collisionEvents: CollisionEvent[], events: { position: Vector3, color: string }[] } => {
     let nextBodies = [...bodies];
     const removals = new Set<number>();
     const collisionEvents: CollisionEvent[] = [];
+    const events: { position: Vector3, color: string }[] = [];
 
     collisions.forEach(([i, j]) => {
         if (removals.has(i) || removals.has(j)) return;
@@ -395,7 +396,7 @@ export const applyCollisions = (
         // Determine larger and smaller body
         const [larger, smaller] = b1.mass > b2.mass ? [b1, b2] : [b2, b1];
 
-        // Record collision event for visual effects
+        // Record collision event for visual effects (Detailed)
         collisionEvents.push({
             collisionPoint,
             relativeVelocity,
@@ -404,6 +405,12 @@ export const applyCollisions = (
             smallerBodyId: smaller.id,
             smallerBodyColor: smaller.color,
             smallerBodyRadius: smaller.radius
+        });
+
+        // Record collision event (Simple for legacy)
+        events.push({
+            position: newPos.clone(), // Use new position (center of mass)
+            color: b1.mass > b2.mass ? b1.color : b2.color // Use dominant color
         });
 
         // Update 'i' (keep ID of b1 for stability, or create new?)
@@ -422,8 +429,8 @@ export const applyCollisions = (
 
     if (removals.size > 0) {
         nextBodies = nextBodies.filter((_, idx) => !removals.has(idx));
-        return { bodies: nextBodies, hasRemovals: true, collisionEvents };
+        return { bodies: nextBodies, hasRemovals: true, collisionEvents, events };
     }
 
-    return { bodies: nextBodies, hasRemovals: false, collisionEvents };
+    return { bodies: nextBodies, hasRemovals: false, collisionEvents: [], events: [] };
 };

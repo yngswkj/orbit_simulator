@@ -26,6 +26,11 @@ export interface CelestialBody {
   hasAccretionDisk?: boolean;
   accretionDiskConfig?: AccretionDiskConfig;
   hasJets?: boolean;
+
+  // Destruction state
+  isBeingDestroyed?: boolean;
+  destructionProgress?: number; // 0-1
+  destructionStartTime?: number;
 }
 
 export type SimulationState = 'running' | 'paused';
@@ -48,4 +53,20 @@ export interface PhysicsState {
   ids: string[];
   // Map entity ID to internal index
   idToIndex: Map<string, number>;
+}
+
+// 破壊イベント
+export interface TidalDisruptionEvent {
+  bodyId: string;
+  primaryId: string;
+  position: { x: number; y: number; z: number };
+  startTime: number;
+  duration: number;
+}
+
+export interface CollisionEvent {
+  id: string;
+  position: { x: number; y: number; z: number };
+  startTime: number;
+  color: string;
 }
