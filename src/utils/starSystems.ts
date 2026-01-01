@@ -362,6 +362,87 @@ export const FIGURE_EIGHT: StarSystemPreset = {
 };
 
 // ============================================
+// BLACK HOLE SYSTEM (ブラックホール系)
+// ============================================
+
+export const BLACK_HOLE_SYSTEM: StarSystemPreset = {
+    id: 'black-hole',
+    name: 'Black Hole Binary',
+    nameJa: 'ブラックホール連星',
+    description: 'A stellar-mass black hole with accretion disk, orbited by a companion star. Matter flows from star to black hole.',
+    descriptionJa: '恒星質量ブラックホールと伴星の連星系。降着円盤と相対論的ジェットを可視化。',
+    category: 'multi-star',
+    initialCamera: {
+        position: [0, 100, 150],
+        target: [0, 0, 0]
+    },
+    createBodies: () => {
+        // Stellar-mass black hole (~10 solar masses)
+        const BLACK_HOLE_MASS = SUN_MASS * 10;
+        const COMPANION_MASS = SUN_MASS * 0.8;
+        const TOTAL_MASS = BLACK_HOLE_MASS + COMPANION_MASS;
+
+        // Binary separation
+        const separation = 60;
+        const bhDist = separation * (COMPANION_MASS / TOTAL_MASS);
+        const starDist = separation * (BLACK_HOLE_MASS / TOTAL_MASS);
+
+        // Orbital velocity
+        const orbitalSpeed = Math.sqrt(TOTAL_MASS / separation);
+        const bhSpeed = orbitalSpeed * (COMPANION_MASS / TOTAL_MASS);
+        const starSpeed = orbitalSpeed * (BLACK_HOLE_MASS / TOTAL_MASS);
+
+        // Test planet in wide orbit
+        const planetDist = 120;
+        const planetSpeed = Math.sqrt(TOTAL_MASS / planetDist) * 0.95;
+
+        return [
+            {
+                name: 'Cygnus X-1',
+                mass: BLACK_HOLE_MASS,
+                radius: 2, // Event horizon representation
+                position: new Vector3(-bhDist, 0, 0),
+                velocity: new Vector3(0, 0, bhSpeed),
+                color: '#000000',
+                isStar: false,
+                isFixed: false,
+                isCompactObject: true,
+                hasAccretionDisk: true,
+                accretionDiskConfig: {
+                    innerRadius: 1.5,  // 3 Schwarzschild radii
+                    outerRadius: 8,    // Extended disk
+                    rotationSpeed: 2.0,
+                    particleCount: 25000,
+                    tilt: 0.15
+                },
+                hasJets: true,
+            },
+            {
+                name: 'HDE 226868',
+                mass: COMPANION_MASS,
+                radius: 4, // Blue supergiant
+                position: new Vector3(starDist, 0, 0),
+                velocity: new Vector3(0, 0, -starSpeed),
+                color: '#8899ff',
+                isStar: true,
+                isFixed: false,
+            },
+            // Outer planet
+            {
+                name: 'Outer World',
+                mass: 100,
+                radius: 0.5,
+                position: new Vector3(planetDist, 10, 0),
+                velocity: new Vector3(0, 0, planetSpeed),
+                color: '#88aa55',
+                isStar: false,
+                isFixed: false,
+            }
+        ];
+    }
+};
+
+// ============================================
 // PRESET REGISTRY
 // ============================================
 
@@ -369,6 +450,7 @@ export const STAR_SYSTEM_PRESETS: StarSystemPreset[] = [
     SOLAR_SYSTEM,
     THREE_BODY_SYSTEM,
     FIGURE_EIGHT,
+    BLACK_HOLE_SYSTEM,
 ];
 
 export const getPresetById = (id: string): StarSystemPreset | undefined => {

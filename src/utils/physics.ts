@@ -333,16 +333,29 @@ export const calculateTotalEnergy = (bodies: CelestialBody[]): { kinetic: number
     return { kinetic, potential, total: kinetic + potential };
 };
 
+// Collision event data for visual effects
+export interface CollisionEvent {
+    collisionPoint: { x: number; y: number; z: number };
+    relativeVelocity: number;
+    combinedMass: number;
+    largerBodyId: string;
+    smallerBodyId: string;
+    smallerBodyColor: string;
+    smallerBodyRadius: number;
+}
+
 /**
  * Helper to apply collisions to a list of bodies (for Worker/GPU results).
- * Returns new list of bodies and a boolean indicating if any bodies were removed (merged).
+ * Returns new list of bodies, a boolean indicating if any bodies were removed (merged),
+ * and collision event data for visual effects.
  */
 export const applyCollisions = (
     bodies: CelestialBody[],
     collisions: [number, number][]
-): { bodies: CelestialBody[], hasRemovals: boolean } => {
+): { bodies: CelestialBody[], hasRemovals: boolean, collisionEvents: CollisionEvent[] } => {
     let nextBodies = [...bodies];
     const removals = new Set<number>();
+    const collisionEvents: CollisionEvent[] = [];
 
     collisions.forEach(([i, j]) => {
         if (removals.has(i) || removals.has(j)) return;
@@ -368,6 +381,31 @@ export const applyCollisions = (
         // Volume Conservation (approx): r = cbrt(r1^3 + r2^3)
         const newRadius = Math.cbrt(Math.pow(b1.radius, 3) + Math.pow(b2.radius, 3));
 
+        // Calculate collision point (midpoint weighted by radius)
+        const collisionPoint = {
+            x: (b1.position.x * b2.radius + b2.position.x * b1.radius) / (b1.radius + b2.radius),
+            y: (b1.position.y * b2.radius + b2.position.y * b1.radius) / (b1.radius + b2.radius),
+            z: (b1.position.z * b2.radius + b2.position.z * b1.radius) / (b1.radius + b2.radius)
+        };
+
+        // Calculate relative velocity
+        const relVel = b1.velocity.clone().sub(b2.velocity);
+        const relativeVelocity = relVel.length();
+
+        // Determine larger and smaller body
+        const [larger, smaller] = b1.mass > b2.mass ? [b1, b2] : [b2, b1];
+
+        // Record collision event for visual effects
+        collisionEvents.push({
+            collisionPoint,
+            relativeVelocity,
+            combinedMass: totalMass,
+            largerBodyId: larger.id,
+            smallerBodyId: smaller.id,
+            smallerBodyColor: smaller.color,
+            smallerBodyRadius: smaller.radius
+        });
+
         // Update 'i' (keep ID of b1 for stability, or create new?)
         // Keeping b1's metadata is usually better.
         nextBodies[i] = {
@@ -384,8 +422,8 @@ export const applyCollisions = (
 
     if (removals.size > 0) {
         nextBodies = nextBodies.filter((_, idx) => !removals.has(idx));
-        return { bodies: nextBodies, hasRemovals: true };
+        return { bodies: nextBodies, hasRemovals: true, collisionEvents };
     }
 
-    return { bodies: nextBodies, hasRemovals: false };
+    return { bodies: nextBodies, hasRemovals: false, collisionEvents };
 };

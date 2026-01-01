@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { OrbitControls, Stars, Grid, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { Vector3 } from 'three';
@@ -10,6 +10,12 @@ import { OrbitPrediction } from './OrbitPrediction';
 import { DateDisplay } from '../ui/DateDisplay';
 import type { CelestialBody as BodyType } from '../../types/physics';
 import { GravityHeatmap } from './GravityHeatmap';
+import { HabitableZoneMap } from './HabitableZoneMap';
+import { EffectsLayer } from '../effects/EffectsLayer';
+import { calculateSingleStarHZ } from '../../utils/habitableZone';
+import { DISTANCE_SCALES } from '../../utils/solarSystem';
+import { EffectComposer } from '@react-three/postprocessing';
+import { GravitationalLensEffect } from '../effects/GravitationalLensEffect';
 
 // Helper to find the primary star (most massive star body)
 const findPrimaryStar = (bodies: BodyType[]): BodyType | undefined => {
@@ -263,6 +269,35 @@ const CameraScaleAdjuster = () => {
     return null;
 };
 
+// Gravitational lens post-processing wrapper (always enabled for compact objects)
+const GravitationalLensPostProcess = () => {
+    const bodies = usePhysicsStore((state) => state.bodies);
+    const { camera } = useThree();
+
+    // Find compact objects (black holes)
+    const compactObjects = useMemo(() => bodies.filter(b => b.isCompactObject), [bodies]);
+
+    if (compactObjects.length === 0) {
+        return null;
+    }
+
+    // For now, only apply effect to the first compact object
+    const blackHole = compactObjects[0];
+    const bhPosition = new Vector3(blackHole.position.x, blackHole.position.y, blackHole.position.z);
+
+    return (
+        <EffectComposer>
+            <GravitationalLensEffect
+                blackHolePosition={bhPosition}
+                schwarzschildRadius={blackHole.radius}
+                strength={1.5}
+                camera={camera}
+                enabled={true}
+            />
+        </EffectComposer>
+    );
+};
+
 const SimulationContent = () => {
     usePhysicsLoop();
     const bodies = usePhysicsStore((state) => state.bodies);
@@ -270,15 +305,18 @@ const SimulationContent = () => {
     const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
 
     // Find all stars and determine if we should show habitable zone
-    // Only show for single-star systems (multi-star habitable zones are complex)
-    const stars = bodies.filter(b => b.isStar);
+    const stars = useMemo(() => bodies.filter(b => b.isStar), [bodies]);
     const isSingleStarSystem = stars.length === 1;
+    const isMultiStarSystem = stars.length > 1;
     const primaryStar = isSingleStarSystem ? stars[0] : undefined;
 
-    // Habitable zone distances (0.95 AU to 1.4 AU)
+    // Dynamic habitable zone calculation based on star's mass/luminosity
     const scale = useRealisticDistances ? DISTANCE_SCALES.REALISTIC.AU_UNIT : DISTANCE_SCALES.COMPRESSED.AU_UNIT;
-    const habitableInner = 0.95 * scale;
-    const habitableOuter = 1.4 * scale;
+
+    const habitableZone = useMemo(() => {
+        if (!primaryStar) return null;
+        return calculateSingleStarHZ(primaryStar, scale);
+    }, [primaryStar, scale]);
 
     return (
         <>
@@ -288,12 +326,19 @@ const SimulationContent = () => {
 
             <Stars radius={300} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
 
-            {showHabitableZone && primaryStar && (
-                <mesh position={[primaryStar.position.x, primaryStar.position.y, primaryStar.position.z]} rotation={[-Math.PI / 2, 0, 0]}>
-                    <ringGeometry args={[habitableInner, habitableOuter, 64]} />
-                    <meshBasicMaterial color="#44ff44" opacity={0.15} transparent side={2} />
+            {/* Single star system: Ring-based habitable zone */}
+            {showHabitableZone && habitableZone && primaryStar && isSingleStarSystem && (
+                <mesh
+                    position={[primaryStar.position.x, -0.5, primaryStar.position.z]}
+                    rotation={[-Math.PI / 2, 0, 0]}
+                >
+                    <ringGeometry args={[habitableZone.inner, habitableZone.outer, 64]} />
+                    <meshBasicMaterial color="#22aa44" opacity={0.2} transparent side={THREE.DoubleSide} depthWrite={false} />
                 </mesh>
             )}
+
+            {/* Multi-star system: 2D heatmap-based habitable zone */}
+            {showHabitableZone && isMultiStarSystem && <HabitableZoneMap />}
 
             {bodies.map((body) => {
                 return <CelestialBody key={body.id} body={body} />;
@@ -302,12 +347,17 @@ const SimulationContent = () => {
             <OrbitPredictionWrapper />
 
             <GravityHeatmap />
+
+            {/* Visual effects layer (shockwaves, debris, etc.) */}
+            <EffectsLayer />
+
+            {/* Post-processing gravitational lensing effect */}
+            <GravitationalLensPostProcess />
         </>
     );
 };
 
 import { PerformanceStats } from '../ui/PerformanceStats';
-import { DISTANCE_SCALES } from '../../utils/solarSystem';
 
 export const Scene = () => {
     const showPerformance = usePhysicsStore((state) => state.showPerformance);

@@ -1,5 +1,13 @@
 import { Vector3 } from 'three';
 
+export interface AccretionDiskConfig {
+  innerRadius: number;  // Multiplier of body radius
+  outerRadius: number;  // Multiplier of body radius
+  rotationSpeed: number;
+  particleCount?: number;
+  tilt?: number; // Radians
+}
+
 export interface CelestialBody {
   id: string;
   name: string;
@@ -13,6 +21,11 @@ export interface CelestialBody {
   isStar?: boolean; // For star objects (affects rendering glow)
   axialTilt?: number; // In degrees
   rotationSpeed?: number; // Multiplier relative to Earth (1.0)
+  // Compact object properties (black holes, neutron stars)
+  isCompactObject?: boolean;
+  hasAccretionDisk?: boolean;
+  accretionDiskConfig?: AccretionDiskConfig;
+  hasJets?: boolean;
 }
 
 export type SimulationState = 'running' | 'paused';

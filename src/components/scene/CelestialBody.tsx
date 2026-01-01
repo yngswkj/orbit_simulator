@@ -1,9 +1,11 @@
 import React, { useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Sphere, Text, Billboard, useTexture, Line } from '@react-three/drei';
+import { Sphere, useTexture, Line, Html } from '@react-three/drei';
 import { usePhysicsStore } from '../../store/physicsStore';
 import type { CelestialBody as BodyType } from '../../types/physics';
 import { Vector3, CatmullRomCurve3 } from 'three';
+import { AccretionDisk } from '../effects/AccretionDisk';
+import { RelativisticJet } from '../effects/RelativisticJet';
 
 interface CelestialBodyProps {
     body: BodyType;
@@ -121,7 +123,6 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
     const showGrid = usePhysicsStore(state => state.showGrid);
     const simulationTime = usePhysicsStore(state => state.simulationTime);
 
-    const textRef = React.useRef<any>(null);
     const groupRef = React.useRef<any>(null);
     const meshRef = React.useRef<any>(null);
 
@@ -140,14 +141,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
         return () => clearTimeout(timer);
     }, []);
 
-    useFrame((state) => {
-        if (textRef.current) {
-            const distance = state.camera.position.distanceTo(positionVector);
-            const scaleFactor = Math.min(1.0, distance / 20.0);
-            textRef.current.scale.set(scaleFactor, scaleFactor, scaleFactor);
-            textRef.current.material.opacity = Math.min(1.0, distance / 5.0);
-        }
-
+    useFrame(() => {
         if (meshRef.current && body.rotationSpeed) {
             // Visual Rotation: Scale relative speed (Earth=1.0) to Rads/Year (2300)
             const EARTH_YEAR_RAD = 2300;
@@ -206,25 +200,22 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                     )}
                 </group>
 
-                <Billboard
-                    follow={true}
-                    lockX={false}
-                    lockY={false}
-                    lockZ={false}
+                {/* HTML label - not affected by post-processing */}
+                <Html
+                    position={[0, body.radius + 1.5, 0]}
+                    center
+                    style={{
+                        color: 'white',
+                        fontSize: '14px',
+                        fontFamily: 'system-ui, sans-serif',
+                        textShadow: '0 0 4px black, 0 0 2px black',
+                        whiteSpace: 'nowrap',
+                        pointerEvents: 'none',
+                        userSelect: 'none',
+                    }}
                 >
-                    <Text
-                        ref={textRef}
-                        position={[0, body.radius + 1.5, 0]}
-                        fontSize={1.0}
-                        color="white"
-                        anchorX="center"
-                        anchorY="middle"
-                        outlineWidth={0.1}
-                        outlineColor="#000000"
-                    >
-                        {body.name}
-                    </Text>
-                </Billboard>
+                    {body.name}
+                </Html>
             </group>
 
             {/* Trail - Rendered in World Space */}
@@ -232,6 +223,28 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                 <ConstantWidthTrail
                     position={positionVector}
                     color={body.color}
+                />
+            )}
+
+            {/* Accretion Disk for compact objects */}
+            {body.hasAccretionDisk && body.accretionDiskConfig && (
+                <AccretionDisk
+                    position={body.position}
+                    innerRadius={body.radius * body.accretionDiskConfig.innerRadius}
+                    outerRadius={body.radius * body.accretionDiskConfig.outerRadius}
+                    rotationSpeed={body.accretionDiskConfig.rotationSpeed}
+                    particleCount={body.accretionDiskConfig.particleCount}
+                    tilt={body.accretionDiskConfig.tilt}
+                />
+            )}
+
+            {/* Relativistic Jets for compact objects */}
+            {body.hasJets && (
+                <RelativisticJet
+                    position={body.position}
+                    length={body.radius * 15}
+                    baseWidth={body.radius * 2}
+                    speed={1.5}
                 />
             )}
         </>

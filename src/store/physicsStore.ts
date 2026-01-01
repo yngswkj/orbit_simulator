@@ -2,15 +2,35 @@ import { create } from 'zustand';
 import type { CelestialBody, SimulationState, CameraMode, PhysicsState } from '../types/physics';
 import type { StarSystemMode } from '../types/starSystem';
 import { updatePhysicsSoA, createPhysicsState, syncStateToBodies, BASE_DT, calculateTotalEnergy, applyCollisions } from '../utils/physics';
+import type { CollisionEvent } from '../utils/physics';
 import { Vector3 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { createSolarSystem } from '../utils/solarSystem';
 import { getPresetById } from '../utils/starSystems';
 import { PhysicsWorkerManager } from '../workers/physicsWorkerManager';
 import { GPUPhysicsEngine } from '../gpu/GPUPhysicsEngine';
+import { useEffectsStore } from './effectsStore';
 
 import { BUFFER_LIMITS } from '../constants/physics';
 import { DISTANCE_SCALE_FACTOR } from '../utils/solarSystem';
+
+// Helper to trigger visual effects for collisions
+const triggerCollisionEffects = (events: CollisionEvent[]) => {
+    const effectsStore = useEffectsStore.getState();
+    events.forEach(event => {
+        effectsStore.triggerCollisionEffects({
+            body1Id: event.largerBodyId,
+            body2Id: event.smallerBodyId,
+            collisionPoint: event.collisionPoint,
+            relativeVelocity: event.relativeVelocity,
+            combinedMass: event.combinedMass,
+            largerBodyId: event.largerBodyId,
+            smallerBodyId: event.smallerBodyId,
+            smallerBodyColor: event.smallerBodyColor,
+            smallerBodyRadius: event.smallerBodyRadius
+        });
+    });
+};
 
 let _workerManager: PhysicsWorkerManager | null = null;
 export const getWorkerManager = (): PhysicsWorkerManager => {
@@ -378,11 +398,16 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                     const collisions = await navGPU.getCollisions();
 
                     if (collisions && collisions.length > 0) {
-                        const { bodies: resolvedBodies, hasRemovals } = applyCollisions(nextBodies, collisions);
+                        const { bodies: resolvedBodies, hasRemovals, collisionEvents } = applyCollisions(nextBodies, collisions);
                         nextBodies = resolvedBodies;
 
                         if (hasRemovals) {
                             set({ physicsState: null, gpuDataInvalidated: true });
+                        }
+
+                        // Trigger visual effects for collisions
+                        if (collisionEvents.length > 0) {
+                            triggerCollisionEffects(collisionEvents);
                         }
                     }
 
@@ -426,11 +451,16 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
                 // Resolve Collisions (CPU Main Thread)
                 if (collisions.length > 0) {
-                    const { bodies: resolvedBodies, hasRemovals } = applyCollisions(nextBodies, collisions);
+                    const { bodies: resolvedBodies, hasRemovals, collisionEvents } = applyCollisions(nextBodies, collisions);
                     nextBodies = resolvedBodies;
 
                     if (hasRemovals) {
                         set({ physicsState: null });
+                    }
+
+                    // Trigger visual effects for collisions
+                    if (collisionEvents.length > 0) {
+                        triggerCollisionEffects(collisionEvents);
                     }
                 }
 
