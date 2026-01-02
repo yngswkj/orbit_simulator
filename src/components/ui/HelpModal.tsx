@@ -304,8 +304,12 @@ const getChangelogData = (t: any): VersionLog[] => [
         version: '0.5.0',
         isCurrent: true,
         changes: [
-            { type: 'improve', content: 'ブラックホール連星プリセットの追加' },
-            { type: 'new', content: '衝突エフェクト (潮汐破壊・衝撃波リング)' },
+            { type: 'new', content: '天体衝突エフェクト（爆発・衝撃波・破片・熱輝）' },
+            { type: 'improve', content: 'Spatial Hash Gridによる衝突検出の最適化 (O(N²) → O(N))' },
+            { type: 'tech', content: 'CPU/Worker/GPUすべてのモードで衝突エフェクト対応' },
+            { type: 'improve', content: 'ガンマ補正による自然な色遷移エフェクト' },
+            { type: 'remove', content: 'ロシュ限界機能を無効化（スケーリング不整合のため）' },
+            { type: 'new', content: 'ブラックホール連星プリセットの追加' },
             { type: 'new', content: 'ハビタブルゾーンの動的計算と表示' }
         ]
     },
