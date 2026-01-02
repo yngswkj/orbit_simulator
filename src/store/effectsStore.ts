@@ -64,6 +64,7 @@ interface EffectsStore {
         primaryPosition: { x: number; y: number; z: number },
         bodyRadius: number,
         bodyColor: string,
+        primaryMass: number,
         duration?: number
     ) => string;
     removeTidalDisruption: (id: string) => void;
@@ -232,7 +233,7 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
     },
 
     // Tidal Disruption actions
-    addTidalDisruption: (bodyId, primaryId, position, primaryPosition, bodyRadius, bodyColor, duration = 6000) => {
+    addTidalDisruption: (bodyId, primaryId, position, primaryPosition, bodyRadius, bodyColor, primaryMass, duration = 6000) => {
         const id = uuidv4();
         set(state => ({
             tidalDisruptions: [...state.tidalDisruptions, {
@@ -243,6 +244,7 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
                 primaryPosition,
                 bodyRadius,
                 bodyColor,
+                primaryMass,
                 startTime: performance.now(),
                 duration
             }]

@@ -7,8 +7,9 @@ import React, { useRef, useMemo, useEffect } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { useEffectsStore } from '../../store/effectsStore';
 import * as THREE from 'three';
+import { EFFECT_CONSTANTS } from '../../constants/physics';
 
-const MAX_DEBRIS = 2000; // Maximum debris particles to render
+const MAX_DEBRIS = EFFECT_CONSTANTS.MAX_DEBRIS_PARTICLES;
 
 export const DebrisRenderer: React.FC = () => {
     const debrisClouds = useEffectsStore(state => state.debrisClouds);
@@ -90,9 +91,9 @@ export const DebrisRenderer: React.FC = () => {
             dummy.updateMatrix();
             meshRef.current.setMatrixAt(i, dummy.matrix);
 
-            // Color with fade
+            // Color with gamma-corrected fade for more natural color transition
             const color = new THREE.Color(p.color);
-            const fade = 1 - age * 0.3;
+            const fade = Math.pow(1 - age, EFFECT_CONSTANTS.GAMMA_CORRECTION) * 0.7 + 0.3;
             color.multiplyScalar(fade);
             meshRef.current.setColorAt(i, color);
         }

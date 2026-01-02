@@ -6,6 +6,7 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { EFFECT_CONSTANTS } from '../../constants/physics';
 
 interface ExplosionEffectProps {
     position: { x: number; y: number; z: number };
@@ -108,7 +109,7 @@ export const ExplosionEffect: React.FC<ExplosionEffectProps> = ({
             const sizes = geometry.attributes.size.array as Float32Array;
             const colors = geometry.attributes.color.array as Float32Array;
 
-            const dt = 0.016; // Approximate frame time
+            const dt = EFFECT_CONSTANTS.FRAME_TIME;
             const drag = 0.98;
             const gravity = -0.02 * size;
 
@@ -124,10 +125,11 @@ export const ExplosionEffect: React.FC<ExplosionEffectProps> = ({
                 // Shrink particles over time
                 sizes[i] = initialSizes[i] * (1 - progress * 0.8);
 
-                // Fade colors (get dimmer over time)
-                colors[i * 3] *= 0.995;
-                colors[i * 3 + 1] *= 0.99;
-                colors[i * 3 + 2] *= 0.98;
+                // Gamma-corrected fade for more natural color transition
+                const gammaFade = Math.pow(1 - progress, EFFECT_CONSTANTS.GAMMA_CORRECTION);
+                colors[i * 3] *= 0.995 * (0.7 + 0.3 * gammaFade);
+                colors[i * 3 + 1] *= 0.99 * (0.7 + 0.3 * gammaFade);
+                colors[i * 3 + 2] *= 0.98 * (0.7 + 0.3 * gammaFade);
             }
 
             geometry.attributes.position.needsUpdate = true;

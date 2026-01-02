@@ -57,16 +57,33 @@ export interface PhysicsState {
 
 // 破壊イベント
 export interface TidalDisruptionEvent {
+  id?: string; // Optional for backward compatibility
   bodyId: string;
   primaryId: string;
   position: { x: number; y: number; z: number };
+  primaryPosition: { x: number; y: number; z: number };
+  bodyRadius: number;
+  bodyColor: string;
+  primaryMass: number;
   startTime: number;
   duration: number;
 }
 
-export interface CollisionEvent {
+// Legacy collision event for simple visualization
+export interface LegacyCollisionEvent {
   id: string;
   position: { x: number; y: number; z: number };
   startTime: number;
   color: string;
+}
+
+// Detailed collision event for physics calculations and effects
+export interface CollisionEvent {
+  collisionPoint: { x: number; y: number; z: number };
+  relativeVelocity: number;
+  combinedMass: number;
+  largerBodyId: string;
+  smallerBodyId: string;
+  smallerBodyColor: string;
+  smallerBodyRadius: number;
 }

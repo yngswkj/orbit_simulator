@@ -1,24 +1,27 @@
 import React, { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { EFFECT_CONSTANTS, PHYSICS_CONSTANTS } from '../../constants/physics';
 
 interface TidalDisruptionEffectProps {
     position: THREE.Vector3;
     primaryPosition: THREE.Vector3;
     bodyRadius: number;
     bodyColor: string;
+    primaryMass: number;
     startTime: number;
     duration?: number;
     onComplete?: () => void;
 }
 
-const PARTICLE_COUNT = 2000;
+const PARTICLE_COUNT = EFFECT_CONSTANTS.MAX_TIDAL_PARTICLES;
 
 export const TidalDisruptionEffect: React.FC<TidalDisruptionEffectProps> = ({
     position,
     primaryPosition,
     bodyRadius,
     bodyColor,
+    primaryMass,
     startTime,
     duration = 5000,
     onComplete
@@ -33,12 +36,17 @@ export const TidalDisruptionEffect: React.FC<TidalDisruptionEffectProps> = ({
         const colors = new Float32Array(PARTICLE_COUNT * 3);
         const sizes = new Float32Array(PARTICLE_COUNT);
         const vels: THREE.Vector3[] = [];
-        // const initPos: THREE.Vector3[] = []; // Unused for now
 
         const baseColor = new THREE.Color(bodyColor);
         const toPrimary = new THREE.Vector3()
-            .subVectors(primaryPosition, position)
-            .normalize();
+            .subVectors(primaryPosition, position);
+        const distance = toPrimary.length();
+        toPrimary.normalize();
+
+        // 物理的に正確な脱出速度計算
+        // v_escape = sqrt(2 * G * M / r)
+        const G = PHYSICS_CONSTANTS.G;
+        const escapeVelocity = Math.sqrt(2 * G * primaryMass / distance);
 
         for (let i = 0; i < PARTICLE_COUNT; i++) {
             // 球面上にランダム配置
@@ -54,21 +62,25 @@ export const TidalDisruptionEffect: React.FC<TidalDisruptionEffectProps> = ({
             positions[i * 3 + 1] = position.y + y;
             positions[i * 3 + 2] = position.z + z;
 
-            // initPos.push(new THREE.Vector3(x, y, z));
-
             // 潮汐力方向（主天体に向かう/離れる方向）に沿った速度
             const tidalDir = new THREE.Vector3(x, y, z).normalize();
             const dot = tidalDir.dot(toPrimary);
 
-            // 主天体側は引き寄せられ、反対側は押し出される
-            const speed = (0.5 + Math.random() * 0.5) * bodyRadius * 0.1;
-            const vel = tidalDir.clone().multiplyScalar(dot * speed);
+            // 潮汐力の強さは距離の3乗に反比例
+            // F_tidal ≈ 2 * G * M * R / r³
+            const tidalForceStrength = (2 * G * primaryMass * bodyRadius) / Math.pow(distance, 3);
 
-            // 接線方向の回転成分を追加
+            // 速度は潮汐力と脱出速度に基づく
+            // 主天体側は引き寄せられ、反対側は押し出される
+            const tidalSpeed = escapeVelocity * tidalForceStrength * (0.3 + Math.random() * 0.7);
+            const vel = tidalDir.clone().multiplyScalar(dot * tidalSpeed);
+
+            // 接線方向の回転成分を追加（角運動量保存を模倣）
+            const orbitalSpeed = Math.sqrt(G * primaryMass / distance);
             const tangent = new THREE.Vector3()
                 .crossVectors(toPrimary, tidalDir)
                 .normalize()
-                .multiplyScalar(speed * 0.3);
+                .multiplyScalar(orbitalSpeed * 0.3 * (0.5 + Math.random() * 0.5));
             vel.add(tangent);
 
             vels.push(vel);
@@ -87,7 +99,7 @@ export const TidalDisruptionEffect: React.FC<TidalDisruptionEffectProps> = ({
         geo.setAttribute('size', new THREE.BufferAttribute(sizes, 1));
 
         return { geometry: geo, velocities: vels };
-    }, [position, primaryPosition, bodyRadius, bodyColor]);
+    }, [position, primaryPosition, bodyRadius, bodyColor, primaryMass]);
 
     useFrame(() => {
         if (!pointsRef.current) return;
@@ -105,12 +117,12 @@ export const TidalDisruptionEffect: React.FC<TidalDisruptionEffectProps> = ({
 
         for (let i = 0; i < PARTICLE_COUNT; i++) {
             // 位置更新
-            positions[i * 3] += velocities[i].x * 0.016;
-            positions[i * 3 + 1] += velocities[i].y * 0.016;
-            positions[i * 3 + 2] += velocities[i].z * 0.016;
+            positions[i * 3] += velocities[i].x * EFFECT_CONSTANTS.FRAME_TIME;
+            positions[i * 3 + 1] += velocities[i].y * EFFECT_CONSTANTS.FRAME_TIME;
+            positions[i * 3 + 2] += velocities[i].z * EFFECT_CONSTANTS.FRAME_TIME;
 
             // 徐々に減速
-            velocities[i].multiplyScalar(0.995);
+            velocities[i].multiplyScalar(EFFECT_CONSTANTS.PARTICLE_DRAG);
 
             // サイズ縮小（フェードアウト）
             sizes[i] *= (1 - progress * 0.01);

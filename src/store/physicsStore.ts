@@ -1,8 +1,7 @@
 import { create } from 'zustand';
-import type { CelestialBody, SimulationState, CameraMode, PhysicsState, TidalDisruptionEvent, CollisionEvent } from '../types/physics';
+import type { CelestialBody, SimulationState, CameraMode, PhysicsState, TidalDisruptionEvent, LegacyCollisionEvent, CollisionEvent } from '../types/physics';
 import type { StarSystemMode } from '../types/starSystem';
 import { updatePhysicsSoA, createPhysicsState, syncStateToBodies, BASE_DT, calculateTotalEnergy, applyCollisions } from '../utils/physics';
-import { checkRocheLimit } from '../utils/rocheLimit';
 import { Vector3 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { createSolarSystem } from '../utils/solarSystem';
@@ -115,10 +114,10 @@ interface PhysicsStore {
     removeBody: (id: string) => void;
     // Destruction Events
     tidallyDisruptedEvents: TidalDisruptionEvent[];
-    collisionEvents: CollisionEvent[];
+    collisionEvents: LegacyCollisionEvent[];
     addTidalDisruptionEvent: (event: TidalDisruptionEvent) => void;
     removeTidalDisruptionEvent: (bodyId: string) => void;
-    addCollisionEvent: (event: CollisionEvent) => void;
+    addCollisionEvent: (event: LegacyCollisionEvent) => void;
     removeCollisionEvent: (eventId: string) => void;
 
     updateBodies: () => void;
@@ -535,64 +534,67 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             const steps = Math.ceil(dt / MAX_STABLE_DT);
             const stepDt = dt / steps;
 
+            // Disable collisions in updatePhysicsSoA, handle them manually for effects
             for (let i = 0; i < steps; i++) {
-                updatePhysicsSoA(currentState, stepDt, false, true);
+                updatePhysicsSoA(currentState, stepDt, false, false);
             }
 
             let nextBodies = syncStateToBodies(currentState, bodies);
 
-            // Roche Limit Check (CPU only for Phase 1 verification)
-            // Naive O(N^2) check, but optimized: only check if distance is reasonably close
-            // and only for pairs involving a massive body (Star/Gas Giant)
-            const massiveBodies = nextBodies.filter(b => b.mass > 1000); // Threshold for primary
-            const disruptedIds = new Set<string>();
+            // CPU-mode collision detection and effects
+            // Use applyCollisions to get collision events for visual effects
+            const { positions, radii, masses } = currentState;
+            const collisionPairs: [number, number][] = [];
 
-            for (const primary of massiveBodies) {
-                for (const other of nextBodies) {
-                    if (primary.id === other.id) continue;
-                    if (other.isStar) continue; // Stars don't get disrupted by other stars in this sim
-                    if (disruptedIds.has(other.id)) continue;
-                    if (other.isBeingDestroyed) continue; // Already dying
+            for (let i = 0; i < currentState.count; i++) {
+                if (masses[i] <= 0) continue;
 
-                    const dx = primary.position.x - other.position.x;
-                    const dy = primary.position.y - other.position.y;
-                    const dz = primary.position.z - other.position.z;
+                for (let j = i + 1; j < currentState.count; j++) {
+                    if (masses[j] <= 0) continue;
+
+                    const i3 = i * 3;
+                    const j3 = j * 3;
+
+                    const dx = positions[i3] - positions[j3];
+                    const dy = positions[i3 + 1] - positions[j3 + 1];
+                    const dz = positions[i3 + 2] - positions[j3 + 2];
+
                     const distSq = dx * dx + dy * dy + dz * dz;
+                    const radSum = radii[i] + radii[j];
 
-                    // Quick pre-check: 1000 units
-                    if (distSq > 1000000) continue;
-
-                    const result = checkRocheLimit(primary, other);
-                    if (result) {
-                        // Trigger Disruption
-                        const event: TidalDisruptionEvent = {
-                            bodyId: other.id,
-                            primaryId: primary.id,
-                            position: { x: other.position.x, y: other.position.y, z: other.position.z },
-                            startTime: performance.now(),
-                            duration: 5000
-                        };
-
-                        get().addTidalDisruptionEvent(event);
-
-                        // Mark as being destroyed
-                        other.isBeingDestroyed = true;
-                        other.destructionStartTime = performance.now();
-                        disruptedIds.add(other.id);
+                    if (distSq < (radSum * 0.8) ** 2) {
+                        collisionPairs.push([i, j]);
                     }
                 }
             }
 
-            // If any bodies started destruction, update them
-            if (disruptedIds.size > 0) {
-                nextBodies = nextBodies.map(b => disruptedIds.has(b.id) ? { ...b, isBeingDestroyed: true, destructionStartTime: performance.now() } : b);
+            if (collisionPairs.length > 0) {
+                const { bodies: resolvedBodies, collisionEvents } = applyCollisions(nextBodies, collisionPairs);
+                nextBodies = resolvedBodies;
+
+                // Trigger visual effects
+                if (collisionEvents && collisionEvents.length > 0) {
+                    // Add legacy collision events for Scene.tsx
+                    collisionEvents.forEach(e => {
+                        get().addCollisionEvent({
+                            id: uuidv4(),
+                            position: e.collisionPoint,
+                            color: e.smallerBodyColor,
+                            startTime: performance.now()
+                        });
+                    });
+
+                    // Trigger new effects system
+                    triggerCollisionEffects(collisionEvents);
+                }
+
+                // Invalidate state due to removals
+                set({ physicsState: null });
             }
 
-            // Remove bodies that have finished destruction (simple timeout for simplicity in this phase)
-            // Or rely on Scene to show effect and then we remove it?
-            // For now, let's keep them 'isBeingDestroyed' and maybe handle removal later.
-            // Actually, if we want them to disappear, we should remove them or stop simulating them.
-            // Let's just keep them for now, the effect will overlay.
+            // Roche Limit Check: DISABLED
+            // The simulation's visual scaling (large radii for visibility, compressed distances)
+            // makes accurate Roche limit physics impractical. Collision effects provide sufficient drama.
 
             set({
                 bodies: nextBodies,

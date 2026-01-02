@@ -3,6 +3,7 @@ export const PHYSICS_CONSTANTS = {
     SOFTENING_SQ: 0.25, // 0.5 * 0.5
     BASE_DT: 0.001, // Reverted to original value
     COLLISION_THRESHOLD: 0.8,
+    ROCHE_LIMIT_COEFFICIENT: 2.44, // Rigid body Roche limit coefficient
 } as const;
 
 export const BUFFER_LIMITS = {
@@ -27,4 +28,21 @@ export const SOLAR_CONSTANTS = {
 
     // Mass-Luminosity relation exponent for main sequence stars
     MASS_LUMINOSITY_EXPONENT: 3.5,
+} as const;
+
+// Effect constants
+export const EFFECT_CONSTANTS = {
+    // Particle counts
+    MAX_TIDAL_PARTICLES: 2000,
+    MAX_DEBRIS_PARTICLES: 2000,
+    MAX_EXPLOSION_PARTICLES: 200,
+
+    // Physics parameters
+    PARTICLE_DRAG: 0.995,
+    DEBRIS_LIFETIME_MIN: 8000,  // ms
+    DEBRIS_LIFETIME_MAX: 20000, // ms
+
+    // Visual parameters
+    GAMMA_CORRECTION: 2.2,
+    FRAME_TIME: 0.016, // Approximate frame time (60 FPS)
 } as const;

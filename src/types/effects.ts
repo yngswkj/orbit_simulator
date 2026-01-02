@@ -52,6 +52,7 @@ export interface TidalDisruptionEvent {
     primaryPosition: { x: number; y: number; z: number };
     bodyRadius: number;
     bodyColor: string;
+    primaryMass: number; // Mass of primary body for tidal force calculation
     startTime: number;
     duration: number;
 }

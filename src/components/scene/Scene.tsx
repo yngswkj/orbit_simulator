@@ -351,6 +351,7 @@ const SimulationContent = () => {
                 const primary = bodies.find(b => b.id === event.primaryId);
                 const body = bodies.find(b => b.id === event.bodyId);
                 const primaryPos = primary ? primary.position : new THREE.Vector3(0, 0, 0);
+                const primaryMass = primary ? primary.mass : 1000;
                 const radius = body ? body.radius : 10;
                 const color = body ? body.color : '#aaaaaa';
 
@@ -361,6 +362,7 @@ const SimulationContent = () => {
                         primaryPosition={new THREE.Vector3(primaryPos.x, primaryPos.y, primaryPos.z)}
                         bodyRadius={radius}
                         bodyColor={color}
+                        primaryMass={primaryMass}
                         startTime={event.startTime}
                         duration={event.duration}
                         onComplete={() => removeTidalDisruptionEvent(event.bodyId)}
@@ -373,6 +375,8 @@ const SimulationContent = () => {
                     key={event.id}
                     position={new THREE.Vector3(event.position.x, event.position.y, event.position.z)}
                     startTime={event.startTime}
+                    duration={2000}
+                    maxRadius={50}
                     color={event.color}
                     onComplete={() => removeCollisionEvent(event.id)}
                 />

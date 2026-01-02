@@ -1,7 +1,8 @@
 import { Vector3 } from 'three';
-import type { CelestialBody, PhysicsState } from '../types/physics';
+import type { CelestialBody, PhysicsState, CollisionEvent } from '../types/physics';
 import { calculateAccelerationsBarnesHut } from './barnesHut';
 import { PHYSICS_CONSTANTS } from '../constants/physics';
+import { SpatialHashGrid, calculateOptimalCellSize } from './spatialHash';
 
 // Physics constants
 const { G, SOFTENING_SQ } = PHYSICS_CONSTANTS;
@@ -53,13 +54,17 @@ export const createPhysicsState = (bodies: CelestialBody[]): PhysicsState => {
 
 /**
  * Synchronizes PhysicsState back to CelestialBody objects for rendering/UI.
+ * Optimized with Map for O(1) lookup instead of O(N) find.
  */
 export const syncStateToBodies = (state: PhysicsState, bodies: CelestialBody[]): CelestialBody[] => {
     const nextBodies = new Array(state.count);
 
+    // Create Map for O(1) lookup
+    const bodyMap = new Map(bodies.map(b => [b.id, b]));
+
     for (let i = 0; i < state.count; i++) {
         const id = state.ids[i];
-        const existing = bodies.find(b => b.id === id); // Optimization opportunity: use Map
+        const existing = bodyMap.get(id);
 
         if (existing) {
             nextBodies[i] = {
@@ -176,60 +181,97 @@ const removeBodyAt = (state: PhysicsState, index: number): void => {
     state.count--;
 };
 
-const resolveCollisionsSoA = (state: PhysicsState): void => {
+const resolveCollisionsSoA = (state: PhysicsState, useSpatialHash: boolean = false): void => {
     const { positions, velocities, masses, radii } = state;
 
-    for (let i = 0; i < state.count; i++) {
-        if (masses[i] <= 0) continue;
+    let collisionPairs: [number, number][];
 
-        for (let j = i + 1; j < state.count; j++) {
-            if (masses[j] <= 0) continue;
+    if (useSpatialHash && state.count > 100) {
+        // Use spatial hash for large N
+        const cellSize = calculateOptimalCellSize(state);
+        const spatialHash = new SpatialHashGrid(cellSize);
+        spatialHash.build(state);
+        collisionPairs = spatialHash.findCollisions(state, PHYSICS_CONSTANTS.COLLISION_THRESHOLD);
+    } else {
+        // Brute force for small N
+        collisionPairs = [];
+        for (let i = 0; i < state.count; i++) {
+            if (masses[i] <= 0) continue;
 
-            const i3 = i * 3;
-            const j3 = j * 3;
+            for (let j = i + 1; j < state.count; j++) {
+                if (masses[j] <= 0) continue;
 
-            const dx = positions[i3] - positions[j3];
-            const dy = positions[i3 + 1] - positions[j3 + 1];
-            const dz = positions[i3 + 2] - positions[j3 + 2];
+                const i3 = i * 3;
+                const j3 = j * 3;
 
-            const distSq = dx * dx + dy * dy + dz * dz;
-            const radSum = radii[i] + radii[j];
+                const dx = positions[i3] - positions[j3];
+                const dy = positions[i3 + 1] - positions[j3 + 1];
+                const dz = positions[i3 + 2] - positions[j3 + 2];
 
-            if (distSq < (radSum * 0.8) ** 2) {
-                const mi = masses[i];
-                const mj = masses[j];
-                const totalMass = mi + mj;
+                const distSq = dx * dx + dy * dy + dz * dz;
+                const radSum = radii[i] + radii[j];
 
-                // New Velocity (momentum conservation)
-                const vx = (velocities[i3] * mi + velocities[j3] * mj) / totalMass;
-                const vy = (velocities[i3 + 1] * mi + velocities[j3 + 1] * mj) / totalMass;
-                const vz = (velocities[i3 + 2] * mi + velocities[j3 + 2] * mj) / totalMass;
-
-                // New Position (center of mass)
-                const px = (positions[i3] * mi + positions[j3] * mj) / totalMass;
-                const py = (positions[i3 + 1] * mi + positions[j3 + 1] * mj) / totalMass;
-                const pz = (positions[i3 + 2] * mi + positions[j3 + 2] * mj) / totalMass;
-
-                const newRadius = Math.cbrt(radii[i] ** 3 + radii[j] ** 3);
-
-                // Update 'i'
-                masses[i] = totalMass;
-                radii[i] = newRadius;
-                positions[i3] = px; positions[i3 + 1] = py; positions[i3 + 2] = pz;
-                velocities[i3] = vx; velocities[i3 + 1] = vy; velocities[i3 + 2] = vz;
-
-                // Remove 'j'
-                removeBodyAt(state, j);
-                j--;
+                if (distSq < (radSum * PHYSICS_CONSTANTS.COLLISION_THRESHOLD) ** 2) {
+                    collisionPairs.push([i, j]);
+                }
             }
         }
+    }
+
+    // Process collision pairs
+    const processed = new Set<number>();
+
+    for (const [i, j] of collisionPairs) {
+        // Skip if already processed
+        if (processed.has(i) || processed.has(j)) continue;
+        if (masses[i] <= 0 || masses[j] <= 0) continue;
+
+        const i3 = i * 3;
+        const j3 = j * 3;
+
+        const mi = masses[i];
+        const mj = masses[j];
+        const totalMass = mi + mj;
+
+        // New Velocity (momentum conservation)
+        const vx = (velocities[i3] * mi + velocities[j3] * mj) / totalMass;
+        const vy = (velocities[i3 + 1] * mi + velocities[j3 + 1] * mj) / totalMass;
+        const vz = (velocities[i3 + 2] * mi + velocities[j3 + 2] * mj) / totalMass;
+
+        // New Position (center of mass)
+        const px = (positions[i3] * mi + positions[j3] * mj) / totalMass;
+        const py = (positions[i3 + 1] * mi + positions[j3 + 1] * mj) / totalMass;
+        const pz = (positions[i3 + 2] * mi + positions[j3 + 2] * mj) / totalMass;
+
+        const newRadius = Math.cbrt(radii[i] ** 3 + radii[j] ** 3);
+
+        // Update 'i'
+        masses[i] = totalMass;
+        radii[i] = newRadius;
+        positions[i3] = px; positions[i3 + 1] = py; positions[i3 + 2] = pz;
+        velocities[i3] = vx; velocities[i3 + 1] = vy; velocities[i3 + 2] = vz;
+
+        // Mark for removal
+        processed.add(j);
+    }
+
+    // Remove processed bodies (in reverse order to maintain indices)
+    const toRemove = Array.from(processed).sort((a, b) => b - a);
+    for (const idx of toRemove) {
+        removeBodyAt(state, idx);
     }
 };
 
 /**
  * Updates physics using SoA state (Velocity Verlet)
  */
-export const updatePhysicsSoA = (state: PhysicsState, dt: number, useBarnesHut: boolean = false, enableCollisions: boolean = true): void => {
+export const updatePhysicsSoA = (
+    state: PhysicsState,
+    dt: number,
+    useBarnesHut: boolean = false,
+    enableCollisions: boolean = true,
+    useSpatialHash: boolean = true
+): void => {
     const { count, positions, velocities, accelerations } = state;
     const halfDt = 0.5 * dt;
 
@@ -264,7 +306,7 @@ export const updatePhysicsSoA = (state: PhysicsState, dt: number, useBarnesHut: 
 
     // 4. Collision Detection
     if (enableCollisions) {
-        resolveCollisionsSoA(state);
+        resolveCollisionsSoA(state, useSpatialHash);
     }
 };
 
@@ -332,17 +374,6 @@ export const calculateTotalEnergy = (bodies: CelestialBody[]): { kinetic: number
 
     return { kinetic, potential, total: kinetic + potential };
 };
-
-// Collision event data for visual effects
-export interface CollisionEvent {
-    collisionPoint: { x: number; y: number; z: number };
-    relativeVelocity: number;
-    combinedMass: number;
-    largerBodyId: string;
-    smallerBodyId: string;
-    smallerBodyColor: string;
-    smallerBodyRadius: number;
-}
 
 /**
  * Helper to apply collisions to a list of bodies (for Worker/GPU results).
