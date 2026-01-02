@@ -301,8 +301,16 @@ const ChangeBadge = ({ type }: { type: ChangeType }) => {
 
 const getChangelogData = (t: any): VersionLog[] => [
     {
-        version: '0.4.1',
+        version: '0.5.0',
         isCurrent: true,
+        changes: [
+            { type: 'improve', content: 'ブラックホール連星プリセットの追加' },
+            { type: 'new', content: '衝突エフェクト (潮汐破壊・衝撃波リング)' },
+            { type: 'new', content: 'ハビタブルゾーンの動的計算と表示' }
+        ]
+    },
+    {
+        version: '0.4.1',
         changes: [
             { type: 'improve', content: 'リアル距離モードの時間進行速度調整 (8倍速)' },
             { type: 'new', content: '重力場を表示する機能' },

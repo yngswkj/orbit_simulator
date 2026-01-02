@@ -204,6 +204,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                 <Html
                     position={[0, body.radius + 1.5, 0]}
                     center
+                    zIndexRange={[1000, 0]}
                     style={{
                         color: 'white',
                         fontSize: '14px',
