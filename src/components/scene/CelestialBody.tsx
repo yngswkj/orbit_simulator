@@ -6,6 +6,7 @@ import type { CelestialBody as BodyType } from '../../types/physics';
 import { Vector3, CatmullRomCurve3 } from 'three';
 import { AccretionDisk } from '../effects/AccretionDisk';
 import { RelativisticJet } from '../effects/RelativisticJet';
+import { ProceduralPlanet } from './ProceduralPlanet';
 
 interface CelestialBodyProps {
     body: BodyType;
@@ -172,19 +173,29 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
             >
                 {/* Axial Tilt Wrapper */}
                 <group rotation={[0, 0, tiltRadians]}>
-                    <Sphere ref={meshRef} args={[body.radius, 32, 32]}>
-                        {showRealistic && body.texturePath ? (
-                            <React.Suspense fallback={<meshStandardMaterial color={body.color} />}>
-                                <TextureOrb body={body} />
-                            </React.Suspense>
-                        ) : (
-                            <meshStandardMaterial
-                                color={body.color}
-                                emissive={body.color}
-                                emissiveIntensity={2.0}
-                            />
-                        )}
-                    </Sphere>
+                    {/* Render Procedural Planet or Fallback Orb */}
+                    {body.isStar || body.isCompactObject ? (
+                        <Sphere ref={meshRef} args={[body.radius, 32, 32]}>
+                            {showRealistic && body.texturePath ? (
+                                <React.Suspense fallback={<meshStandardMaterial color={body.color} />}>
+                                    <TextureOrb body={body} />
+                                </React.Suspense>
+                            ) : (
+                                <meshStandardMaterial
+                                    color={body.color}
+                                    emissive={body.color}
+                                    emissiveIntensity={2.0}
+                                />
+                            )}
+                        </Sphere>
+                    ) : (
+                        <ProceduralPlanet
+                            radius={body.radius}
+                            color={body.color}
+                            type={body.mass > 500 ? 'gas_giant' : 'terrestrial'}
+                            rotationSpeed={body.rotationSpeed}
+                        />
+                    )}
 
                     {showGrid && !isSelf && (
                         <Line

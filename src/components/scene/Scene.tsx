@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls, Stars, Grid, GizmoHelper, GizmoViewport } from '@react-three/drei';
+import { OrbitControls, Grid, GizmoHelper, GizmoViewport } from '@react-three/drei';
 import { Vector3 } from 'three';
 import * as THREE from 'three';
 import { usePhysicsStore, physicsStats } from '../../store/physicsStore';
@@ -18,6 +18,7 @@ import { EffectComposer } from '@react-three/postprocessing';
 import { GravitationalLensEffect } from '../effects/GravitationalLensEffect';
 import { TidalDisruptionEffect } from '../effects/TidalDisruptionEffect';
 import { ShockwaveEffect } from '../effects/ShockwaveEffect';
+import { StarfieldBackground } from './StarfieldBackground';
 
 // Helper to find the primary star (most massive star body)
 const findPrimaryStar = (bodies: BodyType[]): BodyType | undefined => {
@@ -330,7 +331,7 @@ const SimulationContent = () => {
             <ambientLight intensity={0.2} />
             <pointLight position={[0, 0, 0]} intensity={2} decay={0} distance={1000} />
 
-            <Stars radius={300} depth={50} count={5000} factor={4} saturation={0} fade speed={1} />
+
 
             {/* Single star system: Ring-based habitable zone */}
             {showHabitableZone && habitableZone && primaryStar && isSingleStarSystem && (
@@ -428,7 +429,7 @@ export const Scene = () => {
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
             <Canvas camera={{ position: [0, 25, 50], fov: 45, near: 0.1, far: cameraFar }}>
-                <color attach="background" args={['#050510']} />
+                <StarfieldBackground />
                 <SimulationContent />
                 <CameraScaleAdjuster />
                 <OrbitControls
