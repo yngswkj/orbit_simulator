@@ -14,11 +14,12 @@ import { HabitableZoneMap } from './HabitableZoneMap';
 import { EffectsLayer } from '../effects/EffectsLayer';
 import { calculateSingleStarHZ } from '../../utils/habitableZone';
 import { DISTANCE_SCALES } from '../../utils/solarSystem';
-import { EffectComposer } from '@react-three/postprocessing';
+import { EffectComposer, BrightnessContrast } from '@react-three/postprocessing';
 import { GravitationalLensEffect } from '../effects/GravitationalLensEffect';
 import { TidalDisruptionEffect } from '../effects/TidalDisruptionEffect';
 import { ShockwaveEffect } from '../effects/ShockwaveEffect';
 import { StarfieldBackground } from './StarfieldBackground';
+import { transitionCamera } from '../../utils/cameraTransitions';
 
 // Helper to find the primary star (most massive star body)
 const findPrimaryStar = (bodies: BodyType[]): BodyType | undefined => {
@@ -41,6 +42,7 @@ const CameraController = () => {
     const followingBodyId = usePhysicsStore((state) => state.followingBodyId);
     const cameraMode = usePhysicsStore((state) => state.cameraMode);
     const simulationTime = usePhysicsStore(state => state.simulationTime);
+    const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
     const { camera, controls } = useThree();
 
     // Store previous states to calculate deltas
@@ -50,7 +52,7 @@ const CameraController = () => {
     const lastUsedMode = React.useRef<string>('free');
 
     // Reset flags when target or mode changes
-    // Initial Jump / Target Switch Logic
+    // Initial Jump / Target Switch Logic with smooth transitions
     React.useEffect(() => {
         isFirstLockFrame.current = true;
 
@@ -96,34 +98,60 @@ const CameraController = () => {
                         // Target: Point ahead in tangent direction
                         const targetPos = camPos.clone().add(forwardDir.multiplyScalar(100));
 
-                        camera.position.copy(camPos);
-                        orbitControls.target.copy(targetPos);
+                        // Smooth transition to surface lock view
+                        transitionCamera(camera, orbitControls, camPos, targetPos, {
+                            duration: 1.0,
+                            ease: 'power2.inOut'
+                        });
 
                     } else {
-                        // Free or Sun Lock: Target = Center
-                        orbitControls.target.copy(bodyPos);
+                        // Free or Sun Lock: Target = Center of the body
+                        // Calculate direction from body to camera (so camera looks at body)
+                        const currentCameraPos = camera.position.clone();
+                        const direction = currentCameraPos.sub(bodyPos).normalize();
 
-                        // Move Camera Closer if needed (Initial Jump)
-                        // Logic: Maintain direction, change distance
-                        const direction = camera.position.clone().sub(orbitControls.target).normalize();
-                        if (direction.lengthSq() < 0.001) direction.set(0, 50, 50).normalize();
+                        // If camera is too close to body (nearly at same position), use default viewing angle
+                        if (direction.lengthSq() < 0.001) {
+                            direction.set(1, 0.8, 1).normalize(); // Diagonal view from upper-right-front
+                        }
 
-                        // New Closer Distance: Radius * 4 (was * 12)
-                        const idealDist = body.radius * 4 + 2;
+                        // Ideal distance: proportional to body radius for good framing
+                        const idealDist = Math.max(body.radius * 5, 10); // At least 10 units away
 
-                        // Only snap position if we are "far" or switching modes freshly
-                        // Or if user specifically requested "Closer". 
-                        // Let's enforce the closer distance on mode switch to ensure user sees the change.
+                        // Calculate new camera position: body position + direction * distance
                         const newCamPos = bodyPos.clone().add(direction.multiplyScalar(idealDist));
-                        camera.position.copy(newCamPos);
-                    }
 
-                    orbitControls.update();
+                        // Smooth transition: camera moves to new position while looking at body center
+                        // Use dynamicTarget to continuously track the moving body during animation
+                        transitionCamera(camera, orbitControls, newCamPos, bodyPos, {
+                            duration: 0.8,
+                            ease: 'power2.inOut',
+                            dynamicTarget: () => {
+                                // Return current body position every frame
+                                const currentBody = usePhysicsStore.getState().bodies.find(b => b.id === followingBodyId);
+                                if (currentBody) {
+                                    return new Vector3(
+                                        currentBody.position.x,
+                                        currentBody.position.y,
+                                        currentBody.position.z
+                                    );
+                                }
+                                return bodyPos; // Fallback to initial position
+                            }
+                        });
+                    }
                 }
             }
         }
         lastUsedMode.current = cameraMode;
-    }, [followingBodyId, cameraMode, controls]);
+    }, [followingBodyId, cameraMode, controls, camera]);
+
+    // Handle distance scale changes to prevent camera drift
+    React.useEffect(() => {
+        // When scale mode changes, force a reset of the tracking logic
+        // This ensures the next frame (with new coordinates) doesn't calculate a huge delta
+        prevBodyPos.current = null;
+    }, [useRealisticDistances]);
 
     // Continuous Follow Logic
     useFrame((state) => {
@@ -279,8 +307,10 @@ const GravitationalLensPostProcess = () => {
 
     // Find compact objects (black holes)
     const compactObjects = useMemo(() => bodies.filter(b => b.isCompactObject), [bodies]);
+    const hasBlackHole = compactObjects.length > 0;
 
-    if (compactObjects.length === 0) {
+    // Only render when black holes exist
+    if (!hasBlackHole) {
         return null;
     }
 
@@ -289,7 +319,7 @@ const GravitationalLensPostProcess = () => {
     const bhPosition = new Vector3(blackHole.position.x, blackHole.position.y, blackHole.position.z);
 
     return (
-        <EffectComposer>
+        <EffectComposer key="gravitational-lens-composer" enableNormalPass={false} multisampling={0}>
             <GravitationalLensEffect
                 blackHolePosition={bhPosition}
                 schwarzschildRadius={blackHole.radius}
@@ -297,6 +327,7 @@ const GravitationalLensPostProcess = () => {
                 camera={camera}
                 enabled={true}
             />
+            <BrightnessContrast brightness={-0.2} contrast={0.1} />
         </EffectComposer>
     );
 };
@@ -395,78 +426,97 @@ const SimulationContent = () => {
 
             {/* Visual effects layer (shockwaves, debris, etc.) */}
             <EffectsLayer />
-
-            {/* Post-processing gravitational lensing effect */}
-            <GravitationalLensPostProcess />
         </>
     );
 };
 
 import { PerformanceStats } from '../ui/PerformanceStats';
 
-export const Scene = () => {
-    const showPerformance = usePhysicsStore((state) => state.showPerformance);
+const SceneGrid = () => {
     const showGrid = usePhysicsStore((state) => state.showGrid);
-    const cameraMode = usePhysicsStore((state) => state.cameraMode);
-    const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
-    const isSurfaceLock = cameraMode === 'surface_lock';
     const zenMode = usePhysicsStore((state) => state.zenMode);
+    const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
 
-    // Grid settings based on distance scale
-    // Standard: 1AU=50 -> Grid 50
-    // Wide: 1AU=200 -> Grid 200
+    // Check for black holes for grid brightness adjustment
+    const bodies = usePhysicsStore((state) => state.bodies);
+    const hasBlackHole = useMemo(() => bodies.some(b => b.isCompactObject), [bodies]);
+
     const gridConfig = useRealisticDistances
         ? { fadeDistance: 5000, sectionSize: 200, cellSize: 50 }
         : { fadeDistance: 2000, sectionSize: 50, cellSize: 10 };
 
+    const sectionColor = hasBlackHole ? "#aaaaaa" : "#555555";
+    const cellColor = hasBlackHole ? "#888888" : "#333333";
+
+    // Always render Grid but control visibility to prevent EffectComposer unmounting
+    const shouldShow = showGrid && !zenMode;
+
+    return (
+        <group visible={shouldShow}>
+            <Grid
+                infiniteGrid
+                fadeDistance={gridConfig.fadeDistance}
+                sectionColor={sectionColor}
+                cellColor={cellColor}
+                sectionSize={gridConfig.sectionSize}
+                cellSize={gridConfig.cellSize}
+                side={2}
+            />
+        </group>
+    );
+};
+
+const SceneContent = () => {
+    const showGrid = usePhysicsStore((state) => state.showGrid);
+    const zenMode = usePhysicsStore((state) => state.zenMode);
+    const cameraMode = usePhysicsStore((state) => state.cameraMode);
+    const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
+
+    const isSurfaceLock = cameraMode === 'surface_lock';
+
     // Camera far value based on distance scale
-    // Compressed: Neptune at ~1500 (30AU * 50) -> Far 10000 -> 50000 safe
-    // Realistic: Neptune at ~6000 (30AU * 200) -> Far 50000 -> 100000 safe
     const cameraFar = useRealisticDistances ? 200000 : 50000;
 
-    // Camera tuned to see Neptune (r=250) at 12 o'clock (-Z) from 6 o'clock (+Z)
-    // User requested return to original distance feeling
+    return (
+        <Canvas camera={{ position: [0, 25, 50], fov: 45, near: 0.1, far: cameraFar }}>
+            <color attach="background" args={['#000000']} />
+            <StarfieldBackground />
+            <SimulationContent />
+            <CameraScaleAdjuster />
+            <OrbitControls
+                makeDefault
+                enablePan={true}
+                minDistance={0.001}
+                maxDistance={100000}
+                enableZoom={!isSurfaceLock}
+                enableDamping={true}
+                dampingFactor={0.1}
+                zoomSpeed={1.5}
+                panSpeed={1.2}
+                rotateSpeed={0.8}
+            />
+
+            <SceneGrid />
+
+            {/* Always render to prevent EffectComposer unmounting */}
+            <group visible={showGrid && !zenMode}>
+                <GizmoHelper alignment="bottom-left" margin={[100, 100]}>
+                    <GizmoViewport axisColors={['#ff3653', '#0adb50', '#2c8fdf']} labelColor="black" />
+                </GizmoHelper>
+            </group>
+
+            {/* Post-processing effects are rendered last to capture everything including the grid */}
+            <GravitationalLensPostProcess />
+        </Canvas>
+    );
+};
+
+export const Scene = () => {
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            <Canvas camera={{ position: [0, 25, 50], fov: 45, near: 0.1, far: cameraFar }}>
-                <StarfieldBackground />
-                <SimulationContent />
-                <CameraScaleAdjuster />
-                <OrbitControls
-                    makeDefault
-                    enablePan={true}
-                    minDistance={0.001}
-                    maxDistance={100000}
-                    enableZoom={!isSurfaceLock}
-                    enableDamping={true}
-                    dampingFactor={0.1}
-                    zoomSpeed={1.5}
-                    panSpeed={1.2}
-                    rotateSpeed={0.8}
-                />
-
-                {showGrid && !zenMode && (
-                    <>
-                        <Grid
-                            infiniteGrid
-                            fadeDistance={gridConfig.fadeDistance}
-                            sectionColor="#555555"
-                            cellColor="#333333"
-                            sectionSize={gridConfig.sectionSize}
-                            cellSize={gridConfig.cellSize}
-                            // @ts-ignore
-                            depthWrite={false}
-                            // @ts-ignore
-                            side={2}
-                        />
-                        <GizmoHelper alignment="bottom-left" margin={[100, 100]}>
-                            <GizmoViewport axisColors={['#ff3653', '#0adb50', '#2c8fdf']} labelColor="black" />
-                        </GizmoHelper>
-                    </>
-                )}
-            </Canvas>
+            <SceneContent />
             <DateDisplay />
-            {showPerformance && <PerformanceStats />}
+            {usePhysicsStore(state => state.showPerformance) && <PerformanceStats />}
         </div>
     );
 };

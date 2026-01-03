@@ -14,12 +14,10 @@ interface CelestialBodyProps {
 
 // Separate component since useTexture suspends
 const TextureOrb = ({ body }: { body: BodyType }) => {
-    // Try-catch isn't possible with hooks directly, but we can assume valid paths.
-    // If path is missing, fallback to color.
     const texturePath = body.texturePath;
     if (!texturePath) return null;
 
-    const texture = useTexture(texturePath); // This will suspend
+    const texture = useTexture(texturePath);
 
     return (
         <meshStandardMaterial
@@ -35,11 +33,11 @@ const TextureOrb = ({ body }: { body: BodyType }) => {
 
 // Trail configuration
 const TRAIL_CONFIG = {
-    RECENT_MAX: 60,       // High-res recent points to keep after compression
-    RECENT_INTERVAL: 2,   // Sample every 2 frames (smooth)
-    COMPRESSED_MAX: 120,  // Compressed old points
-    COMPRESS_RATIO: 4,    // Keep 1 out of 4 points when compressing
-    COMPRESS_TRIGGER: 80  // Compress when recent exceeds this (must be > RECENT_MAX)
+    RECENT_MAX: 60,
+    RECENT_INTERVAL: 2,
+    COMPRESSED_MAX: 120,
+    COMPRESS_RATIO: 4,
+    COMPRESS_TRIGGER: 80
 };
 
 // Spline interpolation for smooth curves (memoized)
@@ -57,7 +55,6 @@ const useSplinePoints = (controlPoints: Vector3[], segments: number): Vector3[] 
 
 // Internal component for constant width trail with LOD compression
 const ConstantWidthTrail = ({ position, color }: { position: Vector3, color: string }) => {
-    // Two-tier storage: recent (high-res) + compressed (low-res, longer)
     const recentPoints = React.useRef<Vector3[]>([]);
     const compressedPoints = React.useRef<Vector3[]>([]);
     const [renderPoints, setRenderPoints] = React.useState<Vector3[]>([]);
@@ -66,7 +63,6 @@ const ConstantWidthTrail = ({ position, color }: { position: Vector3, color: str
     const resetToken = usePhysicsStore(state => state.resetToken);
     const simulationState = usePhysicsStore(state => state.simulationState);
 
-    // Reset trail when distance scale changes OR when resetToken increments
     React.useEffect(() => {
         recentPoints.current = [];
         compressedPoints.current = [];
@@ -75,37 +71,23 @@ const ConstantWidthTrail = ({ position, color }: { position: Vector3, color: str
 
     useFrame(() => {
         if (simulationState !== 'running') return;
-
         frameCount.current++;
-
-        // Add new point at high frequency
         if (frameCount.current % TRAIL_CONFIG.RECENT_INTERVAL === 0) {
             recentPoints.current.push(position.clone());
-
-            // Compress old points when recent buffer is full
             if (recentPoints.current.length > TRAIL_CONFIG.COMPRESS_TRIGGER) {
-                // Take oldest points from recent and compress them
                 const toCompress = recentPoints.current.splice(0, TRAIL_CONFIG.COMPRESS_TRIGGER - TRAIL_CONFIG.RECENT_MAX);
-
-                // Keep every Nth point (downsample)
                 for (let i = 0; i < toCompress.length; i += TRAIL_CONFIG.COMPRESS_RATIO) {
                     compressedPoints.current.push(toCompress[i]);
                 }
-
-                // Limit compressed buffer
                 while (compressedPoints.current.length > TRAIL_CONFIG.COMPRESSED_MAX) {
                     compressedPoints.current.shift();
                 }
             }
-
-            // Update render points (merge compressed + recent)
             setRenderPoints([...compressedPoints.current, ...recentPoints.current]);
         }
     });
 
-    // Apply spline interpolation for smooth curves
     const smoothPoints = useSplinePoints(renderPoints, Math.min(renderPoints.length * 2, 400));
-
     if (smoothPoints.length < 2) return null;
 
     return (
@@ -133,7 +115,41 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
         return (body.axialTilt || 0) * (Math.PI / 180);
     }, [body.axialTilt]);
 
-    // Delayed trail initialization
+    // Helper to Determine Planet Type
+    const planetType = useMemo(() => {
+        if (body.mass > 200) return 'gas_giant';
+
+        // Special exclusions/overrides based on name
+        const nameLower = body.name.toLowerCase();
+
+        // Explicit types for Solar System
+        if (nameLower.includes('sun')) return 'star'; // Should be handled by body.isStar but just in case
+        if (nameLower.includes('mercury')) return 'rocky';
+        if (nameLower.includes('venus')) return 'terrestrial'; // Or 'rocky' with atmosphere override? Let's use terrestrial for now or add 'venusian' later
+        if (nameLower.includes('earth')) return 'terrestrial';
+        if (nameLower.includes('mars')) return 'rocky';
+        if (nameLower.includes('jupiter') || nameLower.includes('saturn') || nameLower.includes('uranus') || nameLower.includes('neptune')) return 'gas_giant';
+
+        // Moons
+        if (nameLower.includes('moon') || nameLower.includes('luna')) return 'rocky';
+        if (nameLower.includes('europa') || nameLower.includes('enceladus') || nameLower.includes('pluto')) return 'ice';
+        if (nameLower.includes('io') || nameLower.includes('volcano')) return 'molten';
+
+        // Distance / Density heuristics for unknown bodies
+        const dist = Math.sqrt(body.position.x ** 2 + body.position.z ** 2);
+
+        // Very close to sun -> Molten (only if extremely close, e.g. < 0.3 AU => < 15 units)
+        if (dist < 15) return 'molten';
+
+        // Far from sun -> Ice
+        if (dist > 800 && body.mass < 100) return 'ice';
+
+        // Default small body logic
+        if (body.mass < 0.2) return 'rocky';
+
+        return 'terrestrial';
+    }, [body.mass, body.position.x, body.position.z, body.name]);
+
     const [trailReady, setTrailReady] = React.useState(false);
     React.useEffect(() => {
         const timer = setTimeout(() => {
@@ -144,7 +160,6 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
 
     useFrame(() => {
         if (meshRef.current && body.rotationSpeed) {
-            // Visual Rotation: Scale relative speed (Earth=1.0) to Rads/Year (2300)
             const EARTH_YEAR_RAD = 2300;
             meshRef.current.rotation.y = (body.rotationSpeed * simulationTime * EARTH_YEAR_RAD);
         }
@@ -154,15 +169,20 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
     const cameraMode = usePhysicsStore(state => state.cameraMode);
     const followingBodyId = usePhysicsStore(state => state.followingBodyId);
 
-    // Filter interactions for Surface View
     const isSurfaceView = cameraMode === 'surface_lock';
     const isSelf = isSurfaceView && followingBodyId === body.id;
 
     const handleClick = (e: any) => {
-        if (isSurfaceView) return; // Disable selection in Surface View
+        if (isSurfaceView) return;
         e.stopPropagation();
         selectBody(body.id);
     };
+
+    // Display Logic:
+    // 1. If showRealistic AND texturePath exists -> Use TextureOrb (Sphere)
+    // 2. Else -> Use Shader (ProceduralPlanet) OR Emissive Sphere (for Stars/Compact without texture override)
+
+    const shouldUseTexture = showRealistic && !!body.texturePath;
 
     return (
         <>
@@ -171,30 +191,36 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                 position={positionVector}
                 onClick={handleClick}
             >
-                {/* Axial Tilt Wrapper */}
                 <group rotation={[0, 0, tiltRadians]}>
-                    {/* Render Procedural Planet or Fallback Orb */}
-                    {body.isStar || body.isCompactObject ? (
+                    {shouldUseTexture ? (
                         <Sphere ref={meshRef} args={[body.radius, 32, 32]}>
-                            {showRealistic && body.texturePath ? (
-                                <React.Suspense fallback={<meshStandardMaterial color={body.color} />}>
-                                    <TextureOrb body={body} />
-                                </React.Suspense>
-                            ) : (
+                            <React.Suspense fallback={<meshStandardMaterial color={body.color} />}>
+                                <TextureOrb body={body} />
+                            </React.Suspense>
+                        </Sphere>
+                    ) : (
+                        /* Fallback to Procedual / Simple Shader */
+                        body.isStar || body.isCompactObject ? (
+                            /* Star/Compact Shader (Simple Emissive for now, could be procedural later) */
+                            <Sphere ref={meshRef} args={[body.radius, 32, 32]}>
                                 <meshStandardMaterial
                                     color={body.color}
                                     emissive={body.color}
                                     emissiveIntensity={2.0}
                                 />
-                            )}
-                        </Sphere>
-                    ) : (
-                        <ProceduralPlanet
-                            radius={body.radius}
-                            color={body.color}
-                            type={body.mass > 500 ? 'gas_giant' : 'terrestrial'}
-                            rotationSpeed={body.rotationSpeed}
-                        />
+                            </Sphere>
+                        ) : (
+                            /* Planet Shader */
+                            /* Note: ProceduralPlanet does not use meshRef for rotation from parent logic yet. 
+                               It handles rotation internally via uniforms but we might want to sync it.
+                               For now, we just render it. */
+                            <ProceduralPlanet
+                                radius={body.radius}
+                                color={body.color}
+                                type={planetType}
+                                rotationSpeed={body.rotationSpeed}
+                            />
+                        )
                     )}
 
                     {showGrid && !isSelf && (
@@ -211,7 +237,6 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                     )}
                 </group>
 
-                {/* HTML label - not affected by post-processing */}
                 <Html
                     position={[0, body.radius + 1.5, 0]}
                     center
@@ -230,7 +255,6 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                 </Html>
             </group>
 
-            {/* Trail - Rendered in World Space */}
             {trailReady && (
                 <ConstantWidthTrail
                     position={positionVector}
@@ -238,7 +262,6 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                 />
             )}
 
-            {/* Accretion Disk for compact objects */}
             {body.hasAccretionDisk && body.accretionDiskConfig && (
                 <AccretionDisk
                     position={body.position}
@@ -250,7 +273,6 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                 />
             )}
 
-            {/* Relativistic Jets for compact objects */}
             {body.hasJets && (
                 <RelativisticJet
                     position={body.position}

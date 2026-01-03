@@ -19,6 +19,28 @@ const translations = {
         reset: 'Reset Simulation',
         load_solar: 'Load Solar System',
 
+        // Unified UI
+        tab_controls: 'Controls',
+        tab_bodies: 'Bodies',
+        tab_inspector: 'Inspector',
+
+        // Body Creator
+        preset_mode: 'Preset',
+        custom_mode: 'Custom',
+        create_body: 'Create Body',
+
+        // Bodies Tab
+        search_placeholder: 'Search bodies...',
+        filter_all: 'All',
+        filter_star: 'Star',
+        filter_planet: 'Planet',
+        filter_black_hole: 'Black Hole',
+        duplicate: 'Duplicate',
+        no_bodies_found: 'No bodies found',
+
+        // Inspector Tab
+        select_body_msg: 'Select a body from the Bodies tab or click on an object in the view to inspect its properties.',
+
         // Toggles
         show_prediction: 'Show Orbit Prediction',
         show_grid: 'Show Grid & Axes',
@@ -143,7 +165,14 @@ const translations = {
         habitable_zone_multi_star: 'Multi-Star Habitable Zone',
         hz_cold: 'Too Cold',
         hz_habitable: 'Habitable',
+        hz_habitable: 'Habitable',
         hz_hot: 'Too Hot',
+
+        // Delete Modal
+        delete_title: 'Delete Body',
+        delete_message: 'Are you sure you want to delete "{name}"? This action cannot be undone.',
+        delete_confirm: 'Delete',
+        delete_cancel: 'Cancel',
     },
     ja: {
         // App
@@ -160,6 +189,28 @@ const translations = {
         resume: '再開',
         reset: 'リセット',
         load_solar: '太陽系に移動',
+
+        // Unified UI
+        tab_controls: 'コントロール',
+        tab_bodies: '天体一覧',
+        tab_inspector: '詳細',
+
+        // Body Creator
+        preset_mode: 'プリセット',
+        custom_mode: 'カスタム',
+        create_body: '天体を作成',
+
+        // Bodies Tab
+        search_placeholder: '名前で検索...',
+        filter_all: '全て',
+        filter_star: '恒星',
+        filter_planet: '惑星',
+        filter_black_hole: 'ブラックホール',
+        duplicate: '複製',
+        no_bodies_found: '天体が見つかりません',
+
+        // Inspector Tab
+        select_body_msg: '「天体一覧」タブから選択するか、画面上の天体をクリックして詳細を表示してください。',
 
         // Toggles
         show_prediction: '軌道予測線を表示',
@@ -288,6 +339,12 @@ const translations = {
         hz_cold: '寒冷域',
         hz_habitable: 'ハビタブル',
         hz_hot: '高温域',
+
+        // Delete Modal
+        delete_title: '天体の削除',
+        delete_message: '"{name}" を削除してもよろしいですか？この操作は取り消せません。',
+        delete_confirm: '削除',
+        delete_cancel: 'キャンセル',
     }
 };
 

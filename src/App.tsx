@@ -1,12 +1,13 @@
 import { useEffect, useState } from 'react';
 import { Scene } from './components/scene/Scene';
-import { ControlPanel } from './components/ui/ControlPanel';
-import { BodyInspector } from './components/ui/BodyInspector';
+import { UnifiedSidePanel } from './components/ui/UnifiedSidePanel';
+// PropertyInspector removed (merged into BodyInspector)
 import { Tour } from './components/ui/Tour';
 import { useTranslation } from './utils/i18n';
 import { usePhysicsStore } from './store/physicsStore';
 import './App.css';
 import { runBenchmark, runGPUBenchmark } from './utils/benchmark';
+import { ToastProvider } from './components/ui/common/Toast';
 
 // Expose runBenchmark to window for testing
 (window as any).runBenchmark = runBenchmark;
@@ -38,6 +39,13 @@ function App() {
   useEffect(() => {
     checkGPUSupport(); // Check if WebGPU is available
 
+    // Cleanup physics resources on unmount
+    return () => {
+      usePhysicsStore.getState().cleanup();
+    };
+  }, [checkGPUSupport]);
+
+  useEffect(() => {
     if (followedBodyName) {
       setOverlayName(followedBodyName);
       setOverlayOpacity(1);
@@ -50,12 +58,7 @@ function App() {
     } else {
       setOverlayOpacity(0);
     }
-
-    // Cleanup physics resources on unmount
-    return () => {
-      usePhysicsStore.getState().cleanup();
-    };
-  }, [followedBodyName, checkGPUSupport]);
+  }, [followedBodyName]);
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -69,6 +72,16 @@ function App() {
         setSimulationState(simulationState === 'running' ? 'paused' : 'running');
       }
 
+      // Undo/Redo
+      if (e.ctrlKey && !e.shiftKey && e.code === 'KeyZ') {
+        e.preventDefault();
+        usePhysicsStore.getState().undo();
+      }
+      if ((e.ctrlKey && e.code === 'KeyY') || (e.ctrlKey && e.shiftKey && e.code === 'KeyZ')) {
+        e.preventDefault();
+        usePhysicsStore.getState().redo();
+      }
+
       // Shift + Number: Camera Modes
       if (e.shiftKey) {
         if (e.code === 'Digit1') setCameraMode('free');
@@ -76,7 +89,7 @@ function App() {
         if (e.code === 'Digit3' && followingBodyId) setCameraMode('surface_lock');
       }
       // Number (1-9): Toggle Follow Body
-      else if (e.code.startsWith('Digit')) {
+      else if (e.code.startsWith('Digit') && !e.ctrlKey && !e.altKey && !e.metaKey) {
         const num = Number(e.code.replace('Digit', ''));
         // Only handle 1-9
         if (!isNaN(num) && num >= 1 && num <= 9) {
@@ -102,41 +115,43 @@ function App() {
   }, [simulationState, setSimulationState, bodies, followingBodyId, setFollowingBody, setCameraMode]);
 
   return (
-    <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
-      <Scene />
+    <ToastProvider>
+      <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
+        <Scene />
 
-      <div style={{
-        position: 'absolute',
-        top: 20,
-        left: 20,
-        color: 'white',
-        fontFamily: "'Inter', sans-serif",
-        pointerEvents: 'none',
-        textShadow: '0 2px 4px rgba(0,0,0,0.5)',
-        opacity: usePhysicsStore(state => state.zenMode) ? 0 : 1,
-        transition: 'opacity 0.5s ease-in-out'
-      }}>
-        <h1 style={{ margin: 0, fontWeight: 300, fontSize: '2rem', letterSpacing: '-0.02em' }}>{t('app_title')}</h1>
-        <p style={{ margin: 0, opacity: 0.7, fontSize: '0.9rem' }}>{t('app_subtitle')}</p>
-
-        <div style={{
-          marginTop: '10px',
-          fontSize: '2.5rem',
-          fontWeight: 300,
-          opacity: overlayOpacity,
-          transition: 'opacity 0.5s ease-in-out',
-          color: '#3b82f6',
-          textShadow: '0 0 10px rgba(59, 130, 246, 0.5)',
-          letterSpacing: '-0.02em'
+        <div className="app-header" style={{
+          position: 'absolute',
+          top: 20,
+          left: 20,
+          color: 'white',
+          fontFamily: "'Inter', sans-serif",
+          pointerEvents: 'none',
+          textShadow: '0 2px 4px rgba(0,0,0,0.5)',
+          opacity: usePhysicsStore(state => state.zenMode) ? 0 : 1,
+          transition: 'opacity 0.5s ease-in-out'
         }}>
-          {overlayName}
-        </div>
-      </div>
+          <h1 style={{ margin: 0, fontWeight: 300, fontSize: '2rem', letterSpacing: '-0.02em' }}>{t('app_title')}</h1>
+          <p style={{ margin: 0, opacity: 0.7, fontSize: '0.9rem' }}>{t('app_subtitle')}</p>
 
-      <ControlPanel />
-      <BodyInspector />
-      <Tour />
-    </div>
+          <div style={{
+            marginTop: '10px',
+            fontSize: '2.5rem',
+            fontWeight: 300,
+            opacity: overlayOpacity,
+            transition: 'opacity 0.5s ease-in-out',
+            color: '#3b82f6',
+            textShadow: '0 0 10px rgba(59, 130, 246, 0.5)',
+            letterSpacing: '-0.02em'
+          }}>
+            {overlayName}
+          </div>
+        </div>
+
+        <UnifiedSidePanel />
+
+        <Tour />
+      </div>
+    </ToastProvider>
   );
 }
 

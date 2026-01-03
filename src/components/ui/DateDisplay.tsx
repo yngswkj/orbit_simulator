@@ -35,7 +35,7 @@ export const DateDisplay: React.FC = () => {
     if (zenMode) return null;
 
     return (
-        <div style={{
+        <div className="date-display" style={{
             position: 'absolute',
             bottom: '160px', // Above Gizmo (margin 100 + size)
             left: '20px',
@@ -44,11 +44,9 @@ export const DateDisplay: React.FC = () => {
             zIndex: 900,
             display: 'flex',
             flexDirection: 'column',
-            gap: '2px',
-            // Minimal style as requested? Reverting to previous style implies maybe simpler?
-            // User asked for "Format to Days (Years)"
+            gap: '2px'
         }}>
-            <div style={{
+            <div className="mission-time-label" style={{
                 color: 'rgba(255, 255, 255, 0.6)',
                 fontSize: '0.75rem',
                 textTransform: 'uppercase',
@@ -58,7 +56,7 @@ export const DateDisplay: React.FC = () => {
             }}>
                 MISSION TIME
             </div>
-            <div style={{
+            <div className="mission-time-value" style={{
                 color: '#fff',
                 fontSize: '1.5rem',
                 fontFamily: 'Inter, sans-serif',
@@ -67,7 +65,7 @@ export const DateDisplay: React.FC = () => {
             }}>
                 {days} <span style={{ fontSize: '0.9rem', color: 'rgba(255,255,255,0.5)' }}>DAYS</span>
             </div>
-            <div style={{
+            <div className="mission-time-years" style={{
                 color: 'rgba(255, 255, 255, 0.5)',
                 fontSize: '0.9rem',
                 fontFamily: 'Inter, sans-serif'

@@ -1,4 +1,4 @@
-import React, { useRef, useMemo } from 'react';
+import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -12,6 +12,11 @@ const starfieldShader = {
     `,
     fragmentShader: `
         uniform float time;
+        uniform float seed;
+        uniform vec3 uColorDeep;
+        uniform vec3 uColorMist;
+        uniform vec3 uColorGlow;
+        uniform vec3 uColorCore;
         varying vec3 vWorldPosition;
 
         // Simplex 3D Noise (Ian McEwan, Ashima Arts)
@@ -76,49 +81,92 @@ const starfieldShader = {
             return value;
         }
 
+        // Determine star color based on position (Pseudo-random)
+        vec3 getStarColor(vec3 position) {
+            float starType = snoise(position * 1234.5) * 0.5 + 0.5; // 0.0 - 1.0
+
+            vec3 color;
+            if (starType < 0.76) {
+                // M-type: Red-Orange (76%)
+                color = mix(vec3(1.0, 0.4, 0.2), vec3(1.0, 0.6, 0.3), (starType / 0.76));
+            } else if (starType < 0.88) {
+                // K-type: Orange (12%)
+                color = vec3(1.0, 0.8, 0.5);
+            } else if (starType < 0.96) {
+                // G-type: Yellow (8%)
+                color = vec3(1.0, 0.95, 0.7);
+            } else if (starType < 0.99) {
+                // F/A-type: White (3%)
+                color = vec3(1.0, 1.0, 0.95);
+            } else {
+                // O/B-type: Blue-White (1%)
+                color = vec3(0.7, 0.8, 1.0);
+            }
+            return color;
+        }
+
         void main() {
             vec3 pos = normalize(vWorldPosition); 
+            // Apply Random Seed Offset to position pattern
+            vec3 seedOffset = vec3(seed * 100.0);
 
-            // --- 1. Stars (Twinkle & Dense) ---
-            // Base star noise
-            float nStars = snoise(pos * 600.0); 
-            // Twinkle factor using time and position
-            float twinkle = sin(time * 2.0 + pos.x * 100.0 + pos.y * 50.0) * 0.5 + 0.5;
-            // Create sharp points
-            float stars = smoothstep(0.97, 1.0, nStars + twinkle * 0.02); 
-            // Some extra bright lonely stars
-            float brightStars = smoothstep(0.995, 1.0, snoise(pos * 300.0 + 100.0));
+            // --- 1. Stars (Twinkle & Multi-colored) ---
+            float nStars = snoise(pos * 600.0 + seedOffset); 
+            float twinkle = sin(time * 0.2 + pos.x * 100.0 + pos.y * 50.0) * 0.5 + 0.5;
+            float starsRaw = smoothstep(0.97, 1.0, nStars);
+            float stars = starsRaw * (0.8 + 0.2 * twinkle); 
+            float brightStars = smoothstep(0.995, 1.0, snoise(pos * 300.0 + 100.0 + seedOffset));
+
+            vec3 starColor = getStarColor(pos * 600.0 + seedOffset);
+            vec3 brightStarColor = getStarColor(pos * 300.0 + 100.0 + seedOffset);
+
+            vec3 starContribution = starColor * stars * 0.8 + brightStarColor * brightStars * 1.0;
+
+            // --- 1.5 Milky Way (Dense Band) ---
+            // Galactic plane at Y=0 (Equator)
+            float galacticLatitude = abs(pos.y); 
+            float densityBand = smoothstep(0.5, 0.0, galacticLatitude);
+            
+            // Vary density with noise
+            float densityVariation = fbm(pos * 8.0 + seedOffset) * 0.5 + 0.5;
+            float galaxyDensity = densityBand * densityVariation;
+
+            // Dense stars for Milky Way
+            // Lower threshold to show more stars in the band
+            float milkyWayStars = snoise(pos * 1200.0 + seedOffset); 
+            float milkyWayMask = smoothstep(0.90, 1.0, milkyWayStars);
+
+            // Milky Way Color (slightly bluish/white)
+            vec3 milkyWayColor = mix(
+                vec3(0.9, 0.95, 1.0),
+                vec3(1.0, 0.98, 0.9),
+                snoise(pos * 1200.0 + 500.0 + seedOffset) * 0.5 + 0.5
+            );
+
+            // Boost intensity significantly to make it visible
+            vec3 milkyWayContribution = milkyWayColor * milkyWayMask * galaxyDensity * 2.5;
 
             // --- 2. Rich Nebula (Multi-layered FBM) ---
-            // Slow moving deep structure
             float flowTime = time * 0.005;
             vec3 flowOffset = vec3(flowTime, -flowTime * 0.5, flowTime * 0.2);
             
-            float nebulaNoise = fbm(pos * 1.5 + flowOffset);
-            
-            // Normalize noise to 0.0 - 1.0 range approx
+            float nebulaNoise = fbm(pos * 1.5 + flowOffset + seedOffset * 0.1);
             nebulaNoise = nebulaNoise * 0.5 + 0.5; 
             
-            // Create "voids" and "clouds"
-            // Sharpen the contrast
             float clouds = smoothstep(0.3, 0.8, nebulaNoise);
 
-            // --- 3. Color Mixing (Cosmic Palette) ---
-            vec3 deepSpace = vec3(0.0, 0.02, 0.05); // Deep Blue-Black
-            vec3 purpleMist = vec3(0.25, 0.05, 0.35);
-            vec3 tealGlow   = vec3(0.0, 0.4, 0.4);
-            vec3 warmCore   = vec3(0.6, 0.3, 0.1);
-
-            // Mix colors based on noise intensity
-            vec3 nebulaColor = mix(deepSpace, purpleMist, clouds);
-            nebulaColor = mix(nebulaColor, tealGlow, smoothstep(0.6, 0.9, nebulaNoise) * 0.6);
+            // Use uniform colors for randomness
+            vec3 nebulaColor = mix(uColorDeep, uColorMist, clouds);
+            nebulaColor = mix(nebulaColor, uColorGlow, smoothstep(0.6, 0.9, nebulaNoise) * 0.6);
             
-            // Add warm accents in dense areas
-            float coreNoise = snoise(pos * 3.0 + vec3(10.0));
-            nebulaColor += warmCore * smoothstep(0.7, 1.0, coreNoise * clouds) * 0.3;
+            float coreNoise = snoise(pos * 3.0 + vec3(10.0) + seedOffset);
+            nebulaColor += uColorCore * smoothstep(0.7, 1.0, coreNoise * clouds) * 0.3;
 
-            // Combine
-            vec3 finalColor = nebulaColor + vec3(1.0) * (stars * 0.8 + brightStars * 1.0);
+            // Darken the nebula significantly as requested
+            nebulaColor *= 0.4;
+
+            // --- Final Combine ---
+            vec3 finalColor = nebulaColor + starContribution + milkyWayContribution;
 
             gl_FragColor = vec4(finalColor, 1.0);
         }
@@ -138,9 +186,28 @@ export const StarfieldBackground = () => {
         }
     });
 
-    const uniforms = useMemo(() => ({
-        time: { value: 0 }
-    }), []);
+    const uniforms = useMemo(() => {
+        // Random Seed
+        const seed = Math.random() * 100.0;
+
+        // Randomize Nebula Palette
+        const baseHue = Math.random();
+
+        // Helper for hsl
+        const deep = new THREE.Color().setHSL(baseHue, 0.6, 0.02);
+        const mist = new THREE.Color().setHSL((baseHue + 0.1) % 1.0, 0.5, 0.15);
+        const glow = new THREE.Color().setHSL((baseHue + 0.5) % 1.0, 0.8, 0.2);
+        const core = new THREE.Color().setHSL((baseHue + 0.05) % 1.0, 1.0, 0.3);
+
+        return {
+            time: { value: 0 },
+            seed: { value: seed },
+            uColorDeep: { value: deep },
+            uColorMist: { value: mist },
+            uColorGlow: { value: glow },
+            uColorCore: { value: core },
+        };
+    }, []);
 
     return (
         <mesh ref={meshRef} frustumCulled={false}>

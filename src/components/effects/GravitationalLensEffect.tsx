@@ -4,7 +4,7 @@
  * Uses screen-space distortion based on black hole positions
  */
 
-import { forwardRef, useMemo } from 'react';
+import { forwardRef, useMemo, useImperativeHandle } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Effect } from 'postprocessing';
 import { Uniform, Vector2, Vector3, Camera } from 'three';
@@ -133,7 +133,13 @@ export const GravitationalLensEffect = forwardRef<
 
     // Update uniforms every frame based on camera position
     useFrame(() => {
-        if (!enabled || !camera) return;
+        if (!camera) return;
+
+        // Always set lensStrength based on enabled state
+        effect.uniforms.get('lensStrength')!.value = enabled ? strength : 0;
+
+        // Skip calculations if disabled
+        if (!enabled) return;
 
         // Project 3D position to screen space (0-1)
         const screenPos = blackHolePosition.clone().project(camera);
@@ -154,17 +160,10 @@ export const GravitationalLensEffect = forwardRef<
         effect.uniforms.get('blackHoleScreen')!.value = screenUV;
         effect.uniforms.get('schwarzschildRadius')!.value = screenRadius;
         effect.uniforms.get('aspectRatio')!.value = aspect;
-        effect.uniforms.get('lensStrength')!.value = enabled ? strength : 0;
     });
 
-    // Forward ref
-    if (ref) {
-        if (typeof ref === 'function') {
-            ref(effect);
-        } else {
-            ref.current = effect;
-        }
-    }
+    // Expose the effect instance via ref
+    useImperativeHandle(ref, () => effect, [effect]);
 
     return <primitive object={effect} />;
 });

@@ -318,10 +318,12 @@ export const FIGURE_EIGHT: StarSystemPreset = {
 
         // High-precision initial conditions from Šuvakov & Dmitrašinović (2013)
         // High-precision initial conditions from Šuvakov & Dmitrašinović (2013) / Chenciner & Montgomery
+        /* eslint-disable no-loss-of-precision */
         const x1 = 0.9700043566973456;
         const y1 = -0.2430875323849975;
         const v1_x = 0.46620368503119045;
         const v1_y = 0.4323657300236305;
+        /* eslint-enable no-loss-of-precision */
 
         // Scaling parameters (adjusted)
         // Scale L needs to be applied to both x and y

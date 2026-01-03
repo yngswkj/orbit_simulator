@@ -43,6 +43,26 @@ canvas {
   outline: none;
 }
 
+/* Touch-friendly button styles */
+button {
+  -webkit-tap-highlight-color: transparent; /* Remove iOS tap highlight */
+  touch-action: manipulation; /* Disable double-tap zoom on buttons */
+}
+
+/* Touch device specific :active state */
+@media (hover: none) and (pointer: coarse) {
+  button:active {
+    transform: scale(0.95);
+    opacity: 0.8;
+    transition: transform 0.1s ease, opacity 0.1s ease;
+  }
+
+  button:disabled:active {
+    transform: none;
+    opacity: inherit;
+  }
+}
+
 /* Scrollbar styling for ControlPanel */
 ::-webkit-scrollbar {
   width: 6px;

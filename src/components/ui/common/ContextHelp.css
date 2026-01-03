@@ -1,0 +1,165 @@
+/* Context Help Button */
+.context-help-button {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.5);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.2s;
+    border-radius: 4px;
+}
+
+.context-help-button:hover {
+    color: rgba(255, 255, 255, 0.8);
+    background: rgba(255, 255, 255, 0.05);
+}
+
+/* Context Help Modal */
+.context-help-modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.7);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+    animation: fadeIn 0.2s ease-out;
+}
+
+.context-help-modal {
+    background: rgba(20, 20, 30, 0.95);
+    backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 12px;
+    max-width: 500px;
+    width: 100%;
+    max-height: 80vh;
+    overflow-y: auto;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.5);
+    animation: slideUp 0.3s ease-out;
+}
+
+.context-help-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.context-help-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+    color: #60a5fa;
+    font-weight: 600;
+}
+
+.context-help-close {
+    background: transparent;
+    border: none;
+    color: rgba(255, 255, 255, 0.6);
+    cursor: pointer;
+    padding: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    transition: all 0.2s;
+}
+
+.context-help-close:hover {
+    color: white;
+    background: rgba(255, 255, 255, 0.1);
+}
+
+.context-help-body {
+    padding: 20px;
+}
+
+.context-help-description {
+    margin: 0 0 20px 0;
+    color: rgba(255, 255, 255, 0.8);
+    font-size: 0.95rem;
+    line-height: 1.5;
+}
+
+.context-help-tips {
+    margin-top: 20px;
+}
+
+.context-help-tips h4 {
+    margin: 0 0 12px 0;
+    font-size: 0.9rem;
+    color: rgba(255, 255, 255, 0.6);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+}
+
+.context-help-tips ul {
+    margin: 0;
+    padding-left: 20px;
+    list-style: none;
+}
+
+.context-help-tips li {
+    position: relative;
+    margin-bottom: 10px;
+    color: rgba(255, 255, 255, 0.7);
+    font-size: 0.875rem;
+    line-height: 1.5;
+    padding-left: 16px;
+}
+
+.context-help-tips li::before {
+    content: '•';
+    position: absolute;
+    left: 0;
+    color: #60a5fa;
+    font-weight: bold;
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Mobile responsive */
+@media (max-width: 768px) {
+    .context-help-modal {
+        max-width: 100%;
+        max-height: 90vh;
+        margin: 0 10px;
+    }
+
+    .context-help-header {
+        padding: 16px;
+    }
+
+    .context-help-body {
+        padding: 16px;
+    }
+}

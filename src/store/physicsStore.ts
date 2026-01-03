@@ -67,6 +67,10 @@ export const physicsStats = {
 
 const MAX_STABLE_DT = 0.02; // Threshold to split steps
 
+export type HistoryAction =
+    | { type: 'ADD'; body: CelestialBody }
+    | { type: 'REMOVE'; body: CelestialBody }
+    | { type: 'UPDATE'; id: string; previous: Partial<CelestialBody>; current: Partial<CelestialBody> };
 
 interface PhysicsStore {
     bodies: CelestialBody[];
@@ -84,12 +88,21 @@ interface PhysicsStore {
     cameraMode: CameraMode;
     gpuDataInvalidated: boolean; // Flag to trigger data upload to GPU
     zenMode: boolean;
+    labMode: boolean;
     resetToken: number; // Increment to signal forced visual resets
+
+    // History
+    history: HistoryAction[];
+    historyIndex: number;
+    pushHistoryAction: (action: HistoryAction) => void;
+    undo: () => void;
+    redo: () => void;
 
     // Distance Scale
     useRealisticDistances: boolean;
     toggleRealisticDistances: () => void;
     toggleZenMode: () => void;
+    toggleLabMode: () => void;
 
     // Gravity Visualization
     showGravityField: boolean;
@@ -111,6 +124,7 @@ interface PhysicsStore {
     loadStarSystem: (systemId: string, mode?: StarSystemMode) => void;
 
     addBody: (body: Omit<CelestialBody, 'id'>) => void;
+    duplicateBody: (id: string) => void;
     removeBody: (id: string) => void;
     // Destruction Events
     tidallyDisruptedEvents: TidalDisruptionEvent[];
@@ -167,6 +181,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     useRealisticDistances: false,
 
     zenMode: false,
+    labMode: false,
     resetToken: 0,
 
     useMultithreading: false,
@@ -311,15 +326,139 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
     toggleGravityField: () => set((state) => ({ showGravityField: !state.showGravityField })),
 
+    // History
+    history: [],
+    historyIndex: -1,
+
+    pushHistoryAction: (action) => set((state) => {
+        const newHistory = state.history.slice(0, state.historyIndex + 1);
+        return {
+            history: [...newHistory, action],
+            historyIndex: newHistory.length
+        };
+    }),
+
+    undo: () => {
+        const { history, historyIndex } = get();
+        if (historyIndex < 0) return;
+
+        const action = history[historyIndex];
+
+        switch (action.type) {
+            case 'ADD':
+                // Reverse of ADD is REMOVE
+                set(state => ({
+                    bodies: state.bodies.filter(b => b.id !== action.body.id),
+                    physicsState: null,
+                    gpuDataInvalidated: true,
+                    // If we removed the selected body, deselect it
+                    selectedBodyId: state.selectedBodyId === action.body.id ? null : state.selectedBodyId
+                }));
+                break;
+            case 'REMOVE':
+                // Reverse of REMOVE is ADD
+                set(state => ({
+                    bodies: [...state.bodies, action.body],
+                    physicsState: null,
+                    gpuDataInvalidated: true
+                }));
+                break;
+            case 'UPDATE':
+                // Reverse of UPDATE is restoring PREVIOUS values
+                set(state => ({
+                    bodies: state.bodies.map(b =>
+                        b.id === action.id ? { ...b, ...action.previous } : b
+                    ),
+                    physicsState: null,
+                    gpuDataInvalidated: true
+                }));
+                // If updated body was selected, it stays selected.
+                break;
+        }
+
+        set({ historyIndex: historyIndex - 1 });
+    },
+
+    redo: () => {
+        const { history, historyIndex } = get();
+        if (historyIndex >= history.length - 1) return;
+
+        const action = history[historyIndex + 1];
+
+        switch (action.type) {
+            case 'ADD':
+                // Re-apply ADD
+                set(state => ({
+                    bodies: [...state.bodies, action.body],
+                    physicsState: null,
+                    gpuDataInvalidated: true
+                }));
+                break;
+            case 'REMOVE':
+                // Re-apply REMOVE
+                set(state => ({
+                    bodies: state.bodies.filter(b => b.id !== action.body.id),
+                    physicsState: null,
+                    gpuDataInvalidated: true,
+                    selectedBodyId: state.selectedBodyId === action.body.id ? null : state.selectedBodyId
+                }));
+                break;
+            case 'UPDATE':
+                // Re-apply UPDATE (restore CURRENT values)
+                set(state => ({
+                    bodies: state.bodies.map(b =>
+                        b.id === action.id ? { ...b, ...action.current } : b
+                    ),
+                    physicsState: null,
+                    gpuDataInvalidated: true
+                }));
+                break;
+        }
+
+        set({ historyIndex: historyIndex + 1 });
+    },
+
     addBody: (body) => {
-        const { bodies } = get();
-        const newBodies = [...bodies, { ...body, id: uuidv4() }];
-        // Invalidate physics state so it rebuilds on next frame
+        const { bodies, pushHistoryAction } = get();
+        const newBody = { ...body, id: uuidv4() };
+
+        pushHistoryAction({ type: 'ADD', body: newBody });
+
+        const newBodies = [...bodies, newBody];
         set({ bodies: newBodies, physicsState: null, gpuDataInvalidated: true });
     },
 
+    duplicateBody: (id) => {
+        const { bodies, pushHistoryAction } = get();
+        const bodyToDuplicate = bodies.find(b => b.id === id);
+        if (!bodyToDuplicate) return;
+
+        const newBody = {
+            ...bodyToDuplicate,
+            id: uuidv4(),
+            name: `${bodyToDuplicate.name} (Copy)`,
+            position: bodyToDuplicate.position.clone().add(new Vector3(2, 0, 2)), // Offset slightly
+            velocity: bodyToDuplicate.velocity.clone()
+        };
+
+        pushHistoryAction({ type: 'ADD', body: newBody });
+
+        set((state) => ({
+            bodies: [...state.bodies, newBody],
+            selectedBodyId: newBody.id, // Select the new body
+            physicsState: null, // Invalidate state
+            gpuDataInvalidated: true
+        }));
+    },
+
     removeBody: (id) => {
-        const { bodies, followingBodyId, selectedBodyId } = get();
+        const { bodies, followingBodyId, selectedBodyId, pushHistoryAction } = get();
+        const bodyToRemove = bodies.find(b => b.id === id);
+
+        if (bodyToRemove) {
+            pushHistoryAction({ type: 'REMOVE', body: bodyToRemove });
+        }
+
         const newBodies = bodies.filter(b => b.id !== id);
         set({
             bodies: newBodies,
@@ -478,7 +617,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             }
 
             // Capture collisions
-            let collisions: [number, number][] = [];
+            const collisions: [number, number][] = [];
             workerMgr.onCollision = (pairs: [number, number][]) => {
                 collisions.push(...pairs);
             };
@@ -608,21 +747,25 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
     setSimulationState: (state) => set({ simulationState: state }),
 
-    loadSolarSystem: () => set({
-        bodies: createSolarSystem(),
-        physicsState: null,
-        timeScale: 1.0,
-        simulationState: 'running',
-        simulationTime: 0,
-        followingBodyId: null,
-        selectedBodyId: null,
-        cameraMode: 'free',
-        gpuDataInvalidated: true,
-        useRealisticDistances: false,
-        currentSystemId: 'solar-system',
-        currentSystemMode: null,
-        resetToken: 0
-    }),
+    loadSolarSystem: () => {
+        set({
+            bodies: createSolarSystem(),
+            physicsState: null,
+            timeScale: 1.0,
+            simulationState: 'running',
+            simulationTime: 0,
+            followingBodyId: null,
+            selectedBodyId: null,
+            cameraMode: 'free',
+            gpuDataInvalidated: true,
+            useRealisticDistances: false,
+            currentSystemId: 'solar-system',
+            currentSystemMode: null,
+            resetToken: 0,
+            history: [],
+            historyIndex: -1
+        });
+    },
 
     loadStarSystem: (systemId: string, mode?: StarSystemMode) => {
         const preset = getPresetById(systemId);
@@ -664,11 +807,14 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             useRealisticDistances: false,
             // Zen Mode
             zenMode: false,
-            resetToken: 0
+            resetToken: 0,
+            history: [],
+            historyIndex: -1
         });
     },
 
     toggleZenMode: () => set((state) => ({ zenMode: !state.zenMode })),
+    toggleLabMode: () => set((state) => ({ labMode: !state.labMode })),
 
     setTimeScale: (scale) => set({ timeScale: scale }),
 
@@ -752,6 +898,8 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
             showGravityField: false,
             // We don't touch followingBodyId/cameraMode here, relying on ID preservation.
+            history: [],
+            historyIndex: -1
         });
     }
 }));

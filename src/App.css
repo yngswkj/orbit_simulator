@@ -1,1 +1,43 @@
 /* App.css cleared to prevent conflict with full-screen layout in index.css */
+
+/* Mobile: Hide title header to maximize simulation view */
+@media (max-width: 768px) {
+  .app-header {
+    display: none !important;
+  }
+
+  /* Compact controls optimization for mobile */
+  .compact-controls-container {
+    top: 10px !important;
+    right: 8px !important;
+    gap: 4px !important;
+  }
+
+  .compact-toolbar {
+    padding: 6px 0 !important;
+    gap: 6px !important;
+    min-width: 44px !important;
+  }
+
+  /* Mission time display compact for mobile */
+  .date-display {
+    bottom: 100px !important; /* Lower position (closer to gizmo) */
+    left: 8px !important; /* Less margin */
+    width: auto !important; /* Fit content */
+    gap: 0px !important; /* Tighter spacing */
+  }
+
+  .mission-time-label {
+    font-size: 0.6rem !important; /* Smaller label */
+    margin-bottom: 2px !important;
+    letter-spacing: 0.05em !important;
+  }
+
+  .mission-time-value {
+    font-size: 1.1rem !important; /* Smaller main value */
+  }
+
+  .mission-time-years {
+    font-size: 0.75rem !important; /* Smaller years display */
+  }
+}

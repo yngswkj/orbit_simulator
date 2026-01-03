@@ -49,7 +49,7 @@ export const runBenchmark = async (iterations: number = 600, bodyCounts: number[
 
     for (const count of bodyCounts) {
         console.log(`Testing with ${count} bodies...`);
-        let bodies = generateBodies(count);
+        const bodies = generateBodies(count);
 
         // Warmup
         const state = createPhysicsState(bodies);
@@ -177,7 +177,7 @@ export const runGPUBenchmark = async (iterations: number = 600, bodyCounts: numb
 
     for (const count of bodyCounts) {
         console.log(`Testing with ${count} bodies...`);
-        let bodies = generateBodies(count);
+        const bodies = generateBodies(count);
         const gpuEngine = new GPUPhysicsEngine();
 
         try {

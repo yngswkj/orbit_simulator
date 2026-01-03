@@ -159,11 +159,48 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                         {/* Tab Content starts at the very top for both */}
 
                         {activeTab === 'controls' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                <ControlItem icon={<Rotate3D size={18} />} label={t('ctrl_rotate')} desc={t('ctrl_rotate_desc')} />
-                                <ControlItem icon={<Move size={18} />} label={t('ctrl_pan')} desc={t('ctrl_pan_desc')} />
-                                <ControlItem icon={<ZoomIn size={18} />} label={t('ctrl_zoom')} desc={t('ctrl_zoom_desc')} />
-                                <ControlItem icon={<Mouse size={18} />} label={t('ctrl_select')} desc={t('ctrl_select_desc')} />
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                                {/* Camera Controls */}
+                                <div>
+                                    <h3 style={{
+                                        margin: '0 0 12px 0',
+                                        fontSize: '0.85rem',
+                                        color: '#64748b',
+                                        fontWeight: 600,
+                                        letterSpacing: '0.05em',
+                                        textTransform: 'uppercase'
+                                    }}>
+                                        カメラ操作
+                                    </h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        <ControlItem icon={<Rotate3D size={18} />} label={t('ctrl_rotate')} desc={t('ctrl_rotate_desc')} />
+                                        <ControlItem icon={<Move size={18} />} label={t('ctrl_pan')} desc={t('ctrl_pan_desc')} />
+                                        <ControlItem icon={<ZoomIn size={18} />} label={t('ctrl_zoom')} desc={t('ctrl_zoom_desc')} />
+                                        <ControlItem icon={<Mouse size={18} />} label={t('ctrl_select')} desc={t('ctrl_select_desc')} />
+                                    </div>
+                                </div>
+
+                                {/* Keyboard Shortcuts */}
+                                <div>
+                                    <h3 style={{
+                                        margin: '0 0 12px 0',
+                                        fontSize: '0.85rem',
+                                        color: '#64748b',
+                                        fontWeight: 600,
+                                        letterSpacing: '0.05em',
+                                        textTransform: 'uppercase'
+                                    }}>
+                                        キーボードショートカット
+                                    </h3>
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                        <ShortcutItem shortcut="Alt + 1" desc="コントロールタブに切り替え" />
+                                        <ShortcutItem shortcut="Alt + 2" desc="天体リストタブに切り替え" />
+                                        <ShortcutItem shortcut="Alt + 3" desc="インスペクタータブに切り替え" />
+                                        <ShortcutItem shortcut="Alt + F" desc="天体検索にフォーカス" />
+                                        <ShortcutItem shortcut="Ctrl + Z" desc="元に戻す (Undo)" />
+                                        <ShortcutItem shortcut="Ctrl + Shift + Z" desc="やり直す (Redo)" />
+                                    </div>
+                                </div>
                             </div>
                         )}
 
@@ -250,6 +287,36 @@ const ControlItem = ({ icon, label, desc }: { icon: React.ReactNode, label: stri
         <div style={{ flex: 1 }}>
             <div style={{ fontWeight: 500, fontSize: '0.9rem', color: '#f1f5f9' }}>{label}</div>
             <div style={{ fontSize: '0.8rem', color: '#94a3b8' }}>{desc}</div>
+        </div>
+    </div>
+);
+
+const ShortcutItem = ({ shortcut, desc }: { shortcut: string, desc: string }) => (
+    <div style={{
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        padding: '10px 16px',
+        background: 'rgba(255,255,255,0.02)',
+        borderRadius: '8px',
+        border: '1px solid rgba(255,255,255,0.03)',
+        transition: 'background 0.2s'
+    }}
+        onMouseEnter={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.05)'}
+        onMouseLeave={(e) => e.currentTarget.style.background = 'rgba(255,255,255,0.02)'}
+    >
+        <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>{desc}</div>
+        <div style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.8rem',
+            color: '#3b82f6',
+            background: 'rgba(59, 130, 246, 0.1)',
+            padding: '4px 10px',
+            borderRadius: '4px',
+            border: '1px solid rgba(59, 130, 246, 0.2)',
+            whiteSpace: 'nowrap'
+        }}>
+            {shortcut}
         </div>
     </div>
 );

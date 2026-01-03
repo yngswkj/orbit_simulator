@@ -1,0 +1,52 @@
+/* Vector Input Styles */
+.lab-field { /* Legacy name, keeping for compatibility or rename */
+    margin-bottom: 0.75rem;
+}
+
+.lab-label {
+    font-size: 0.75rem;
+    color: #9ca3af; /* gray-400 */
+    margin-bottom: 0.25rem;
+    display: block;
+    font-family: 'Inter', sans-serif;
+}
+
+.lab-vector-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.5rem;
+}
+
+.lab-vector-field {
+    position: relative;
+}
+
+.lab-vector-label {
+    position: absolute;
+    left: 0.5rem;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 0.7rem;
+    color: #6b7280;
+    text-transform: uppercase;
+    pointer-events: none;
+}
+
+.lab-vector-input {
+    width: 100%;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    border-radius: 4px;
+    padding: 6px 4px 6px 18px; /* space for label */
+    font-size: 0.85rem;
+    color: #e5e7eb;
+    box-sizing: border-box;
+    font-family: 'Inter', sans-serif;
+    transition: border-color 0.2s;
+}
+
+.lab-vector-input:focus {
+    outline: none;
+    border-color: #3b82f6;
+    background: rgba(0, 0, 0, 0.5);
+}

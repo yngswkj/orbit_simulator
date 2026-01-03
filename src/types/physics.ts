@@ -11,6 +11,7 @@ export interface AccretionDiskConfig {
 export interface CelestialBody {
   id: string;
   name: string;
+  type?: string; // 'star' | 'planet' | 'black_hole' | 'moon' | 'asteroid'
   mass: number;
   radius: number;
   position: Vector3;

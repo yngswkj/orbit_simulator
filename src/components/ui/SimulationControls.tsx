@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { Play, Pause, RefreshCw, AlertCircle, Trash2, Zap, LayoutGrid } from 'lucide-react';
+import { Play, Pause, RefreshCw, AlertCircle, Trash2, Zap, LayoutGrid, Undo, Redo } from 'lucide-react';
 import { useTranslation } from '../../utils/i18n';
 import { StarSystemGallery } from './StarSystemGallery';
+import { ContextHelp } from './common/ContextHelp';
 
 export const SimulationControls: React.FC = () => {
     const simulationState = usePhysicsStore((state) => state.simulationState);
@@ -14,6 +15,10 @@ export const SimulationControls: React.FC = () => {
     const removeBody = usePhysicsStore((state) => state.removeBody);
     const cameraMode = usePhysicsStore((state) => state.cameraMode);
     const setCameraMode = usePhysicsStore((state) => state.setCameraMode);
+    const undo = usePhysicsStore((state) => state.undo);
+    const redo = usePhysicsStore((state) => state.redo);
+    const historyIndex = usePhysicsStore((state) => state.historyIndex);
+    const history = usePhysicsStore((state) => state.history);
     const { t } = useTranslation();
 
     const [showGallery, setShowGallery] = useState(false);
@@ -35,9 +40,10 @@ export const SimulationControls: React.FC = () => {
                 borderBottom: '1px solid rgba(255,255,255,0.1)',
                 paddingBottom: '8px',
                 display: 'flex',
-                justifyContent: 'space-between',
+                justifyContent: 'flex-end',
                 alignItems: 'center'
             }}>
+                <ContextHelp topic="controls" />
             </div>
 
             <div style={{ display: 'flex', gap: '8px' }} className="sim-controls-buttons">
@@ -78,6 +84,56 @@ export const SimulationControls: React.FC = () => {
                     title={t('reset')}
                 >
                     <RefreshCw size={16} />
+                </button>
+            </div>
+
+            {/* Undo/Redo Controls */}
+            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
+                <button
+                    onClick={undo}
+                    disabled={historyIndex <= 0}
+                    style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        background: historyIndex > 0 ? 'rgba(96, 165, 250, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                        border: `1px solid ${historyIndex > 0 ? 'rgba(96, 165, 250, 0.3)' : 'rgba(255, 255, 255, 0.1)'}`,
+                        borderRadius: '6px',
+                        padding: '6px 8px',
+                        color: historyIndex > 0 ? '#60a5fa' : 'rgba(255, 255, 255, 0.3)',
+                        cursor: historyIndex > 0 ? 'pointer' : 'not-allowed',
+                        fontSize: '0.85rem',
+                        transition: 'all 0.2s'
+                    }}
+                    title="Undo (Ctrl+Z)"
+                >
+                    <Undo size={14} />
+                    <span>Undo</span>
+                </button>
+                <button
+                    onClick={redo}
+                    disabled={historyIndex >= history.length}
+                    style={{
+                        flex: 1,
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        gap: '6px',
+                        background: historyIndex < history.length ? 'rgba(96, 165, 250, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                        border: `1px solid ${historyIndex < history.length ? 'rgba(96, 165, 250, 0.3)' : 'rgba(255, 255, 255, 0.1)'}`,
+                        borderRadius: '6px',
+                        padding: '6px 8px',
+                        color: historyIndex < history.length ? '#60a5fa' : 'rgba(255, 255, 255, 0.3)',
+                        cursor: historyIndex < history.length ? 'pointer' : 'not-allowed',
+                        fontSize: '0.85rem',
+                        transition: 'all 0.2s'
+                    }}
+                    title="Redo (Ctrl+Shift+Z)"
+                >
+                    <Redo size={14} />
+                    <span>Redo</span>
                 </button>
             </div>
 

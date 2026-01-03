@@ -1,0 +1,10 @@
+
+Plan:
+1. Fix `CelestialBody.tsx` logic to ensure Earth is Terrestrial and Venus/Mercury are Rocky (or Venusian).
+2. Enhance `ProceduralPlanet.tsx`:
+    - **Rocky**: Add atmosphere (thin, dusty) for Mars. Add normal mapping details.
+    - **Ice**: Add subsurface scattering simulation (better than current).
+    - **Molten**: Improve flow animation.
+    - **Tetrestrial**: Improve clouds/atmosphere.
+    - **Gas Giant**: Add more turbulence/storms.
+3. Test by adding custom bodies or using the preview.

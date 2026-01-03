@@ -35,14 +35,14 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
     return (
         <div style={{
             position: 'absolute',
-            top: 20,
-            right: 20,
+            top: 10,
+            right: 10,
             display: 'flex',
             flexDirection: 'column',
-            gap: '8px',
+            gap: '6px',
             alignItems: 'end',
             zIndex: 1000
-        }}>
+        }} className="compact-controls-container">
             {/* Main Menu Button (Expands Panel) */}
             <button
                 onClick={onOpenPanel}
@@ -50,14 +50,15 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
                     background: 'rgba(20, 20, 30, 0.8)',
                     border: '1px solid rgba(255, 255, 255, 0.2)',
                     color: 'white',
-                    padding: '8px',
+                    padding: '12px',
                     borderRadius: '8px',
                     cursor: 'pointer',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     marginBottom: '4px',
-                    width: '44px',
+                    minWidth: '48px',
+                    minHeight: '48px',
                     boxSizing: 'border-box'
                 }}
                 title={t('open_controls')}
@@ -66,17 +67,17 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
             </button>
 
             {/* Compact Tool Bar */}
-            <div style={{
+            <div className="compact-toolbar" style={{
                 background: 'rgba(20, 20, 30, 0.85)',
                 backdropFilter: 'blur(8px)',
                 borderRadius: '8px',
-                padding: '8px 6px',
+                padding: '8px 0',
                 display: 'flex',
                 flexDirection: 'column',
-                gap: '12px',
+                gap: '8px',
                 border: '1px solid rgba(255, 255, 255, 0.15)',
                 alignItems: 'center',
-                width: '44px',
+                minWidth: '48px',
                 boxSizing: 'border-box'
             }}>
                 <button
@@ -86,8 +87,12 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
                         border: 'none',
                         color: simulationState === 'running' ? '#ff4050' : '#00ce7c',
                         cursor: 'pointer',
-                        padding: '4px',
-                        display: 'flex'
+                        padding: '8px',
+                        display: 'flex',
+                        minWidth: '44px',
+                        minHeight: '44px',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                     }}
                     title={simulationState === 'running' ? t('pause') : t('resume')}
                 >
@@ -101,10 +106,13 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
                         border: 'none',
                         color: 'white',
                         cursor: 'pointer',
-                        padding: '4px',
+                        padding: '8px',
                         opacity: 0.8,
-                        display: 'flex'
-
+                        display: 'flex',
+                        minWidth: '44px',
+                        minHeight: '44px',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                     }}
                     title={t('reset')}
                 >
@@ -118,9 +126,11 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
                         border: 'none',
                         color: '#44aaff',
                         cursor: 'pointer',
-                        padding: '4px',
+                        padding: '8px',
                         opacity: 0.9,
                         display: 'flex',
+                        minWidth: '44px',
+                        minHeight: '44px',
                         alignItems: 'center',
                         justifyContent: 'center'
                     }}
@@ -137,9 +147,13 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
                         border: 'none',
                         color: cameraMode === 'free' ? 'white' : '#3b82f6',
                         cursor: followingBodyId ? 'pointer' : 'not-allowed',
-                        padding: '4px',
+                        padding: '8px',
                         opacity: followingBodyId ? 1 : 0.3,
-                        display: 'flex'
+                        display: 'flex',
+                        minWidth: '44px',
+                        minHeight: '44px',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                     }}
                     title={t('camera_mode')}
                 >
@@ -155,9 +169,13 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
                         border: 'none',
                         color: '#aaddff',
                         cursor: 'pointer',
-                        padding: '4px',
+                        padding: '8px',
                         opacity: 0.8,
-                        display: 'flex'
+                        display: 'flex',
+                        minWidth: '44px',
+                        minHeight: '44px',
+                        alignItems: 'center',
+                        justifyContent: 'center'
                     }}
                     title="Zen Mode"
                 >
