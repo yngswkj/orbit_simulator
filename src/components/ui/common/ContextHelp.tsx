@@ -86,8 +86,8 @@ const helpContent = {
 
 export const ContextHelp: React.FC<ContextHelpProps> = ({ topic }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const { language } = useTranslation();
-    const lang = (language || 'en') as 'en' | 'ja';
+    const { lang: currentLang } = useTranslation();
+    const lang = (currentLang || 'en') as 'en' | 'ja';
     const content = helpContent[lang][topic];
 
     if (!isOpen) {

@@ -18,7 +18,6 @@ export const SafeInput: React.FC<SafeInputProps> = ({
     onCommit,
     min,
     max,
-    step = 1,
     className,
     style,
     placeholder
