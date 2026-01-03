@@ -163,13 +163,18 @@ export const GravitationalLensEffect = forwardRef<
     GravitationalLensEffectImpl,
     GravitationalLensEffectProps
 >(({ blackHolePosition, schwarzschildRadius, strength = 1.0, camera, enabled = true }, ref) => {
+    // Safe access to camera properties
+    const cam = camera as unknown as { near?: number; far?: number };
+    const near = cam.near ?? 0.1;
+    const far = cam.far ?? 1000.0;
+
     const effect = useMemo(() => {
         return new GravitationalLensEffectImpl({
             lensStrength: strength,
-            cameraNear: camera.near,
-            cameraFar: camera.far,
+            cameraNear: near,
+            cameraFar: far,
         });
-    }, [strength, camera.near, camera.far]);
+    }, [strength, near, far]);
 
     // Update uniforms every frame based on camera position
     useFrame(() => {

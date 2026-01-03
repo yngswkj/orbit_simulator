@@ -165,7 +165,6 @@ const translations = {
         habitable_zone_multi_star: 'Multi-Star Habitable Zone',
         hz_cold: 'Too Cold',
         hz_habitable: 'Habitable',
-        hz_habitable: 'Habitable',
         hz_hot: 'Too Hot',
 
         // Delete Modal
