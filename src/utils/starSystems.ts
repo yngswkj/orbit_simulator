@@ -379,6 +379,9 @@ export const BLACK_HOLE_SYSTEM: StarSystemPreset = {
         target: [0, 0, 0]
     },
     createBodies: () => {
+        // Helper to resolve texture path with base URL
+        const getTexture = (filename: string) => `${import.meta.env.BASE_URL}textures/${filename}`;
+
         // Stellar-mass black hole (~10 solar masses)
         const BLACK_HOLE_MASS = SUN_MASS * 10;
         const COMPANION_MASS = SUN_MASS * 0.8;
@@ -426,6 +429,7 @@ export const BLACK_HOLE_SYSTEM: StarSystemPreset = {
                 position: new Vector3(starDist, 0, 0),
                 velocity: new Vector3(0, 0, -starSpeed),
                 color: '#8899ff',
+                texturePath: getTexture('hde_226868_texture.png'),
                 isStar: true,
                 isFixed: false,
             },
@@ -437,6 +441,7 @@ export const BLACK_HOLE_SYSTEM: StarSystemPreset = {
                 position: new Vector3(planetDist, 10, 0),
                 velocity: new Vector3(0, 0, planetSpeed),
                 color: '#88aa55',
+                texturePath: getTexture('outer_world_texture.png'),
                 isStar: false,
                 isFixed: false,
             }
