@@ -368,8 +368,18 @@ const ChangeBadge = ({ type }: { type: ChangeType }) => {
 
 const getChangelogData = (t: any): VersionLog[] => [
     {
-        version: '0.5.0',
+        version: '0.6.0',
         isCurrent: true,
+        changes: [
+            { type: 'improve', content: '統合サイドパネルによるUI刷新（タブ切替式・ラボモード統合）' },
+            { type: 'new', content: '惑星テクスチャのプロシージャル生成と星空のまたたき表現' },
+            { type: 'improve', content: 'スムーズなカメラ切り替えアニメーションの追加' },
+            { type: 'fix', content: 'リアル距離モード切替時のカメラドリフト修正' },
+            { type: 'improve', content: '重力レンズ効果の品質向上（深度対応）' }
+        ]
+    },
+    {
+        version: '0.5.0',
         changes: [
             { type: 'new', content: '天体衝突エフェクト（爆発・衝撃波・破片・熱輝）' },
             { type: 'new', content: 'ブラックホール連星プリセットの追加' },
