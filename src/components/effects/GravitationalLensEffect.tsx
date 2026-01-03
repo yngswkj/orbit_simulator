@@ -6,7 +6,7 @@
 
 import { forwardRef, useMemo, useImperativeHandle } from 'react';
 import { useFrame } from '@react-three/fiber';
-import { Effect } from 'postprocessing';
+import { Effect, EffectAttribute } from 'postprocessing';
 import { Uniform, Vector2, Vector3, Camera } from 'three';
 
 // Custom shader for gravitational lensing
@@ -16,7 +16,38 @@ uniform float lensStrength;
 uniform float schwarzschildRadius;
 uniform float aspectRatio;
 
+uniform float cameraNear;
+uniform float cameraFar;
+uniform float blackHoleDistance;
+
+// Helper to linearize depth
+float readDepthLinear(vec2 coord) {
+    float depth = texture2D(depthBuffer, coord).x;
+    float viewZ = perspectiveDepthToViewZ(depth, cameraNear, cameraFar);
+    return viewZToOrthographicDepth(viewZ, cameraNear, cameraFar);
+}
+
+// Manual linearization if needed (standard perspective)
+float getLinearDepth(vec2 coord) {
+    float depth = texture2D(depthBuffer, coord).x;
+    float z_n = 2.0 * depth - 1.0;
+    float z_e = 2.0 * cameraNear * cameraFar / (cameraFar + cameraNear - z_n * (cameraFar - cameraNear));
+    return z_e;
+}
+
 void mainImage(const in vec4 inputColor, const in vec2 uv, out vec4 outputColor) {
+    // 1. Depth Test: Check if existing geometry is closer than the black hole
+    // We use a small bias to prevent self-shadowing or precision artifacts
+    float sceneDepth = getLinearDepth(uv);
+    float bias = schwarzschildRadius * 2.0;
+
+    // blackHoleDistance is linear distance from camera
+    // If scene pixel is significantly closer than black hole, skip distortion
+    if (sceneDepth < (blackHoleDistance - bias)) {
+        outputColor = inputColor;
+        return;
+    }
+
     // Adjust UV for aspect ratio
     vec2 adjustedUV = uv;
     adjustedUV.x *= aspectRatio;
@@ -91,13 +122,20 @@ class GravitationalLensEffectImpl extends Effect {
         lensStrength = 1.0,
         schwarzschildRadius = 0.05,
         aspectRatio = 1.0,
+        cameraNear = 0.1,
+        cameraFar = 1000.0,
+        blackHoleDistance = 1000.0,
     } = {}) {
         super('GravitationalLensEffect', fragmentShader, {
+            attributes: EffectAttribute.DEPTH,
             uniforms: new Map<string, Uniform>([
                 ['blackHoleScreen', new Uniform(blackHoleScreen)],
                 ['lensStrength', new Uniform(lensStrength)],
                 ['schwarzschildRadius', new Uniform(schwarzschildRadius)],
                 ['aspectRatio', new Uniform(aspectRatio)],
+                ['cameraNear', new Uniform(cameraNear)],
+                ['cameraFar', new Uniform(cameraFar)],
+                ['blackHoleDistance', new Uniform(blackHoleDistance)],
             ]),
         });
     }
@@ -128,8 +166,10 @@ export const GravitationalLensEffect = forwardRef<
     const effect = useMemo(() => {
         return new GravitationalLensEffectImpl({
             lensStrength: strength,
+            cameraNear: camera.near,
+            cameraFar: camera.far,
         });
-    }, [strength]);
+    }, [strength, camera.near, camera.far]);
 
     // Update uniforms every frame based on camera position
     useFrame(() => {
@@ -137,6 +177,12 @@ export const GravitationalLensEffect = forwardRef<
 
         // Always set lensStrength based on enabled state
         effect.uniforms.get('lensStrength')!.value = enabled ? strength : 0;
+
+        // Update simple camera parameters (though specific projection matrices might vary, near/far is used for linearizing)
+        // Check for near/far properties safely without using 'any'
+        const cam = camera as unknown as { near?: number; far?: number };
+        if (cam.near !== undefined) effect.uniforms.get('cameraNear')!.value = cam.near;
+        if (cam.far !== undefined) effect.uniforms.get('cameraFar')!.value = cam.far;
 
         // Skip calculations if disabled
         if (!enabled) return;
@@ -160,6 +206,7 @@ export const GravitationalLensEffect = forwardRef<
         effect.uniforms.get('blackHoleScreen')!.value = screenUV;
         effect.uniforms.get('schwarzschildRadius')!.value = screenRadius;
         effect.uniforms.get('aspectRatio')!.value = aspect;
+        effect.uniforms.get('blackHoleDistance')!.value = distance;
     });
 
     // Expose the effect instance via ref
