@@ -12,6 +12,7 @@ interface HelpModalProps {
 export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
     const { t } = useTranslation();
     const [activeTab, setActiveTab] = React.useState<'controls' | 'changelog'>('controls');
+    const [isClosing, setIsClosing] = React.useState(false);
 
     // Simple responsive check
     const [isMobile, setIsMobile] = React.useState(window.innerWidth < 768);
@@ -22,23 +23,31 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
         return () => window.removeEventListener('resize', handleResize);
     }, []);
 
+    const handleClose = () => {
+        setIsClosing(true);
+        setTimeout(() => {
+            setIsClosing(false);
+            onClose();
+        }, 300); // Match animation duration
+    };
+
     if (!isOpen) return null;
 
     return createPortal(
         <div style={{
             position: 'fixed',
-            top: isMobile ? 'auto' : '20px',
+            top: isMobile ? 'auto' : '10px',
             left: isMobile ? '8px' : 'auto',
             bottom: isMobile ? '8px' : 'auto',
-            right: isMobile ? '8px' : '20px',
+            right: isMobile ? '8px' : '10px',
             width: isMobile ? 'calc(100% - 16px)' : '700px',
-            height: isMobile ? 'auto' : 'calc(100vh - 40px)',
+            height: isMobile ? 'auto' : 'calc(100vh - 20px)',
             maxHeight: isMobile ? '50vh' : '800px',
             minHeight: isMobile ? '240px' : 'auto',
             background: 'rgba(20, 20, 30, 0.92)',
             backdropFilter: 'blur(16px)',
             border: '1px solid rgba(255, 255, 255, 0.15)',
-            borderRadius: isMobile ? '20px' : '16px',
+            borderRadius: isMobile ? '12px' : '8px',
             display: 'flex',
             flexDirection: 'column',
             boxShadow: isMobile ? '0 -4px 20px rgba(0, 0, 0, 0.5)' : '0 8px 32px rgba(0, 0, 0, 0.4)',
@@ -46,9 +55,13 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
             overflow: 'hidden',
             zIndex: 2000,
             transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
-            transform: isMobile ? 'translateY(0)' : 'translateX(0)',
-            opacity: 1,
-            animation: isMobile ? 'slideUpIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)' : 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+            transform: isClosing
+                ? (isMobile ? 'translateY(calc(100% + 16px))' : 'translateX(calc(100% + 20px))')
+                : (isMobile ? 'translateY(0)' : 'translateX(0)'),
+            opacity: isClosing ? 0 : 1,
+            animation: !isClosing
+                ? (isMobile ? 'slideUpIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)' : 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)')
+                : 'none'
         }}>
                 {/* Header */}
                 <div style={{
@@ -66,7 +79,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                         <h2 style={{ margin: 0, fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 600, letterSpacing: '0.02em' }}>{t('help_title')}</h2>
                     </div>
                     <button
-                        onClick={onClose}
+                        onClick={handleClose}
                         style={{
                             background: 'rgba(255, 255, 255, 0.08)',
                             border: '1px solid rgba(255, 255, 255, 0.12)',
@@ -391,7 +404,7 @@ if (typeof document !== 'undefined') {
         style.textContent = `
             @keyframes slideInRight {
                 from {
-                    transform: translateX(calc(100% + 40px));
+                    transform: translateX(calc(100% + 20px));
                     opacity: 0;
                 }
                 to {
@@ -402,7 +415,7 @@ if (typeof document !== 'undefined') {
 
             @keyframes slideUpIn {
                 from {
-                    transform: translateY(calc(100% + 20px));
+                    transform: translateY(calc(100% + 16px));
                     opacity: 0;
                 }
                 to {

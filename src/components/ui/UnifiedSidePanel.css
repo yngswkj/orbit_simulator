@@ -1,15 +1,15 @@
 /* Unified Side Panel Styles - Float Style */
 .unified-side-panel {
     position: fixed;
-    top: 20px;
-    right: 20px;
-    height: calc(100vh - 40px);
+    top: 10px;
+    right: 10px;
+    height: calc(100vh - 20px);
     max-height: 800px;
     width: 360px;
     background: rgba(20, 20, 30, 0.92); /* Slightly more opaque for readability */
     backdrop-filter: blur(16px);
     border: 1px solid rgba(255, 255, 255, 0.15);
-    border-radius: 16px;
+    border-radius: 8px;
     display: flex;
     flex-direction: column;
     z-index: 1000;
@@ -21,7 +21,7 @@
 }
 
 .unified-side-panel.collapsed {
-    transform: translateX(calc(100% + 40px));
+    transform: translateX(calc(100% + 20px));
     opacity: 0;
     pointer-events: none;
 }
@@ -69,8 +69,8 @@
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     padding: 0;
     background: rgba(0, 0, 0, 0.2);
-    border-top-left-radius: 16px;
-    border-top-right-radius: 16px;
+    border-top-left-radius: 8px;
+    border-top-right-radius: 8px;
 }
 
 .tab-btn {
@@ -159,7 +159,7 @@
         left: 8px;
         right: 8px;
         border: 1px solid rgba(255, 255, 255, 0.15);
-        border-radius: 20px;
+        border-radius: 12px;
         transform: translateY(0);
         box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.5);
     }
@@ -171,8 +171,8 @@
 
     .tab-navigation {
         order: -1; /* Ensure tabs are at top */
-        border-top-left-radius: 20px;
-        border-top-right-radius: 20px;
+        border-top-left-radius: 12px;
+        border-top-right-radius: 12px;
     }
 
     /* Smaller tabs for mobile */
