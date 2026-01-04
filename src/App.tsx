@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import { Scene } from './components/scene/Scene';
 import { UnifiedSidePanel } from './components/ui/UnifiedSidePanel';
 // PropertyInspector removed (merged into BodyInspector)
-import { Tour } from './components/ui/Tour';
 import { Onboarding } from './components/ui/Onboarding';
 import { useTranslation } from './utils/i18n';
 import { usePhysicsStore } from './store/physicsStore';
@@ -149,8 +148,6 @@ function App() {
         </div>
 
         <UnifiedSidePanel />
-
-        <Tour />
 
         <Onboarding />
       </div>
