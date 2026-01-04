@@ -1,0 +1,165 @@
+.compact-body-switcher {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 1000;
+  font-family: 'Inter', 'Noto Sans JP', sans-serif;
+}
+
+.compact-switcher-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: rgba(20, 20, 30, 0.9);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-lg);
+  color: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: all 0.2s;
+  min-width: 140px;
+  justify-content: space-between;
+}
+
+.compact-switcher-toggle:hover {
+  background: rgba(30, 30, 40, 0.95);
+  border-color: rgba(255, 255, 255, 0.3);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+}
+
+.body-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.body-name {
+  flex: 1;
+  text-align: left;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 120px;
+}
+
+/* ドロップダウンメニュー */
+.compact-switcher-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 999;
+  background: transparent;
+}
+
+.compact-switcher-dropdown {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  min-width: 200px;
+  max-width: 280px;
+  max-height: 400px;
+  overflow-y: auto;
+  background: rgba(20, 20, 30, 0.95);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: var(--radius-lg);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  z-index: 1001;
+  animation: dropdownFadeIn 0.2s ease-out;
+}
+
+.compact-switcher-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 14px;
+  width: 100%;
+  background: transparent;
+  border: none;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  color: white;
+  cursor: pointer;
+  font-size: 0.9rem;
+  text-align: left;
+  transition: all 0.15s;
+}
+
+.compact-switcher-item:last-child {
+  border-bottom: none;
+}
+
+.compact-switcher-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.compact-switcher-item.active {
+  background: rgba(59, 130, 246, 0.15);
+  border-left: 3px solid var(--color-primary-500);
+  padding-left: 11px;
+}
+
+.active-badge {
+  margin-left: auto;
+  font-size: 0.7rem;
+  color: var(--color-primary-400);
+  font-weight: 600;
+}
+
+/* スクロールバー */
+.compact-switcher-dropdown::-webkit-scrollbar {
+  width: 6px;
+}
+
+.compact-switcher-dropdown::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+}
+
+.compact-switcher-dropdown::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 3px;
+}
+
+.compact-switcher-dropdown::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
+/* アニメーション */
+@keyframes dropdownFadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* レスポンシブ: スマホ対応 */
+@media (max-width: 768px) {
+  .compact-body-switcher {
+    top: 10px;
+    right: 10px;
+  }
+
+  .compact-switcher-toggle {
+    min-width: 120px;
+    padding: 10px 12px;
+    font-size: 0.85rem;
+  }
+
+  .body-name {
+    max-width: 80px;
+  }
+
+  .compact-switcher-dropdown {
+    min-width: 180px;
+    max-width: calc(100vw - 40px);
+  }
+}

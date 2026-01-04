@@ -13,7 +13,10 @@ interface TabNavigationProps {
 export const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onChange }) => {
     const bodies = usePhysicsStore(state => state.bodies);
     const selectedBodyId = usePhysicsStore(state => state.selectedBodyId);
+    const userMode = usePhysicsStore(state => state.userMode);
     const { t } = useTranslation();
+
+    const isBeginnerMode = userMode === 'beginner';
 
     return (
         <div className="tab-navigation" role="tablist" aria-label="Simulation control tabs">
@@ -42,21 +45,24 @@ export const TabNavigation: React.FC<TabNavigationProps> = ({ activeTab, onChang
                 <span>{t('tab_bodies')}</span>
                 <span className="badge" aria-label={`${bodies.length} bodies`}>{bodies.length}</span>
             </button>
-            <button
-                role="tab"
-                aria-selected={activeTab === 'inspector'}
-                aria-controls="inspector-panel"
-                id="inspector-tab"
-                onClick={() => onChange('inspector')}
-                className={`tab-btn ${activeTab === 'inspector' ? 'active' : ''}`}
-                disabled={!selectedBodyId}
-                title={!selectedBodyId ? t('select_body_msg') : t('tab_inspector')}
-                tabIndex={activeTab === 'inspector' ? 0 : -1}
-                aria-disabled={!selectedBodyId}
-            >
-                <Eye size={18} aria-hidden="true" />
-                <span>{t('tab_inspector')}</span>
-            </button>
+            {/* Inspector tab - hidden in beginner mode */}
+            {!isBeginnerMode && (
+                <button
+                    role="tab"
+                    aria-selected={activeTab === 'inspector'}
+                    aria-controls="inspector-panel"
+                    id="inspector-tab"
+                    onClick={() => onChange('inspector')}
+                    className={`tab-btn ${activeTab === 'inspector' ? 'active' : ''}`}
+                    disabled={!selectedBodyId}
+                    title={!selectedBodyId ? t('select_body_msg') : t('tab_inspector')}
+                    tabIndex={activeTab === 'inspector' ? 0 : -1}
+                    aria-disabled={!selectedBodyId}
+                >
+                    <Eye size={18} aria-hidden="true" />
+                    <span>{t('tab_inspector')}</span>
+                </button>
+            )}
         </div>
     );
 };

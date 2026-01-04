@@ -3,6 +3,7 @@ import { Scene } from './components/scene/Scene';
 import { UnifiedSidePanel } from './components/ui/UnifiedSidePanel';
 // PropertyInspector removed (merged into BodyInspector)
 import { Onboarding } from './components/ui/Onboarding';
+import { CompactBodySwitcher } from './components/ui/CompactBodySwitcher';
 import { useTranslation } from './utils/i18n';
 import { usePhysicsStore } from './store/physicsStore';
 import './App.css';
@@ -148,6 +149,8 @@ function App() {
         </div>
 
         <UnifiedSidePanel />
+
+        <CompactBodySwitcher />
 
         <Onboarding />
       </div>

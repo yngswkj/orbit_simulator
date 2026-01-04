@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { Play, Pause, RefreshCw, Trash2, LayoutGrid, Undo, Redo, Eye, Settings, Zap, GraduationCap, Rocket } from 'lucide-react';
+import { Play, Pause, RefreshCw, LayoutGrid, Undo, Redo, Eye, Settings, Zap, GraduationCap, Rocket } from 'lucide-react';
 import { useTranslation } from '../../utils/i18n';
 import { StarSystemGallery } from './StarSystemGallery';
 import { ContextHelp } from './common/ContextHelp';
@@ -16,7 +16,6 @@ export const SimulationControls: React.FC = () => {
     const setTimeScale = usePhysicsStore((state) => state.setTimeScale);
     const reset = usePhysicsStore((state) => state.reset);
     const followingBodyId = usePhysicsStore((state) => state.followingBodyId);
-    const removeBody = usePhysicsStore((state) => state.removeBody);
     const cameraMode = usePhysicsStore((state) => state.cameraMode);
     const setCameraMode = usePhysicsStore((state) => state.setCameraMode);
     const undo = usePhysicsStore((state) => state.undo);
@@ -259,88 +258,6 @@ export const SimulationControls: React.FC = () => {
                 </div>
             </div>
 
-            {/* ========== 天体リスト ========== */}
-            <div className="section">
-                <div className="section-divider" />
-                <div style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '4px',
-                    maxHeight: '200px',
-                    overflowY: 'auto',
-                    paddingRight: '4px'
-                }}>
-                    {usePhysicsStore(s => s.bodies).map(body => (
-                        <div key={body.id} style={{ display: 'flex', gap: '4px' }}>
-                            <button
-                                onClick={() => {
-                                    if (followingBodyId === body.id) {
-                                        usePhysicsStore.getState().setFollowingBody(null);
-                                    } else {
-                                        usePhysicsStore.getState().setFollowingBody(body.id);
-                                    }
-                                }}
-                                style={{
-                                    flex: 1,
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    padding: '6px 8px',
-                                    background: followingBodyId === body.id ? 'var(--color-bg-active)' : 'var(--color-bg-hover)',
-                                    border: followingBodyId === body.id ? '1px solid var(--color-primary-500)' : '1px solid transparent',
-                                    borderRadius: 'var(--radius-sm)',
-                                    color: 'white',
-                                    cursor: 'pointer',
-                                    fontSize: '0.9rem',
-                                    transition: 'all 0.2s',
-                                    textAlign: 'left'
-                                }}
-                            >
-                                <span style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                    <span style={{
-                                        width: '8px',
-                                        height: '8px',
-                                        borderRadius: '50%',
-                                        background: body.color,
-                                        boxShadow: `0 0 5px ${body.color}`
-                                    }} />
-                                    {body.name}
-                                </span>
-                                {followingBodyId === body.id && <span style={{ fontSize: '0.7rem', opacity: 0.7 }}>On</span>}
-                            </button>
-
-                            {!body.isFixed && (
-                                <button
-                                    onClick={(e) => {
-                                        e.stopPropagation();
-                                        removeBody(body.id);
-                                        if (followingBodyId === body.id) {
-                                            usePhysicsStore.getState().setFollowingBody(null);
-                                        }
-                                    }}
-                                    style={{
-                                        background: 'rgba(255, 64, 80, 0.1)',
-                                        border: '1px solid rgba(255, 64, 80, 0.2)',
-                                        borderRadius: 'var(--radius-sm)',
-                                        color: 'var(--color-error)',
-                                        cursor: 'pointer',
-                                        padding: '0 8px',
-                                        display: 'flex',
-                                        alignItems: 'center',
-                                        justifyContent: 'center',
-                                        transition: 'background 0.2s'
-                                    }}
-                                    title={t('remove')}
-                                    onMouseOver={(e) => (e.currentTarget.style.background = 'rgba(255, 64, 80, 0.3)')}
-                                    onMouseOut={(e) => (e.currentTarget.style.background = 'rgba(255, 64, 80, 0.1)')}
-                                >
-                                    <Trash2 size={14} />
-                                </button>
-                            )}
-                        </div>
-                    ))}
-                </div>
-            </div>
 
             {/* ギャラリーモーダル */}
             <StarSystemGallery
