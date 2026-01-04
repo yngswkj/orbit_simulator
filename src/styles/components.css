@@ -249,6 +249,26 @@
   cursor: not-allowed;
 }
 
+/* ========== CheckboxGroup ========== */
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.checkbox-group-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--color-text-secondary);
+  margin-bottom: var(--spacing-xs);
+}
+
+.checkbox-group-items {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
 /* ========== カード ========== */
 .card {
   background: var(--color-bg-panel);

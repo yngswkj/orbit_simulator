@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { Play, Pause, RefreshCw, AlertCircle, Trash2, Zap, LayoutGrid, Undo, Redo } from 'lucide-react';
+import { Play, Pause, RefreshCw, Trash2, LayoutGrid, Undo, Redo, Eye, Settings, Zap } from 'lucide-react';
 import { useTranslation } from '../../utils/i18n';
 import { StarSystemGallery } from './StarSystemGallery';
 import { ContextHelp } from './common/ContextHelp';
 import { Button } from './common/Button';
+import { Accordion } from './common/Accordion';
+import { CheckboxGroup, type CheckboxItem } from './common/CheckboxGroup';
 
 export const SimulationControls: React.FC = () => {
     const simulationState = usePhysicsStore((state) => state.simulationState);
@@ -28,221 +30,214 @@ export const SimulationControls: React.FC = () => {
         setSimulationState(simulationState === 'running' ? 'paused' : 'running');
     };
 
+    // ========== 表示設定のチェックボックス項目 ==========
+    const visualItems: CheckboxItem[] = [
+        {
+            id: 'grid',
+            label: t('show_grid'),
+            checked: usePhysicsStore(s => s.showGrid),
+            onChange: () => usePhysicsStore.getState().toggleGrid(),
+        },
+        {
+            id: 'prediction',
+            label: t('show_prediction'),
+            checked: usePhysicsStore(s => s.showPrediction),
+            onChange: () => usePhysicsStore.getState().togglePrediction(),
+            warning: true,
+        },
+        {
+            id: 'realistic',
+            label: t('show_realistic'),
+            checked: usePhysicsStore(s => s.showRealisticVisuals),
+            onChange: () => usePhysicsStore.getState().toggleRealisticVisuals(),
+        },
+    ];
+
+    // ========== 詳細設定のチェックボックス項目 ==========
+    const advancedItems: CheckboxItem[] = [
+        {
+            id: 'gravity',
+            label: t('show_gravity_field'),
+            checked: usePhysicsStore(s => s.showGravityField),
+            onChange: () => usePhysicsStore.getState().toggleGravityField(),
+        },
+        {
+            id: 'habitable',
+            label: t('show_habitable'),
+            checked: usePhysicsStore(s => s.showHabitableZone),
+            onChange: () => usePhysicsStore.getState().toggleHabitableZone(),
+        },
+        {
+            id: 'realistic_distances',
+            label: t('show_realistic_distances'),
+            checked: usePhysicsStore(s => s.useRealisticDistances),
+            onChange: () => usePhysicsStore.getState().toggleRealisticDistances(),
+        },
+    ];
+
+    // ========== パフォーマンス設定のチェックボックス項目 ==========
+    const performanceItems: CheckboxItem[] = [
+        {
+            id: 'multithreading',
+            label: t('show_multithreading'),
+            checked: usePhysicsStore(s => s.useMultithreading),
+            onChange: () => usePhysicsStore.getState().toggleMultithreading(),
+            disabled: !usePhysicsStore.getState().isWorkerSupported,
+            badge: usePhysicsStore.getState().isWorkerSupported ? 'Available' : 'N/A',
+            badgeType: usePhysicsStore.getState().isWorkerSupported ? 'success' : undefined,
+        },
+        {
+            id: 'gpu',
+            label: t('show_gpu'),
+            checked: usePhysicsStore(s => s.useGPU),
+            onChange: () => usePhysicsStore.getState().toggleGPU(),
+            disabled: !usePhysicsStore(s => s.isGPUSupported),
+            badge: usePhysicsStore(s => s.isGPUSupported) ? 'Available' : 'N/A',
+            badgeType: usePhysicsStore(s => s.isGPUSupported) ? 'success' : undefined,
+        },
+        {
+            id: 'performance',
+            label: t('show_performance'),
+            checked: usePhysicsStore(s => s.showPerformance),
+            onChange: () => usePhysicsStore.getState().togglePerformance(),
+        },
+    ];
+
     return (
-        <div style={{
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '12px',
-            width: '100%'
-        }}>
-            {/* Header */}
-            <div style={{
-                marginBottom: '4px',
-                borderBottom: '1px solid rgba(255,255,255,0.1)',
-                paddingBottom: '8px',
-                display: 'flex',
-                justifyContent: 'flex-end',
-                alignItems: 'center'
-            }}>
+        <div className="simulation-controls">
+            {/* ヘッダー */}
+            <div className="section-header">
                 <ContextHelp topic="controls" />
             </div>
 
-            <div className="flex gap-sm">
-                <Button
-                    variant={simulationState === 'running' ? 'danger' : 'success'}
-                    leftIcon={simulationState === 'running' ? Pause : Play}
-                    onClick={togglePause}
-                    fullWidth
-                >
-                    {simulationState === 'running' ? t('pause') : t('resume')}
-                </Button>
+            {/* ========== 基本操作（常時表示） ========== */}
+            <div className="section">
+                <div className="flex gap-sm">
+                    <Button
+                        variant={simulationState === 'running' ? 'danger' : 'success'}
+                        leftIcon={simulationState === 'running' ? Pause : Play}
+                        onClick={togglePause}
+                        fullWidth
+                    >
+                        {simulationState === 'running' ? t('pause') : t('resume')}
+                    </Button>
 
+                    <Button
+                        variant="secondary"
+                        leftIcon={RefreshCw}
+                        onClick={reset}
+                        iconOnly
+                        title={t('reset')}
+                    />
+                </div>
+
+                {/* Undo/Redo */}
+                <div className="flex gap-sm" style={{ marginTop: '8px' }}>
+                    <Button
+                        variant="ghost"
+                        leftIcon={Undo}
+                        onClick={undo}
+                        disabled={historyIndex <= 0}
+                        fullWidth
+                        size="sm"
+                        title="Undo (Ctrl+Z)"
+                    >
+                        Undo
+                    </Button>
+                    <Button
+                        variant="ghost"
+                        leftIcon={Redo}
+                        onClick={redo}
+                        disabled={historyIndex >= history.length}
+                        fullWidth
+                        size="sm"
+                        title="Redo (Ctrl+Shift+Z)"
+                    >
+                        Redo
+                    </Button>
+                </div>
+
+                {/* ギャラリー */}
                 <Button
                     variant="secondary"
-                    leftIcon={RefreshCw}
-                    onClick={reset}
-                    iconOnly
-                    title={t('reset')}
-                />
-            </div>
-
-            {/* Undo/Redo Controls */}
-            <div className="flex gap-sm" style={{ marginTop: '4px' }}>
-                <Button
-                    variant="ghost"
-                    leftIcon={Undo}
-                    onClick={undo}
-                    disabled={historyIndex <= 0}
+                    leftIcon={LayoutGrid}
+                    onClick={() => setShowGallery(true)}
                     fullWidth
-                    size="sm"
-                    title="Undo (Ctrl+Z)"
+                    style={{ marginTop: '8px' }}
                 >
-                    Undo
+                    {t('star_system_gallery')}
                 </Button>
-                <Button
-                    variant="ghost"
-                    leftIcon={Redo}
-                    onClick={redo}
-                    disabled={historyIndex >= history.length}
-                    fullWidth
-                    size="sm"
-                    title="Redo (Ctrl+Shift+Z)"
-                >
-                    Redo
-                </Button>
+
+                {/* 時間スケール */}
+                <div style={{ marginTop: '12px' }}>
+                    <label className="text-sm text-secondary">
+                        {t('time_scale')}: {timeScale.toFixed(1)}x
+                    </label>
+                    <input
+                        type="range"
+                        min="0.1"
+                        max="5.0"
+                        step="0.1"
+                        value={timeScale}
+                        onChange={(e) => setTimeScale(parseFloat(e.target.value))}
+                        style={{ width: '100%', cursor: 'pointer', accentColor: 'var(--color-primary-500)', marginTop: '4px' }}
+                    />
+                </div>
             </div>
 
-            <Button
-                variant="secondary"
-                leftIcon={LayoutGrid}
-                onClick={() => setShowGallery(true)}
-                fullWidth
-            >
-                {t('star_system_gallery')}
-            </Button>
+            {/* ========== 表示設定（折りたたみ可能） ========== */}
+            <Accordion title="表示設定" icon={Eye} defaultOpen={true}>
+                <CheckboxGroup items={visualItems} />
+            </Accordion>
 
-            <StarSystemGallery
-                isOpen={showGallery}
-                onClose={() => setShowGallery(false)}
-            />
+            {/* ========== 詳細設定（折りたたみ可能） ========== */}
+            <Accordion title="詳細設定" icon={Settings} defaultOpen={false}>
+                <CheckboxGroup items={advancedItems} />
+            </Accordion>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                <label style={{ fontSize: '0.8rem', opacity: 0.7 }}>{t('time_scale')}: {timeScale.toFixed(1)}x</label>
-                <input
-                    type="range"
-                    min="0.1"
-                    max="5.0"
-                    step="0.1"
-                    value={timeScale}
-                    onChange={(e) => setTimeScale(parseFloat(e.target.value))}
-                    style={{ width: '100%', cursor: 'pointer', accentColor: '#3b82f6' }}
-                />
+            {/* ========== パフォーマンス（折りたたみ可能） ========== */}
+            <Accordion title="パフォーマンス" icon={Zap} defaultOpen={false}>
+                <CheckboxGroup items={performanceItems} />
+            </Accordion>
 
-                {/* Time Elapsed moved to DateDisplay Overlay */}
+            {/* ========== カメラモード ========== */}
+            <div className="section" style={{ marginTop: '12px' }}>
+                <div className="section-title" style={{ marginBottom: '8px' }}>カメラモード</div>
+                <div className="flex gap-xs" style={{ flexWrap: 'wrap' }}>
+                    {[
+                        { id: 'free', label: t('camera_mode_free') },
+                        { id: 'sun_lock', label: t('camera_mode_sun') },
+                        { id: 'surface_lock', label: t('camera_mode_surface') }
+                    ].map(mode => (
+                        <button
+                            key={mode.id}
+                            onClick={() => followingBodyId && setCameraMode(mode.id as 'free' | 'sun_lock' | 'surface_lock')}
+                            disabled={!followingBodyId && mode.id !== 'free'}
+                            style={{
+                                flex: '1 0 80px',
+                                padding: '6px 8px',
+                                fontSize: '0.75rem',
+                                background: cameraMode === mode.id ? 'var(--color-primary-500)' : 'rgba(255,255,255,0.1)',
+                                color: 'white',
+                                border: cameraMode === mode.id ? '1px solid var(--color-primary-400)' : '1px solid var(--color-border)',
+                                borderRadius: 'var(--radius-sm)',
+                                cursor: followingBodyId ? 'pointer' : 'not-allowed',
+                                opacity: (!followingBodyId && mode.id !== 'free') ? 0.5 : 1,
+                                transition: 'all 0.2s',
+                                textAlign: 'center',
+                                fontWeight: cameraMode === mode.id ? 600 : 400,
+                            }}
+                            title={mode.label}
+                        >
+                            {mode.label}
+                        </button>
+                    ))}
+                </div>
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginTop: '10px' }}>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
-                    <input
-                        type="checkbox"
-                        onChange={() => usePhysicsStore.getState().togglePrediction()}
-                        checked={usePhysicsStore(s => s.showPrediction)}
-                    />
-                    {t('show_prediction')}
-                    <div title="High performance cost / 重い処理です" style={{ display: 'flex', alignItems: 'center', color: '#ffb302' }}>
-                        <AlertCircle size={14} />
-                    </div>
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
-                    <input
-                        type="checkbox"
-                        onChange={() => usePhysicsStore.getState().toggleGrid()}
-                        checked={usePhysicsStore(s => s.showGrid)}
-                    />
-                    {t('show_grid')}
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
-                    <input
-                        type="checkbox"
-                        onChange={() => usePhysicsStore.getState().toggleRealisticVisuals()}
-                        checked={usePhysicsStore(s => s.showRealisticVisuals)}
-                    />
-                    {t('show_realistic')}
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
-                    <input
-                        type="checkbox"
-                        checked={usePhysicsStore(state => state.showHabitableZone)}
-                        onChange={() => usePhysicsStore.getState().toggleHabitableZone()}
-                    />
-                    {t('show_habitable')}
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
-                    <input
-                        type="checkbox"
-                        checked={usePhysicsStore(state => state.useRealisticDistances)}
-                        onChange={() => usePhysicsStore.getState().toggleRealisticDistances()}
-                    />
-                    {t('show_realistic_distances')}
-                </label>
-
-                <div style={{ height: '1px', background: 'rgba(255,255,255,0.1)', margin: '4px 0' }} />
-
-
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
-                    <input
-                        type="checkbox"
-                        checked={usePhysicsStore(state => state.showGravityField)}
-                        onChange={() => usePhysicsStore.getState().toggleGravityField()}
-                    />
-                    {t('show_gravity_field')}
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
-                    <input
-                        type="checkbox"
-                        checked={usePhysicsStore(state => state.useMultithreading)}
-                        onChange={() => usePhysicsStore.getState().toggleMultithreading()}
-                        disabled={!usePhysicsStore.getState().isWorkerSupported}
-                    />
-                    <span>{t('show_multithreading')}</span>
-                    {!usePhysicsStore.getState().isWorkerSupported && <span style={{ fontSize: '0.7rem', color: '#ff4050' }}>(N/A)</span>}
-                    {usePhysicsStore.getState().isWorkerSupported && <div style={{ color: '#00ce7c' }}><Zap size={14} fill="#00ce7c" /></div>}
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
-                    <input
-                        type="checkbox"
-                        checked={usePhysicsStore(state => state.useGPU)}
-                        onChange={() => usePhysicsStore.getState().toggleGPU()}
-                        disabled={!usePhysicsStore(s => s.isGPUSupported)}
-                    />
-                    <span>{t('show_gpu')}</span>
-                    {usePhysicsStore(s => s.isGPUSupported) === false && <span style={{ fontSize: '0.7rem', color: '#ff4050' }}>(N/A)</span>}
-                    {usePhysicsStore(s => s.isGPUSupported) === true && <div style={{ color: '#00ce7c' }}><Zap size={14} fill="#00ce7c" /></div>}
-                </label>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.9rem', color: 'white' }}>
-                    <input
-                        type="checkbox"
-                        onChange={() => usePhysicsStore.getState().togglePerformance()}
-                        checked={usePhysicsStore(s => s.showPerformance)}
-                    />
-                    {t('show_performance')}
-                </label>
-            </div>
-
-            {/* Camera Mode Choice Chips */}
-            <div style={{ display: 'flex', gap: '4px', marginTop: '10px', marginBottom: '8px', flexWrap: 'wrap' }}>
-                {[
-                    { id: 'free', label: t('camera_mode_free') },
-                    { id: 'sun_lock', label: t('camera_mode_sun') },
-                    { id: 'surface_lock', label: t('camera_mode_surface') }
-                ].map(mode => (
-                    <button
-                        key={mode.id}
-                        onClick={() => followingBodyId && setCameraMode(mode.id as any)}
-                        disabled={!followingBodyId && mode.id !== 'free'}
-                        style={{
-                            flex: '1 0 80px',
-                            padding: '4px 2px',
-                            fontSize: '0.7rem',
-                            background: cameraMode === mode.id ? '#3b82f6' : 'rgba(255,255,255,0.1)',
-                            color: 'white',
-                            border: 'none',
-                            borderRadius: '4px',
-                            cursor: followingBodyId ? 'pointer' : 'not-allowed',
-                            opacity: (!followingBodyId && mode.id !== 'free') ? 0.5 : 1,
-                            transition: 'background 0.2s',
-                            textAlign: 'center'
-                        }}
-                        title={mode.label}
-                    >
-                        {mode.label}
-                    </button>
-                ))}
-            </div>
-
-            {/* Body List */}
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                {/* Removed label: {t('camera_follow')} */}
+            {/* ========== 天体リスト ========== */}
+            <div className="section">
+                <div className="section-divider" />
                 <div style={{
                     display: 'flex',
                     flexDirection: 'column',
@@ -267,9 +262,9 @@ export const SimulationControls: React.FC = () => {
                                     alignItems: 'center',
                                     justifyContent: 'space-between',
                                     padding: '6px 8px',
-                                    background: followingBodyId === body.id ? 'rgba(59, 130, 246, 0.3)' : 'rgba(255, 255, 255, 0.05)',
-                                    border: followingBodyId === body.id ? '1px solid #3b82f6' : '1px solid transparent',
-                                    borderRadius: '4px',
+                                    background: followingBodyId === body.id ? 'var(--color-bg-active)' : 'var(--color-bg-hover)',
+                                    border: followingBodyId === body.id ? '1px solid var(--color-primary-500)' : '1px solid transparent',
+                                    borderRadius: 'var(--radius-sm)',
                                     color: 'white',
                                     cursor: 'pointer',
                                     fontSize: '0.9rem',
@@ -295,7 +290,6 @@ export const SimulationControls: React.FC = () => {
                                     onClick={(e) => {
                                         e.stopPropagation();
                                         removeBody(body.id);
-                                        // If following this body, stop following
                                         if (followingBodyId === body.id) {
                                             usePhysicsStore.getState().setFollowingBody(null);
                                         }
@@ -303,8 +297,8 @@ export const SimulationControls: React.FC = () => {
                                     style={{
                                         background: 'rgba(255, 64, 80, 0.1)',
                                         border: '1px solid rgba(255, 64, 80, 0.2)',
-                                        borderRadius: '4px',
-                                        color: '#ff4050',
+                                        borderRadius: 'var(--radius-sm)',
+                                        color: 'var(--color-error)',
                                         cursor: 'pointer',
                                         padding: '0 8px',
                                         display: 'flex',
@@ -323,6 +317,12 @@ export const SimulationControls: React.FC = () => {
                     ))}
                 </div>
             </div>
+
+            {/* ギャラリーモーダル */}
+            <StarSystemGallery
+                isOpen={showGallery}
+                onClose={() => setShowGallery(false)}
+            />
         </div>
     );
 };
