@@ -91,6 +91,12 @@ interface PhysicsStore {
     labMode: boolean;
     resetToken: number; // Increment to signal forced visual resets
 
+    // User Mode
+    userMode: 'beginner' | 'advanced';
+    setUserMode: (mode: 'beginner' | 'advanced') => void;
+    hasSeenOnboarding: boolean;
+    setHasSeenOnboarding: (seen: boolean) => void;
+
     // History
     history: HistoryAction[];
     historyIndex: number;
@@ -183,6 +189,10 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     zenMode: false,
     labMode: false,
     resetToken: 0,
+
+    // User Mode - default to beginner for better onboarding, restore from localStorage
+    userMode: typeof window !== 'undefined' && localStorage.getItem('orbit-simulator-user-mode') === 'advanced' ? 'advanced' : 'beginner',
+    hasSeenOnboarding: typeof window !== 'undefined' && localStorage.getItem('orbit-simulator-onboarding-seen') === 'true',
 
     useMultithreading: false,
     useGPU: false,
@@ -815,6 +825,22 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
     toggleZenMode: () => set((state) => ({ zenMode: !state.zenMode })),
     toggleLabMode: () => set((state) => ({ labMode: !state.labMode })),
+
+    setUserMode: (mode) => {
+        // Save to localStorage for persistence
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('orbit-simulator-user-mode', mode);
+        }
+        set({ userMode: mode });
+    },
+
+    setHasSeenOnboarding: (seen) => {
+        // Save to localStorage for persistence
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('orbit-simulator-onboarding-seen', String(seen));
+        }
+        set({ hasSeenOnboarding: seen });
+    },
 
     setTimeScale: (scale) => set({ timeScale: scale }),
 

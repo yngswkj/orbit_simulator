@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { Play, Pause, RefreshCw, Trash2, LayoutGrid, Undo, Redo, Eye, Settings, Zap } from 'lucide-react';
+import { Play, Pause, RefreshCw, Trash2, LayoutGrid, Undo, Redo, Eye, Settings, Zap, GraduationCap, Rocket } from 'lucide-react';
 import { useTranslation } from '../../utils/i18n';
 import { StarSystemGallery } from './StarSystemGallery';
 import { ContextHelp } from './common/ContextHelp';
 import { Button } from './common/Button';
 import { Accordion } from './common/Accordion';
 import { CheckboxGroup, type CheckboxItem } from './common/CheckboxGroup';
+import { Tooltip } from './common/Tooltip';
 
 export const SimulationControls: React.FC = () => {
     const simulationState = usePhysicsStore((state) => state.simulationState);
@@ -22,9 +23,13 @@ export const SimulationControls: React.FC = () => {
     const redo = usePhysicsStore((state) => state.redo);
     const historyIndex = usePhysicsStore((state) => state.historyIndex);
     const history = usePhysicsStore((state) => state.history);
+    const userMode = usePhysicsStore((state) => state.userMode);
+    const setUserMode = usePhysicsStore((state) => state.setUserMode);
     const { t } = useTranslation();
 
     const [showGallery, setShowGallery] = useState(false);
+
+    const isBeginnerMode = userMode === 'beginner';
 
     const togglePause = () => {
         setSimulationState(simulationState === 'running' ? 'paused' : 'running');
@@ -110,6 +115,21 @@ export const SimulationControls: React.FC = () => {
                 <ContextHelp topic="controls" />
             </div>
 
+            {/* ========== モード切り替え ========== */}
+            <div className="section" style={{ marginBottom: '12px' }}>
+                <Tooltip content={isBeginnerMode ? '上級者モードに切り替え（全機能表示）' : '初心者モードに切り替え（基本機能のみ）'}>
+                    <Button
+                        variant="ghost"
+                        leftIcon={isBeginnerMode ? Rocket : GraduationCap}
+                        onClick={() => setUserMode(isBeginnerMode ? 'advanced' : 'beginner')}
+                        fullWidth
+                        size="sm"
+                    >
+                        {isBeginnerMode ? '上級者モード' : '初心者モード'}
+                    </Button>
+                </Tooltip>
+            </div>
+
             {/* ========== 基本操作（常時表示） ========== */}
             <div className="section">
                 <div className="flex gap-sm">
@@ -190,15 +210,19 @@ export const SimulationControls: React.FC = () => {
                 <CheckboxGroup items={visualItems} />
             </Accordion>
 
-            {/* ========== 詳細設定（折りたたみ可能） ========== */}
-            <Accordion title="詳細設定" icon={Settings} defaultOpen={false}>
-                <CheckboxGroup items={advancedItems} />
-            </Accordion>
+            {/* ========== 詳細設定（折りたたみ可能、上級者モードのみ） ========== */}
+            {!isBeginnerMode && (
+                <Accordion title="詳細設定" icon={Settings} defaultOpen={false}>
+                    <CheckboxGroup items={advancedItems} />
+                </Accordion>
+            )}
 
-            {/* ========== パフォーマンス（折りたたみ可能） ========== */}
-            <Accordion title="パフォーマンス" icon={Zap} defaultOpen={false}>
-                <CheckboxGroup items={performanceItems} />
-            </Accordion>
+            {/* ========== パフォーマンス（折りたたみ可能、上級者モードのみ） ========== */}
+            {!isBeginnerMode && (
+                <Accordion title="パフォーマンス" icon={Zap} defaultOpen={false}>
+                    <CheckboxGroup items={performanceItems} />
+                </Accordion>
+            )}
 
             {/* ========== カメラモード ========== */}
             <div className="section" style={{ marginTop: '12px' }}>
