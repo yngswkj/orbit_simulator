@@ -1,7 +1,7 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { useTranslation } from '../../utils/i18n';
-import { X, HelpCircle, Mouse, Move, Rotate3D, ZoomIn, Info, History } from 'lucide-react';
+import { HelpCircle, Mouse, Move, Rotate3D, ZoomIn, Info, History } from 'lucide-react';
 import pkg from '../../../package.json';
 
 interface HelpModalProps {
@@ -27,63 +27,70 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
     return createPortal(
         <div style={{
             position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100vw',
-            height: '100vh',
-            background: 'rgba(0,0,0,0.6)',
-            zIndex: 2000,
+            top: isMobile ? 'auto' : '20px',
+            left: isMobile ? '8px' : '20px',
+            bottom: isMobile ? '8px' : 'auto',
+            right: isMobile ? '8px' : 'auto',
+            width: isMobile ? 'calc(100% - 16px)' : '700px',
+            height: isMobile ? 'auto' : 'calc(100vh - 40px)',
+            maxHeight: isMobile ? '50vh' : '800px',
+            minHeight: isMobile ? '240px' : 'auto',
+            background: 'rgba(20, 20, 30, 0.92)',
+            backdropFilter: 'blur(16px)',
+            border: '1px solid rgba(255, 255, 255, 0.15)',
+            borderRadius: isMobile ? '20px' : '16px',
             display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            backdropFilter: 'blur(4px)'
+            flexDirection: 'column',
+            boxShadow: isMobile ? '0 -4px 20px rgba(0, 0, 0, 0.5)' : '0 8px 32px rgba(0, 0, 0, 0.4)',
+            color: 'white',
+            overflow: 'hidden',
+            zIndex: 2000,
+            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
         }}>
-            <div style={{
-                background: 'rgba(10, 10, 15, 0.85)',
-                backdropFilter: 'blur(12px)',
-                border: '1px solid rgba(255, 255, 255, 0.1)',
-                borderRadius: '12px',
-                width: '700px',
-                maxWidth: '90%',
-                height: '500px',
-                maxHeight: '80vh',
-                display: 'flex',
-                flexDirection: 'column',
-                boxShadow: '0 8px 32px 0 rgba(0, 0, 0, 0.3)',
-                color: 'white',
-                overflow: 'hidden'
-            }}>
                 {/* Header */}
                 <div style={{
-                    padding: '16px 24px',
-                    borderBottom: '1px solid rgba(255,255,255,0.1)',
+                    padding: isMobile ? '12px 16px' : '16px 24px',
+                    borderBottom: '1px solid rgba(255,255,255,0.08)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
-                    background: 'rgba(255,255,255,0.02)',
-                    flexShrink: 0 // Keep header fixed size
+                    background: 'rgba(0,0,0,0.1)',
+                    flexShrink: 0,
+                    minHeight: isMobile ? '56px' : '64px'
                 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <HelpCircle size={20} color="#3b82f6" />
-                        <h2 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, letterSpacing: '0.02em' }}>{t('help_title')}</h2>
+                        <HelpCircle size={isMobile ? 18 : 20} color="#3b82f6" />
+                        <h2 style={{ margin: 0, fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 600, letterSpacing: '0.02em' }}>{t('help_title')}</h2>
                     </div>
                     <button
                         onClick={onClose}
                         style={{
-                            background: 'none',
-                            border: 'none',
-                            color: '#94a3b8',
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: '8px',
+                            color: 'rgba(255, 255, 255, 0.6)',
                             cursor: 'pointer',
-                            padding: '4px',
+                            fontSize: isMobile ? '20px' : '24px',
+                            lineHeight: 1,
+                            width: isMobile ? '32px' : '36px',
+                            height: isMobile ? '32px' : '36px',
                             display: 'flex',
                             alignItems: 'center',
-                            transition: 'color 0.2s'
+                            justifyContent: 'center',
+                            transition: 'all 0.2s ease',
+                            fontWeight: 300
                         }}
-                        onMouseEnter={(e) => e.currentTarget.style.color = 'white'}
-                        onMouseLeave={(e) => e.currentTarget.style.color = '#94a3b8'}
-                    >
-                        <X size={20} />
-                    </button>
+                        onMouseEnter={(e) => {
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)';
+                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                        }}
+                        onMouseLeave={(e) => {
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.6)';
+                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                        }}
+                    >×</button>
                 </div>
 
                 {/* Content Wrapper */}
@@ -100,8 +107,8 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                         minWidth: isMobile ? '100%' : '200px',
                         borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.1)',
                         borderBottom: isMobile ? '1px solid rgba(255,255,255,0.1)' : 'none',
-                        background: 'rgba(0,0,0,0.2)',
-                        padding: isMobile ? '0' : '16px 0',
+                        background: 'rgba(0,0,0,0.15)',
+                        padding: isMobile ? '0' : '12px 0',
                         display: 'flex',
                         flexDirection: isMobile ? 'row' : 'column',
                         flexShrink: 0,
@@ -126,7 +133,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
 
                         {/* Info Block */}
                         <div style={{
-                            padding: isMobile ? '0 16px' : '16px',
+                            padding: isMobile ? '0 12px 12px' : '12px',
                             borderTop: isMobile ? 'none' : '1px solid rgba(255,255,255,0.05)',
                             display: isMobile ? 'flex' : 'block',
                             alignItems: 'center',
@@ -135,15 +142,15 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                             <div style={{
                                 display: 'flex',
                                 alignItems: 'center',
-                                gap: '8px',
-                                fontSize: '0.75rem',
+                                gap: '6px',
+                                fontSize: isMobile ? '0.7rem' : '0.75rem',
                                 color: '#64748b',
-                                background: 'rgba(255,255,255,0.03)',
-                                padding: '8px 12px',
+                                background: 'rgba(255,255,255,0.04)',
+                                padding: isMobile ? '6px 10px' : '8px 12px',
                                 borderRadius: '6px',
                                 justifyContent: 'center'
                             }}>
-                                <Info size={14} />
+                                <Info size={isMobile ? 12 : 14} />
                                 <span style={{ fontFamily: 'var(--font-mono)' }}>v{pkg.version}</span>
                             </div>
                         </div>
@@ -152,7 +159,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                     {/* Main Panel */}
                     <div style={{
                         flex: 1,
-                        padding: '24px',
+                        padding: isMobile ? '16px' : '24px',
                         overflowY: 'auto' // Vertical Scroll
                     }}>
 
@@ -234,7 +241,6 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                         )}
                     </div>
                 </div>
-            </div>
         </div>,
         document.body
     );
@@ -248,20 +254,27 @@ const TabButton = ({ active, onClick, icon, label, isMobile }: { active: boolean
         style={{
             display: 'flex',
             alignItems: 'center',
-            gap: '10px',
-            padding: isMobile ? '12px 16px' : '10px 20px',
+            gap: isMobile ? '6px' : '10px',
+            padding: isMobile ? '10px 12px' : '10px 20px',
             width: isMobile ? 'auto' : '100%',
             flex: isMobile ? 1 : 'none',
             justifyContent: isMobile ? 'center' : 'flex-start',
-            background: active ? 'rgba(59, 130, 246, 0.1)' : 'transparent',
+            background: active ? 'rgba(59, 130, 246, 0.12)' : 'transparent',
             border: 'none',
             borderLeft: (!isMobile && active) ? '3px solid #3b82f6' : '3px solid transparent',
-            borderBottom: (isMobile && active) ? '3px solid #3b82f6' : '3px solid transparent',
+            borderBottom: (isMobile && active) ? '2px solid #3b82f6' : '2px solid transparent',
             color: active ? '#3b82f6' : '#94a3b8',
             cursor: 'pointer',
-            fontSize: '0.9rem',
+            fontSize: isMobile ? '0.8rem' : '0.9rem',
             transition: 'all 0.2s',
-            whiteSpace: 'nowrap'
+            whiteSpace: 'nowrap',
+            fontWeight: active ? 600 : 400
+        }}
+        onMouseEnter={(e) => {
+            if (!active) e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+        }}
+        onMouseLeave={(e) => {
+            if (!active) e.currentTarget.style.background = 'transparent';
         }}
     >
         {icon}
