@@ -5,9 +5,6 @@ import { TabContent } from './TabContent';
 import './UnifiedSidePanel.css';
 import { CompactControls } from './CompactControls';
 import { CompactBodySwitcher } from './CompactBodySwitcher';
-import { HelpCircle } from 'lucide-react';
-import { HelpModal } from './HelpModal';
-import { useTranslation } from '../../utils/i18n';
 
 interface UnifiedSidePanelProps {
     defaultTab?: TabId;
@@ -16,10 +13,8 @@ interface UnifiedSidePanelProps {
 export const UnifiedSidePanel: React.FC<UnifiedSidePanelProps> = ({ defaultTab = 'controls' }) => {
     const [activeTab, setActiveTab] = useState<TabId>(defaultTab);
     const [isOpen, setIsOpen] = useState(true);
-    const [showHelp, setShowHelp] = useState(false);
     const zenMode = usePhysicsStore(state => state.zenMode);
     const selectedBodyId = usePhysicsStore(state => state.selectedBodyId);
-    const { t } = useTranslation();
 
     // Auto-switch to inspector when a body is selected
     useEffect(() => {
@@ -73,35 +68,6 @@ export const UnifiedSidePanel: React.FC<UnifiedSidePanelProps> = ({ defaultTab =
 
     return (
         <>
-            {/* Help Button (visible when panel is closed) */}
-            <button
-                onClick={() => setShowHelp(true)}
-                style={{
-                    position: 'absolute',
-                    top: 10,
-                    right: 70,
-                    zIndex: 1001,
-                    background: 'rgba(20, 20, 30, 0.8)',
-                    border: '1px solid rgba(255, 255, 255, 0.2)',
-                    color: 'white',
-                    padding: '12px',
-                    borderRadius: '8px',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    minWidth: '48px',
-                    minHeight: '48px',
-                    boxSizing: 'border-box',
-                    transition: 'all 0.2s',
-                    opacity: isOpen ? 0 : 1,
-                    pointerEvents: isOpen ? 'none' : 'auto'
-                }}
-                title={t('help_title')}
-            >
-                <HelpCircle size={20} />
-            </button>
-
             {!isOpen && (
                 <>
                     <CompactControls onOpenPanel={() => setIsOpen(true)} />
@@ -130,8 +96,6 @@ export const UnifiedSidePanel: React.FC<UnifiedSidePanelProps> = ({ defaultTab =
                 <TabNavigation activeTab={activeTab} onChange={setActiveTab} />
                 <TabContent activeTab={activeTab} />
             </div>
-
-            <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
         </>
     );
 };

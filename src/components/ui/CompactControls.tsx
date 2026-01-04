@@ -1,8 +1,9 @@
 import React from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { Play, Pause, RefreshCw, Camera, Maximize, Menu, Orbit } from 'lucide-react';
+import { Play, Pause, RefreshCw, Camera, Maximize, Menu, Orbit, HelpCircle } from 'lucide-react';
 import { useTranslation } from '../../utils/i18n';
 import { StarSystemGallery } from './StarSystemGallery';
+import { HelpModal } from './HelpModal';
 import './CompactControls.css';
 
 interface CompactControlsProps {
@@ -19,6 +20,7 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
     const followingBodyId = usePhysicsStore((state) => state.followingBodyId);
 
     const [showGallery, setShowGallery] = React.useState(false);
+    const [showHelp, setShowHelp] = React.useState(false);
     const { t } = useTranslation();
 
     const togglePause = () => {
@@ -35,15 +37,25 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
 
     return (
         <div className="compact-controls-container">
-            {/* Main Menu Button (Expands Panel) */}
-            <button
-                onClick={onOpenPanel}
-                className="compact-menu-button"
-                title={t('open_controls')}
-            >
-                <Menu size={20} />
-                <span className="button-label">Menu</span>
-            </button>
+            {/* Top Buttons: Menu and Help */}
+            <div className="compact-top-buttons">
+                <button
+                    onClick={onOpenPanel}
+                    className="compact-top-button"
+                    title={t('open_controls')}
+                >
+                    <Menu size={20} />
+                    <span className="button-label">Menu</span>
+                </button>
+                <button
+                    onClick={() => setShowHelp(true)}
+                    className="compact-top-button"
+                    title={t('help_title')}
+                >
+                    <HelpCircle size={20} />
+                    <span className="button-label">Help</span>
+                </button>
+            </div>
 
             {/* Compact Tool Bar */}
             <div className="compact-toolbar">
@@ -112,6 +124,7 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
                 isOpen={showGallery}
                 onClose={() => setShowGallery(false)}
             />
+            <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
         </div>
     );
 };
