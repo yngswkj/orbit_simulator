@@ -95,6 +95,36 @@
   background: rgba(59, 130, 246, 0.15);
 }
 
+/* Body switcher scrollable container (mobile only) */
+.body-switcher-scrollable {
+  max-height: 220px; /* 約4-5個のボタンが表示される高さ */
+  overflow-y: auto;
+  overflow-x: hidden;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-right: 4px; /* スクロールバー用の余白 */
+}
+
+/* スクロールバースタイル */
+.body-switcher-scrollable::-webkit-scrollbar {
+  width: 4px;
+}
+
+.body-switcher-scrollable::-webkit-scrollbar-track {
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 2px;
+}
+
+.body-switcher-scrollable::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.3);
+  border-radius: 2px;
+}
+
+.body-switcher-scrollable::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.5);
+}
+
 /* モバイル対応: アイコンのみ表示 */
 @media (max-width: 768px) {
   .compact-controls-container {

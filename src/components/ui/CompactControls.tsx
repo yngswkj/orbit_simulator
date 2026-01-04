@@ -35,10 +35,10 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel, o
         return () => window.removeEventListener('resize', checkMobile);
     }, []);
 
-    // モバイル時は天体を表示しない、PC時は10個まで
-    const MAX_VISIBLE_BODIES = isMobile ? 0 : 10;
-    const visibleBodies = bodies.slice(0, MAX_VISIBLE_BODIES);
-    const hasMore = isMobile ? bodies.length > 0 : bodies.length > MAX_VISIBLE_BODIES;
+    // モバイル時は全て表示（スクロール可能）、PC時は10個まで
+    const showAllBodies = isMobile;
+    const visibleBodies = showAllBodies ? bodies : bodies.slice(0, 10);
+    const hasMore = !isMobile && bodies.length > 10;
 
     const togglePause = () => {
         setSimulationState(simulationState === 'running' ? 'paused' : 'running');
@@ -150,59 +150,57 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel, o
 
                 <div className="compact-divider" />
 
-                {/* Body Switcher Section (PC only) */}
-                {!isMobile && (
-                    <>
-                        {/* Free Camera Button */}
-                        <button
-                            className={`compact-button body-button ${!followingBodyId ? 'active' : ''}`}
-                            onClick={() => setFollowingBody(null)}
-                            title="フリーカメラ"
-                        >
-                            <span className="body-indicator" style={{ background: '#666' }}>
-                                <span className="body-name-short">Fr</span>
-                            </span>
-                            <span className="button-label">Free</span>
-                        </button>
+                {/* Body Switcher Section */}
+                <div className={isMobile ? 'body-switcher-scrollable' : ''}>
+                    {/* Free Camera Button */}
+                    <button
+                        className={`compact-button body-button ${!followingBodyId ? 'active' : ''}`}
+                        onClick={() => setFollowingBody(null)}
+                        title="フリーカメラ"
+                    >
+                        <span className="body-indicator" style={{ background: '#666' }}>
+                            <span className="body-name-short">Fr</span>
+                        </span>
+                        <span className="button-label">Free</span>
+                    </button>
 
-                        {/* Body Buttons (最大10個) */}
-                        {visibleBodies.map(body => {
-                            const shortName = body.name.length >= 2
-                                ? body.name.charAt(0).toUpperCase() + body.name.charAt(1).toLowerCase()
-                                : body.name.toUpperCase();
+                    {/* Body Buttons */}
+                    {visibleBodies.map(body => {
+                        const shortName = body.name.length >= 2
+                            ? body.name.charAt(0).toUpperCase() + body.name.charAt(1).toLowerCase()
+                            : body.name.toUpperCase();
 
-                            return (
-                                <button
-                                    key={body.id}
-                                    className={`compact-button body-button ${followingBodyId === body.id ? 'active' : ''}`}
-                                    onClick={() => setFollowingBody(body.id)}
-                                    title={body.name}
+                        return (
+                            <button
+                                key={body.id}
+                                className={`compact-button body-button ${followingBodyId === body.id ? 'active' : ''}`}
+                                onClick={() => setFollowingBody(body.id)}
+                                title={body.name}
+                            >
+                                <span
+                                    className="body-indicator"
+                                    style={{
+                                        background: body.color,
+                                        boxShadow: `0 0 8px ${body.color}`,
+                                    }}
                                 >
-                                    <span
-                                        className="body-indicator"
-                                        style={{
-                                            background: body.color,
-                                            boxShadow: `0 0 8px ${body.color}`,
-                                        }}
-                                    >
-                                        <span className="body-name-short">{shortName}</span>
-                                    </span>
-                                    <span className="button-label">{body.name}</span>
-                                </button>
-                            );
-                        })}
-                    </>
-                )}
+                                    <span className="body-name-short">{shortName}</span>
+                                </span>
+                                <span className="button-label">{body.name}</span>
+                            </button>
+                        );
+                    })}
+                </div>
 
-                {/* More Button (モバイル時は常に表示、PC時は11個以上の場合のみ) */}
+                {/* More Button (PC時は11個以上の場合のみ) */}
                 {hasMore && (
                     <button
                         className="compact-button more-button"
                         onClick={handleMoreClick}
-                        title={isMobile ? '天体リストを開く' : `${bodies.length - MAX_VISIBLE_BODIES}個の天体を表示`}
+                        title={`${bodies.length - 10}個の天体を表示`}
                     >
                         <MoreHorizontal size={16} />
-                        <span className="button-label">{isMobile ? 'Bodies' : 'More'}</span>
+                        <span className="button-label">More</span>
                     </button>
                 )}
             </div>
