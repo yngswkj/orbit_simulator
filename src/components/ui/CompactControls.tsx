@@ -24,11 +24,21 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel, o
 
     const [showGallery, setShowGallery] = React.useState(false);
     const [showHelp, setShowHelp] = React.useState(false);
+    const [isMobile, setIsMobile] = React.useState(false);
     const { t } = useTranslation();
 
-    const MAX_VISIBLE_BODIES = 10;
+    // モバイル判定
+    React.useEffect(() => {
+        const checkMobile = () => setIsMobile(window.innerWidth <= 768);
+        checkMobile();
+        window.addEventListener('resize', checkMobile);
+        return () => window.removeEventListener('resize', checkMobile);
+    }, []);
+
+    // モバイル時は天体を表示しない、PC時は10個まで
+    const MAX_VISIBLE_BODIES = isMobile ? 0 : 10;
     const visibleBodies = bodies.slice(0, MAX_VISIBLE_BODIES);
-    const hasMore = bodies.length > MAX_VISIBLE_BODIES;
+    const hasMore = isMobile ? bodies.length > 0 : bodies.length > MAX_VISIBLE_BODIES;
 
     const togglePause = () => {
         setSimulationState(simulationState === 'running' ? 'paused' : 'running');
@@ -140,55 +150,59 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel, o
 
                 <div className="compact-divider" />
 
-                {/* Body Switcher Section */}
-                {/* Free Camera Button */}
-                <button
-                    className={`compact-button body-button ${!followingBodyId ? 'active' : ''}`}
-                    onClick={() => setFollowingBody(null)}
-                    title="フリーカメラ"
-                >
-                    <span className="body-indicator" style={{ background: '#666' }}>
-                        <span className="body-name-short">Fr</span>
-                    </span>
-                    <span className="button-label">Free</span>
-                </button>
-
-                {/* Body Buttons (最大10個) */}
-                {visibleBodies.map(body => {
-                    const shortName = body.name.length >= 2
-                        ? body.name.charAt(0).toUpperCase() + body.name.charAt(1).toLowerCase()
-                        : body.name.toUpperCase();
-
-                    return (
+                {/* Body Switcher Section (PC only) */}
+                {!isMobile && (
+                    <>
+                        {/* Free Camera Button */}
                         <button
-                            key={body.id}
-                            className={`compact-button body-button ${followingBodyId === body.id ? 'active' : ''}`}
-                            onClick={() => setFollowingBody(body.id)}
-                            title={body.name}
+                            className={`compact-button body-button ${!followingBodyId ? 'active' : ''}`}
+                            onClick={() => setFollowingBody(null)}
+                            title="フリーカメラ"
                         >
-                            <span
-                                className="body-indicator"
-                                style={{
-                                    background: body.color,
-                                    boxShadow: `0 0 8px ${body.color}`,
-                                }}
-                            >
-                                <span className="body-name-short">{shortName}</span>
+                            <span className="body-indicator" style={{ background: '#666' }}>
+                                <span className="body-name-short">Fr</span>
                             </span>
-                            <span className="button-label">{body.name}</span>
+                            <span className="button-label">Free</span>
                         </button>
-                    );
-                })}
 
-                {/* More Button (11個以上の場合) */}
+                        {/* Body Buttons (最大10個) */}
+                        {visibleBodies.map(body => {
+                            const shortName = body.name.length >= 2
+                                ? body.name.charAt(0).toUpperCase() + body.name.charAt(1).toLowerCase()
+                                : body.name.toUpperCase();
+
+                            return (
+                                <button
+                                    key={body.id}
+                                    className={`compact-button body-button ${followingBodyId === body.id ? 'active' : ''}`}
+                                    onClick={() => setFollowingBody(body.id)}
+                                    title={body.name}
+                                >
+                                    <span
+                                        className="body-indicator"
+                                        style={{
+                                            background: body.color,
+                                            boxShadow: `0 0 8px ${body.color}`,
+                                        }}
+                                    >
+                                        <span className="body-name-short">{shortName}</span>
+                                    </span>
+                                    <span className="button-label">{body.name}</span>
+                                </button>
+                            );
+                        })}
+                    </>
+                )}
+
+                {/* More Button (モバイル時は常に表示、PC時は11個以上の場合のみ) */}
                 {hasMore && (
                     <button
                         className="compact-button more-button"
                         onClick={handleMoreClick}
-                        title={`${bodies.length - MAX_VISIBLE_BODIES}個の天体を表示`}
+                        title={isMobile ? '天体リストを開く' : `${bodies.length - MAX_VISIBLE_BODIES}個の天体を表示`}
                     >
                         <MoreHorizontal size={16} />
-                        <span className="button-label">More</span>
+                        <span className="button-label">{isMobile ? 'Bodies' : 'More'}</span>
                     </button>
                 )}
             </div>
