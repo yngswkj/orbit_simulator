@@ -45,29 +45,38 @@ export const CompactBodySwitcher: React.FC<CompactBodySwitcherProps> = ({
           title="フリーカメラ"
           aria-label="フリーカメラ"
         >
-          <span className="body-indicator" style={{ background: '#666' }} />
+          <span className="body-indicator" style={{ background: '#666' }}>
+            <span className="body-name-short">Fr</span>
+          </span>
           <span className="body-label">Free</span>
         </button>
 
         {/* 天体アイコン（最大10個） */}
-        {visibleBodies.map(body => (
-          <button
-            key={body.id}
-            className={`body-icon ${followingBodyId === body.id ? 'active' : ''}`}
-            onClick={() => setFollowingBody(body.id)}
-            title={body.name}
-            aria-label={`Follow ${body.name}`}
-          >
-            <span
-              className="body-indicator"
-              style={{
-                background: body.color,
-                boxShadow: `0 0 8px ${body.color}`,
-              }}
-            />
-            <span className="body-label">{body.name}</span>
-          </button>
-        ))}
+        {visibleBodies.map(body => {
+          // 天体名の先頭2文字を取得（日本語・英語両対応）
+          const shortName = body.name.substring(0, 2).toUpperCase();
+
+          return (
+            <button
+              key={body.id}
+              className={`body-icon ${followingBodyId === body.id ? 'active' : ''}`}
+              onClick={() => setFollowingBody(body.id)}
+              title={body.name}
+              aria-label={`Follow ${body.name}`}
+            >
+              <span
+                className="body-indicator"
+                style={{
+                  background: body.color,
+                  boxShadow: `0 0 8px ${body.color}`,
+                }}
+              >
+                <span className="body-name-short">{shortName}</span>
+              </span>
+              <span className="body-label">{body.name}</span>
+            </button>
+          );
+        })}
 
         {/* More...ボタン（11個以上の場合） */}
         {hasMore && (
