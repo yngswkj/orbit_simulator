@@ -1,0 +1,565 @@
+
+> orbit-simulator@0.6.0 lint
+> eslint .
+
+
+C:\Users\yngsw\dev\orbit-simulator\src\App.tsx
+  13:12  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  14:12  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    @typescript-eslint/no-explicit-any
+  50:7   error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\yngsw\dev\orbit-simulator\src\App.tsx:50:7
+  48 |   useEffect(() => {
+  49 |     if (followedBodyName) {
+> 50 |       setOverlayName(followedBodyName);
+     |       ^^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  51 |       setOverlayOpacity(1);
+  52 |
+  53 |       const timer = setTimeout(() => {  react-hooks/set-state-in-effect
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\AccretionDisk.tsx
+  228:23  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\AccretionDisk.tsx:228:23
+  226 |         for (let i = 0; i < particleCount; i++) {
+  227 |             // Logarithmic distribution - more particles near inner edge
+> 228 |             const t = Math.random();
+      |                       ^^^^^^^^^^^^^ Cannot call impure function
+  229 |             const r = innerRadius + (outerRadius - innerRadius) * Math.pow(t, 0.35);
+  230 |             const angle = Math.random() * Math.PI * 2;
+  231 |                                   react-hooks/purity
+  230:27  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\AccretionDisk.tsx:230:27
+  228 |             const t = Math.random();
+  229 |             const r = innerRadius + (outerRadius - innerRadius) * Math.pow(t, 0.35);
+> 230 |             const angle = Math.random() * Math.PI * 2;
+      |                           ^^^^^^^^^^^^^ Cannot call impure function
+  231 |
+  232 |             // Disk thickness varies with radius (thinner near center)
+  233 |             const normalizedR = (r - innerRadius) / (outerRadius - innerRadius);  react-hooks/purity
+  235:29  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\AccretionDisk.tsx:235:29
+  233 |             const normalizedR = (r - innerRadius) / (outerRadius - innerRadius);
+  234 |             const thickness = normalizedR * outerRadius * 0.06;
+> 235 |             const height = (Math.random() - 0.5) * thickness;
+      |                             ^^^^^^^^^^^^^ Cannot call impure function
+  236 |
+  237 |             const x = Math.cos(angle) * r;
+  238 |             const z = Math.sin(angle) * r;                                    react-hooks/purity
+  332:9   error  Error: This value cannot be modified
+
+Modifying a value previously passed as an argument to a hook is not allowed. Consider moving the modification before calling the hook.
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\AccretionDisk.tsx:332:9
+  330 |
+  331 |         // Update uniforms
+> 332 |         material.uniforms.time.value = state.clock.elapsedTime;
+      |         ^^^^^^^^^^^^^^^^^^^^^^ `material` cannot be modified
+  333 |         photonRingMaterial.uniforms.time.value = state.clock.elapsedTime;
+  334 |
+  335 |         // Animation speeds                                                                                                                                                                                                                                                                                                      react-hooks/immutability
+  333:9   error  Error: This value cannot be modified
+
+Modifying a value previously passed as an argument to a hook is not allowed. Consider moving the modification before calling the hook.
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\AccretionDisk.tsx:333:9
+  331 |         // Update uniforms
+  332 |         material.uniforms.time.value = state.clock.elapsedTime;
+> 333 |         photonRingMaterial.uniforms.time.value = state.clock.elapsedTime;
+      |         ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^ `photonRingMaterial` cannot be modified
+  334 |
+  335 |         // Animation speeds
+  336 |         const baseSpeed = 0.15;                                                                                                                                                                                                                                                  react-hooks/immutability
+  367:13  error  Error: This value cannot be modified
+
+Modifying a value previously passed as an argument to a hook is not allowed. Consider moving the modification before calling the hook.
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\AccretionDisk.tsx:367:13
+  365 |             const x = Math.cos(angles[i]) * r;
+  366 |             const z = Math.sin(angles[i]) * r;
+> 367 |             positions[i * 3] = x;
+      |             ^^^^^^^^^ `geometry` cannot be modified
+  368 |             positions[i * 3 + 2] = z;
+  369 |
+  370 |             // Update velocity magnitude (higher at inner edge)                                                                                                                                                                                                                                                                         react-hooks/immutability
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\DebrisRenderer.tsx
+  36:33  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\DebrisRenderer.tsx:36:33
+  34 |             const y = pos.getY(i);
+  35 |             const z = pos.getZ(i);
+> 36 |             const noise = 0.7 + Math.random() * 0.6;
+     |                                 ^^^^^^^^^^^^^ Cannot call impure function
+  37 |             pos.setXYZ(i, x * noise, y * noise, z * noise);
+  38 |         }
+  39 |         geo.computeVertexNormals();  react-hooks/purity
+  83:13  error  Error: This value cannot be modified
+
+Modifying a value previously passed as an argument to a hook is not allowed. Consider moving the modification before calling the hook.
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\DebrisRenderer.tsx:83:13
+  81 |
+  82 |             // Rotation (tumbling)
+> 83 |             dummy.rotation.x += p.rotationSpeed.x * delta;
+     |             ^^^^^^^^^^^^^^ `dummy` cannot be modified
+  84 |             dummy.rotation.y += p.rotationSpeed.y * delta;
+  85 |             dummy.rotation.z += p.rotationSpeed.z * delta;
+  86 |                                                                                                                                                                                           react-hooks/immutability
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\ExplosionEffect.tsx
+   53:27  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\ExplosionEffect.tsx:53:27
+  51 |
+  52 |             // Random velocity (spherical distribution)
+> 53 |             const theta = Math.random() * Math.PI * 2;
+     |                           ^^^^^^^^^^^^^ Cannot call impure function
+  54 |             const phi = Math.acos(2 * Math.random() - 1);
+  55 |             const speed = size * (0.5 + Math.random() * 1.5);
+  56 |                                                                                                                                                                                react-hooks/purity
+   54:39  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\ExplosionEffect.tsx:54:39
+  52 |             // Random velocity (spherical distribution)
+  53 |             const theta = Math.random() * Math.PI * 2;
+> 54 |             const phi = Math.acos(2 * Math.random() - 1);
+     |                                       ^^^^^^^^^^^^^ Cannot call impure function
+  55 |             const speed = size * (0.5 + Math.random() * 1.5);
+  56 |
+  57 |             vels.push(new THREE.Vector3(                                                                                                                           react-hooks/purity
+   55:41  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\ExplosionEffect.tsx:55:41
+  53 |             const theta = Math.random() * Math.PI * 2;
+  54 |             const phi = Math.acos(2 * Math.random() - 1);
+> 55 |             const speed = size * (0.5 + Math.random() * 1.5);
+     |                                         ^^^^^^^^^^^^^ Cannot call impure function
+  56 |
+  57 |             vels.push(new THREE.Vector3(
+  58 |                 Math.sin(phi) * Math.cos(theta) * speed,                                                                                                                        react-hooks/purity
+   64:38  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\ExplosionEffect.tsx:64:38
+  62 |
+  63 |             // Color gradient: center particles brighter
+> 64 |             const brightness = 0.5 + Math.random() * 0.5;
+     |                                      ^^^^^^^^^^^^^ Cannot call impure function
+  65 |             const particleColor = new THREE.Color().lerpColors(baseColor, brightColor, Math.random() * 0.5);
+  66 |
+  67 |             colors[i * 3] = particleColor.r * brightness;                                                                                                                  react-hooks/purity
+   65:88  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\ExplosionEffect.tsx:65:88
+  63 |             // Color gradient: center particles brighter
+  64 |             const brightness = 0.5 + Math.random() * 0.5;
+> 65 |             const particleColor = new THREE.Color().lerpColors(baseColor, brightColor, Math.random() * 0.5);
+     |                                                                                        ^^^^^^^^^^^^^ Cannot call impure function
+  66 |
+  67 |             colors[i * 3] = particleColor.r * brightness;
+  68 |             colors[i * 3 + 1] = particleColor.g * brightness;  react-hooks/purity
+   72:55  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\ExplosionEffect.tsx:72:55
+  70 |
+  71 |             // Random sizes
+> 72 |             const particleSize = size * 0.05 * (0.3 + Math.random() * 0.7);
+     |                                                       ^^^^^^^^^^^^^ Cannot call impure function
+  73 |             sizes[i] = particleSize;
+  74 |             initSizes.push(particleSize);
+  75 |         }                                                                                                                                                                                          react-hooks/purity
+  118:17  error  Error: This value cannot be modified
+
+Modifying a value previously passed as an argument to a hook is not allowed. Consider moving the modification before calling the hook.
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\ExplosionEffect.tsx:118:17
+  116 |             for (let i = 0; i < particleCount; i++) {
+  117 |                 // Update position
+> 118 |                 positions[i * 3] += velocities[i].x * dt;
+      |                 ^^^^^^^^^ `geometry` cannot be modified
+  119 |                 positions[i * 3 + 1] += velocities[i].y * dt + gravity * dt;
+  120 |                 positions[i * 3 + 2] += velocities[i].z * dt;
+  121 |                                                                                                                                                                                                                                                                                 react-hooks/immutability
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\GravitationalLensEffect.tsx
+  144:9  error  '_renderer' is defined but never used     @typescript-eslint/no-unused-vars
+  145:9  error  '_inputBuffer' is defined but never used  @typescript-eslint/no-unused-vars
+  146:9  error  '_deltaTime' is defined but never used    @typescript-eslint/no-unused-vars
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\RelativisticJet.tsx
+   91:23  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\RelativisticJet.tsx:91:23
+  89 |
+  90 |             // Random progress along jet (0 = base, 1 = tip)
+> 91 |             const t = Math.random();
+     |                       ^^^^^^^^^^^^^ Cannot call impure function
+  92 |             progress[i] = t;
+  93 |
+  94 |             // Individual speed variation (0.5x to 1.5x base speed)                                                       react-hooks/purity
+   95:31  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\RelativisticJet.tsx:95:31
+  93 |
+  94 |             // Individual speed variation (0.5x to 1.5x base speed)
+> 95 |             speeds[i] = 0.5 + Math.random();
+     |                               ^^^^^^^^^^^^^ Cannot call impure function
+  96 |
+  97 |             // Jet expands as it travels
+  98 |             const spreadRadius = baseWidth * (0.1 + t * 0.5);                          react-hooks/purity
+   99:27  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\RelativisticJet.tsx:99:27
+   97 |             // Jet expands as it travels
+   98 |             const spreadRadius = baseWidth * (0.1 + t * 0.5);
+>  99 |             const angle = Math.random() * Math.PI * 2;
+      |                           ^^^^^^^^^^^^^ Cannot call impure function
+  100 |             const r = Math.random() * spreadRadius;
+  101 |
+  102 |             spread[i] = r;  react-hooks/purity
+  100:23  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\RelativisticJet.tsx:100:23
+   98 |             const spreadRadius = baseWidth * (0.1 + t * 0.5);
+   99 |             const angle = Math.random() * Math.PI * 2;
+> 100 |             const r = Math.random() * spreadRadius;
+      |                       ^^^^^^^^^^^^^ Cannot call impure function
+  101 |
+  102 |             spread[i] = r;
+  103 |             angles[i] = angle;               react-hooks/purity
+  177:13  error  Error: This value cannot be modified
+
+Modifying a value previously passed as an argument to a hook is not allowed. Consider moving the modification before calling the hook.
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\RelativisticJet.tsx:177:13
+  175 |             const z = Math.sin(angles[i]) * currentSpread;
+  176 |
+> 177 |             positions[i * 3] = x;
+      |             ^^^^^^^^^ `geometry` cannot be modified
+  178 |             positions[i * 3 + 1] = y;
+  179 |             positions[i * 3 + 2] = z;
+  180 |                                                                                                                                                                                                                                         react-hooks/immutability
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\TidalDisruptionEffect.tsx
+   53:27  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\TidalDisruptionEffect.tsx:53:27
+  51 |         for (let i = 0; i < PARTICLE_COUNT; i++) {
+  52 |             // 逅・擇荳翫↓繝ｩ繝ｳ繝繝驟咲ｽｮ
+> 53 |             const theta = Math.random() * Math.PI * 2;
+     |                           ^^^^^^^^^^^^^ Cannot call impure function
+  54 |             const phi = Math.acos(2 * Math.random() - 1);
+  55 |             const r = bodyRadius * (0.8 + Math.random() * 0.4);
+  56 |                                                                               react-hooks/purity
+   54:39  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\TidalDisruptionEffect.tsx:54:39
+  52 |             // 逅・擇荳翫↓繝ｩ繝ｳ繝繝驟咲ｽｮ
+  53 |             const theta = Math.random() * Math.PI * 2;
+> 54 |             const phi = Math.acos(2 * Math.random() - 1);
+     |                                       ^^^^^^^^^^^^^ Cannot call impure function
+  55 |             const r = bodyRadius * (0.8 + Math.random() * 0.4);
+  56 |
+  57 |             const x = r * Math.sin(phi) * Math.cos(theta);                                                           react-hooks/purity
+   55:43  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\TidalDisruptionEffect.tsx:55:43
+  53 |             const theta = Math.random() * Math.PI * 2;
+  54 |             const phi = Math.acos(2 * Math.random() - 1);
+> 55 |             const r = bodyRadius * (0.8 + Math.random() * 0.4);
+     |                                           ^^^^^^^^^^^^^ Cannot call impure function
+  56 |
+  57 |             const x = r * Math.sin(phi) * Math.cos(theta);
+  58 |             const y = r * Math.sin(phi) * Math.sin(theta);                      react-hooks/purity
+   75:77  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\TidalDisruptionEffect.tsx:75:77
+  73 |             // 騾溷ｺｦ縺ｯ貎ｮ豎仙鴨縺ｨ閼ｱ蜃ｺ騾溷ｺｦ縺ｫ蝓ｺ縺･縺・  74 |             // 荳ｻ螟ｩ菴灘・縺ｯ蠑輔″蟇・○繧峨ｌ縲∝渚蟇ｾ蛛ｴ縺ｯ謚ｼ縺怜・縺輔ｌ繧・> 75 |             const tidalSpeed = escapeVelocity * tidalForceStrength * (0.3 + Math.random() * 0.7);
+     |                                                                             ^^^^^^^^^^^^^ Cannot call impure function
+  76 |             const vel = tidalDir.clone().multiplyScalar(dot * tidalSpeed);
+  77 |
+  78 |             // 謗･邱壽婿蜷代・蝗櫁ｻ｢謌仙・繧定ｿｽ蜉・郁ｧ帝°蜍暮㍼菫晏ｭ倥ｒ讓｡蛟｣・・ react-hooks/purity
+   83:61  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\TidalDisruptionEffect.tsx:83:61
+  81 |                 .crossVectors(toPrimary, tidalDir)
+  82 |                 .normalize()
+> 83 |                 .multiplyScalar(orbitalSpeed * 0.3 * (0.5 + Math.random() * 0.5));
+     |                                                             ^^^^^^^^^^^^^ Cannot call impure function
+  84 |             vel.add(tangent);
+  85 |
+  86 |             vels.push(vel);                                                                              react-hooks/purity
+   89:42  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\TidalDisruptionEffect.tsx:89:42
+  87 |
+  88 |             // 濶ｲ・井ｸｭ蠢・↓霑代＞縺ｻ縺ｩ譏弱ｋ縺擾ｼ・> 89 |             const colorVariation = 0.7 + Math.random() * 0.3;
+     |                                          ^^^^^^^^^^^^^ Cannot call impure function
+  90 |             colors[i * 3] = baseColor.r * colorVariation;
+  91 |             colors[i * 3 + 1] = baseColor.g * colorVariation;
+  92 |             colors[i * 3 + 2] = baseColor.b * colorVariation;                                             react-hooks/purity
+   94:51  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\TidalDisruptionEffect.tsx:94:51
+  92 |             colors[i * 3 + 2] = baseColor.b * colorVariation;
+  93 |
+> 94 |             sizes[i] = bodyRadius * 0.02 * (0.5 + Math.random());
+     |                                                   ^^^^^^^^^^^^^ Cannot call impure function
+  95 |         }
+  96 |
+  97 |         geo.setAttribute('position', new THREE.BufferAttribute(positions, 3));                                                                                            react-hooks/purity
+  120:13  error  Error: This value cannot be modified
+
+Modifying a value previously passed as an argument to a hook is not allowed. Consider moving the modification before calling the hook.
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\effects\TidalDisruptionEffect.tsx:120:13
+  118 |         for (let i = 0; i < PARTICLE_COUNT; i++) {
+  119 |             // 菴咲ｽｮ譖ｴ譁ｰ
+> 120 |             positions[i * 3] += velocities[i].x * EFFECT_CONSTANTS.FRAME_TIME;
+      |             ^^^^^^^^^ `geometry` cannot be modified
+  121 |             positions[i * 3 + 1] += velocities[i].y * EFFECT_CONSTANTS.FRAME_TIME;
+  122 |             positions[i * 3 + 2] += velocities[i].z * EFFECT_CONSTANTS.FRAME_TIME;
+  123 |                                                                                                                                                                             react-hooks/immutability
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\scene\CelestialBody.tsx
+   20:21  error  React Hook "useTexture" is called conditionally. React Hooks must be called in the exact same order in every component render  react-hooks/rules-of-hooks
+  109:35  error  Unexpected any. Specify a different type                                                                                       @typescript-eslint/no-explicit-any
+  110:34  error  Unexpected any. Specify a different type                                                                                       @typescript-eslint/no-explicit-any
+  175:29  error  Unexpected any. Specify a different type                                                                                       @typescript-eslint/no-explicit-any
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\scene\OrbitPrediction.tsx
+  34:18  error  'e' is defined but never used  @typescript-eslint/no-unused-vars
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\scene\Scene.tsx
+   64:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  171:48  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  263:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  286:51  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\scene\StarfieldBackground.tsx
+  191:22  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\scene\StarfieldBackground.tsx:191:22
+  189 |     const uniforms = useMemo(() => {
+  190 |         // Random Seed
+> 191 |         const seed = Math.random() * 100.0;
+      |                      ^^^^^^^^^^^^^ Cannot call impure function
+  192 |
+  193 |         // Randomize Nebula Palette
+  194 |         const baseHue = Math.random();  react-hooks/purity
+  194:25  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\scene\StarfieldBackground.tsx:194:25
+  192 |
+  193 |         // Randomize Nebula Palette
+> 194 |         const baseHue = Math.random();
+      |                         ^^^^^^^^^^^^^ Cannot call impure function
+  195 |
+  196 |         // Helper for hsl
+  197 |         const deep = new THREE.Color().setHSL(baseHue, 0.6, 0.02);          react-hooks/purity
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\BodyInspectorContent.tsx
+  121:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  124:71  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  175:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  178:73  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  204:42  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  207:72  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  248:60  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  250:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  269:60  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  271:65  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\HelpModal.tsx
+  431:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\PerformanceStats.tsx
+  10:32  error  Error: Cannot call impure function during render
+
+`performance.now` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\PerformanceStats.tsx:10:32
+   8 |     const statsRef = useRef<HTMLDivElement>(null);
+   9 |     const fpsRef = useRef(0);
+> 10 |     const lastTimeRef = useRef(performance.now());
+     |                                ^^^^^^^^^^^^^^^^^ Cannot call impure function
+  11 |     const frameCountRef = useRef(0);
+  12 |     const { t, lang } = useTranslation();
+  13 |  react-hooks/purity
+  41:49  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                @typescript-eslint/no-explicit-any
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\UnifiedBodyCreator.tsx
+  23:25  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\UnifiedBodyCreator.tsx:23:25
+  21 |
+  22 |     const handlePresetAdd = (type: string) => {
+> 23 |         const offset = (Math.random() - 0.5) * 50;
+     |                         ^^^^^^^^^^^^^ Cannot call impure function
+  24 |         const position = new Vector3(offset, 0, (Math.random() - 0.5) * 50);
+  25 |         let props: any = {
+  26 |             position,                                                                       react-hooks/purity
+  24:50  error  Error: Cannot call impure function during render
+
+`Math.random` is an impure function. Calling an impure function can produce unstable results that update unpredictably when the component happens to re-render. (https://react.dev/reference/rules/components-and-hooks-must-be-pure#components-and-hooks-must-be-idempotent).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\UnifiedBodyCreator.tsx:24:50
+  22 |     const handlePresetAdd = (type: string) => {
+  23 |         const offset = (Math.random() - 0.5) * 50;
+> 24 |         const position = new Vector3(offset, 0, (Math.random() - 0.5) * 50);
+     |                                                  ^^^^^^^^^^^^^ Cannot call impure function
+  25 |         let props: any = {
+  26 |             position,
+  27 |             velocity: new Vector3(0, 0, 0),  react-hooks/purity
+  25:20  error  Unexpected any. Specify a different type                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      @typescript-eslint/no-explicit-any
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\UnifiedSidePanel.tsx
+  23:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\UnifiedSidePanel.tsx:23:13
+  21 |         if (prevZenMode.current && !zenMode) {
+  22 |             // Zen mode was turned off
+> 23 |             setIsOpen(true);
+     |             ^^^^^^^^^ Avoid calling setState() directly within an effect
+  24 |         }
+  25 |         prevZenMode.current = zenMode;
+  26 |     }, [zenMode]);  react-hooks/set-state-in-effect
+  31:13  error    Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\UnifiedSidePanel.tsx:31:13
+  29 |     useEffect(() => {
+  30 |         if (selectedBodyId) {
+> 31 |             setActiveTab('inspector');
+     |             ^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  32 |             if (!isOpen) setIsOpen(true);
+  33 |         }
+  34 |     }, [selectedBodyId]);             react-hooks/set-state-in-effect
+  34:8   warning  React Hook useEffect has a missing dependency: 'isOpen'. Either include it or remove the dependency array                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            react-hooks/exhaustive-deps
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\common\SafeInput.tsx
+  32:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\common\SafeInput.tsx:32:9
+  30 |     // Sync with external value changes
+  31 |     useEffect(() => {
+> 32 |         setInputValue(value.toString());
+     |         ^^^^^^^^^^^^^ Avoid calling setState() directly within an effect
+  33 |         setError(null);
+  34 |     }, [value]);
+  35 |  react-hooks/set-state-in-effect
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\common\Toast.tsx
+  19:14  error  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\common\VectorInput.tsx
+  16:9  error  Error: Calling setState synchronously within an effect can trigger cascading renders
+
+Effects are intended to synchronize state between React and external systems such as manually updating the DOM, state management libraries, or other platform APIs. In general, the body of an effect should do one or both of the following:
+* Update external systems with the latest state from React.
+* Subscribe for updates from some external system, calling setState in a callback function when external state changes.
+
+Calling setState synchronously within an effect body causes cascading renders that can hurt performance, and is not recommended. (https://react.dev/learn/you-might-not-need-an-effect).
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\common\VectorInput.tsx:16:9
+  14 |
+  15 |     useEffect(() => {
+> 16 |         setLocal({ x: value.x, y: value.y, z: value.z });
+     |         ^^^^^^^^ Avoid calling setState() directly within an effect
+  17 |     }, [value.x, value.y, value.z]);
+  18 |
+  19 |     const handleChange = (axis: 'x' | 'y' | 'z', val: string) => {  react-hooks/set-state-in-effect
+
+C:\Users\yngsw\dev\orbit-simulator\src\components\ui\tabs\BodiesTab.tsx
+   14:5    error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+   16:5    error  Use "@ts-expect-error" instead of "@ts-ignore", as "@ts-ignore" will do nothing if the following line is error-free  @typescript-eslint/ban-ts-comment
+  205:59   error  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+  250:146  error  Unexpected any. Specify a different type                                                                             @typescript-eslint/no-explicit-any
+
+C:\Users\yngsw\dev\orbit-simulator\src\store\physicsStore.ts
+  532:76  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\yngsw\dev\orbit-simulator\src\utils\benchmark.ts
+  48:35  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+C:\Users\yngsw\dev\orbit-simulator\src\workers\physicsWorkerManager.ts
+   25:55  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+   70:39  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  184:30  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+  214:44  error  Unexpected any. Specify a different type  @typescript-eslint/no-explicit-any
+
+笨・77 problems (76 errors, 1 warning)
+

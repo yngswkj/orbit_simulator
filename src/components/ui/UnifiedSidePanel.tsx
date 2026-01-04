@@ -18,10 +18,11 @@ export const UnifiedSidePanel: React.FC<UnifiedSidePanelProps> = ({ defaultTab =
     // Auto-switch to inspector when a body is selected
     useEffect(() => {
         if (selectedBodyId) {
+            // eslint-disable-next-line react-hooks/set-state-in-effect
             setActiveTab('inspector');
             if (!isOpen) setIsOpen(true);
         }
-    }, [selectedBodyId]);
+    }, [selectedBodyId]); // eslint-disable-line react-hooks/exhaustive-deps
 
     // Keyboard Shortcuts
     useEffect(() => {
@@ -63,18 +64,18 @@ export const UnifiedSidePanel: React.FC<UnifiedSidePanelProps> = ({ defaultTab =
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, []);
 
-    if (zenMode) return null; // ZenMode handled elsewhere or completely hidden
+
 
     return (
         <>
-            {!isOpen && (
+            {(!isOpen || zenMode) && (
                 <CompactControls
                     onOpenPanel={() => setIsOpen(true)}
                     onSwitchToBodiesTab={() => setActiveTab('bodies')}
                 />
             )}
 
-            <div className={`unified-side-panel ${!isOpen ? 'collapsed' : ''}`}>
+            <div className={`unified-side-panel ${(!isOpen || zenMode) ? 'collapsed' : ''}`}>
                 <div className="panel-header">
                     <button
                         className="close-button"

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { Vector3 } from 'three';
 import './VectorInput.css';
 
@@ -12,9 +12,13 @@ interface VectorInputProps {
 export const VectorInput: React.FC<VectorInputProps> = ({ label, value, onChange, onCommit }) => {
     const [local, setLocal] = useState({ x: value.x, y: value.y, z: value.z });
 
-    useEffect(() => {
-        setLocal({ x: value.x, y: value.y, z: value.z });
-    }, [value.x, value.y, value.z]);
+    const [prevVal, setPrevVal] = useState({ x: value.x, y: value.y, z: value.z });
+
+    if (value.x !== prevVal.x || value.y !== prevVal.y || value.z !== prevVal.z) {
+        const newVal = { x: value.x, y: value.y, z: value.z };
+        setPrevVal(newVal);
+        setLocal(newVal);
+    }
 
     const handleChange = (axis: 'x' | 'y' | 'z', val: string) => {
         const num = parseFloat(val);

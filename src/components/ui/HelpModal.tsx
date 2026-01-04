@@ -63,200 +63,200 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
                 ? (isMobile ? 'slideUpIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)' : 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)')
                 : 'none'
         }}>
-                {/* Header */}
+            {/* Header */}
+            <div style={{
+                padding: isMobile ? '12px 16px' : '16px 24px',
+                borderBottom: '1px solid rgba(255,255,255,0.08)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                background: 'rgba(0,0,0,0.1)',
+                flexShrink: 0,
+                minHeight: isMobile ? '56px' : '64px'
+            }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <HelpCircle size={isMobile ? 18 : 20} color="#3b82f6" />
+                    <h2 style={{ margin: 0, fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 600, letterSpacing: '0.02em' }}>{t('help_title')}</h2>
+                </div>
+                <button
+                    onClick={handleClose}
+                    style={{
+                        background: 'rgba(255, 255, 255, 0.08)',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        borderRadius: '8px',
+                        color: 'rgba(255, 255, 255, 0.6)',
+                        cursor: 'pointer',
+                        fontSize: isMobile ? '20px' : '24px',
+                        lineHeight: 1,
+                        width: isMobile ? '32px' : '36px',
+                        height: isMobile ? '32px' : '36px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        transition: 'all 0.2s ease',
+                        fontWeight: 300
+                    }}
+                    onMouseEnter={(e) => {
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                        e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)';
+                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
+                    }}
+                    onMouseLeave={(e) => {
+                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                        e.currentTarget.style.color = 'rgba(255, 255, 255, 0.6)';
+                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
+                    }}
+                >×</button>
+            </div>
+
+            {/* Content Wrapper */}
+            <div style={{
+                display: 'flex',
+                flex: 1,
+                minHeight: 0,
+                flexDirection: isMobile ? 'column' : 'row'
+            }}>
+
+                {/* Sidebar / Tabs */}
                 <div style={{
-                    padding: isMobile ? '12px 16px' : '16px 24px',
-                    borderBottom: '1px solid rgba(255,255,255,0.08)',
+                    width: isMobile ? '100%' : '200px',
+                    minWidth: isMobile ? '100%' : '200px',
+                    borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.1)',
+                    borderBottom: isMobile ? '1px solid rgba(255,255,255,0.1)' : 'none',
+                    background: 'rgba(0,0,0,0.15)',
+                    padding: isMobile ? '0' : '12px 0',
                     display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    background: 'rgba(0,0,0,0.1)',
+                    flexDirection: isMobile ? 'row' : 'column',
                     flexShrink: 0,
-                    minHeight: isMobile ? '56px' : '64px'
+                    overflowX: isMobile ? 'auto' : 'hidden' // Scroll tabs horizontally if needed
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <HelpCircle size={isMobile ? 18 : 20} color="#3b82f6" />
-                        <h2 style={{ margin: 0, fontSize: isMobile ? '1rem' : '1.1rem', fontWeight: 600, letterSpacing: '0.02em' }}>{t('help_title')}</h2>
-                    </div>
-                    <button
-                        onClick={handleClose}
-                        style={{
-                            background: 'rgba(255, 255, 255, 0.08)',
-                            border: '1px solid rgba(255, 255, 255, 0.12)',
-                            borderRadius: '8px',
-                            color: 'rgba(255, 255, 255, 0.6)',
-                            cursor: 'pointer',
-                            fontSize: isMobile ? '20px' : '24px',
-                            lineHeight: 1,
-                            width: isMobile ? '32px' : '36px',
-                            height: isMobile ? '32px' : '36px',
+                    <TabButton
+                        active={activeTab === 'controls'}
+                        onClick={() => setActiveTab('controls')}
+                        icon={<Mouse size={16} />}
+                        label={t('controls_header')}
+                        isMobile={isMobile}
+                    />
+                    <TabButton
+                        active={activeTab === 'changelog'}
+                        onClick={() => setActiveTab('changelog')}
+                        icon={<History size={16} />}
+                        label={t('changelog_header')}
+                        isMobile={isMobile}
+                    />
+
+                    {!isMobile && <div style={{ flex: 1 }} />} {/* Spacer only for desktop */}
+
+                    {/* Info Block */}
+                    <div style={{
+                        padding: isMobile ? '0 12px 12px' : '12px',
+                        borderTop: isMobile ? 'none' : '1px solid rgba(255,255,255,0.05)',
+                        display: isMobile ? 'flex' : 'block',
+                        alignItems: 'center',
+                        marginLeft: isMobile ? 'auto' : 0
+                    }}>
+                        <div style={{
                             display: 'flex',
                             alignItems: 'center',
-                            justifyContent: 'center',
-                            transition: 'all 0.2s ease',
-                            fontWeight: 300
-                        }}
-                        onMouseEnter={(e) => {
-                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
-                            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)';
-                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-                        }}
-                        onMouseLeave={(e) => {
-                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
-                            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.6)';
-                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
-                        }}
-                    >×</button>
-                </div>
-
-                {/* Content Wrapper */}
-                <div style={{
-                    display: 'flex',
-                    flex: 1,
-                    minHeight: 0,
-                    flexDirection: isMobile ? 'column' : 'row'
-                }}>
-
-                    {/* Sidebar / Tabs */}
-                    <div style={{
-                        width: isMobile ? '100%' : '200px',
-                        minWidth: isMobile ? '100%' : '200px',
-                        borderRight: isMobile ? 'none' : '1px solid rgba(255,255,255,0.1)',
-                        borderBottom: isMobile ? '1px solid rgba(255,255,255,0.1)' : 'none',
-                        background: 'rgba(0,0,0,0.15)',
-                        padding: isMobile ? '0' : '12px 0',
-                        display: 'flex',
-                        flexDirection: isMobile ? 'row' : 'column',
-                        flexShrink: 0,
-                        overflowX: isMobile ? 'auto' : 'hidden' // Scroll tabs horizontally if needed
-                    }}>
-                        <TabButton
-                            active={activeTab === 'controls'}
-                            onClick={() => setActiveTab('controls')}
-                            icon={<Mouse size={16} />}
-                            label={t('controls_header')}
-                            isMobile={isMobile}
-                        />
-                        <TabButton
-                            active={activeTab === 'changelog'}
-                            onClick={() => setActiveTab('changelog')}
-                            icon={<History size={16} />}
-                            label={t('changelog_header')}
-                            isMobile={isMobile}
-                        />
-
-                        {!isMobile && <div style={{ flex: 1 }} />} {/* Spacer only for desktop */}
-
-                        {/* Info Block */}
-                        <div style={{
-                            padding: isMobile ? '0 12px 12px' : '12px',
-                            borderTop: isMobile ? 'none' : '1px solid rgba(255,255,255,0.05)',
-                            display: isMobile ? 'flex' : 'block',
-                            alignItems: 'center',
-                            marginLeft: isMobile ? 'auto' : 0
+                            gap: '6px',
+                            fontSize: isMobile ? '0.7rem' : '0.75rem',
+                            color: '#64748b',
+                            background: 'rgba(255,255,255,0.04)',
+                            padding: isMobile ? '6px 10px' : '8px 12px',
+                            borderRadius: '6px',
+                            justifyContent: 'center'
                         }}>
-                            <div style={{
-                                display: 'flex',
-                                alignItems: 'center',
-                                gap: '6px',
-                                fontSize: isMobile ? '0.7rem' : '0.75rem',
-                                color: '#64748b',
-                                background: 'rgba(255,255,255,0.04)',
-                                padding: isMobile ? '6px 10px' : '8px 12px',
-                                borderRadius: '6px',
-                                justifyContent: 'center'
-                            }}>
-                                <Info size={isMobile ? 12 : 14} />
-                                <span style={{ fontFamily: 'var(--font-mono)' }}>v{pkg.version}</span>
-                            </div>
+                            <Info size={isMobile ? 12 : 14} />
+                            <span style={{ fontFamily: 'var(--font-mono)' }}>v{pkg.version}</span>
                         </div>
                     </div>
-
-                    {/* Main Panel */}
-                    <div style={{
-                        flex: 1,
-                        padding: isMobile ? '16px' : '24px',
-                        overflowY: 'auto' // Vertical Scroll
-                    }}>
-
-                        {/* Tab Content starts at the very top for both */}
-
-                        {activeTab === 'controls' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                {/* Camera Controls */}
-                                <div>
-                                    <h3 style={{
-                                        margin: '0 0 12px 0',
-                                        fontSize: '0.85rem',
-                                        color: '#64748b',
-                                        fontWeight: 600,
-                                        letterSpacing: '0.05em',
-                                        textTransform: 'uppercase'
-                                    }}>
-                                        カメラ操作
-                                    </h3>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                        <ControlItem icon={<Rotate3D size={18} />} label={t('ctrl_rotate')} desc={t('ctrl_rotate_desc')} />
-                                        <ControlItem icon={<Move size={18} />} label={t('ctrl_pan')} desc={t('ctrl_pan_desc')} />
-                                        <ControlItem icon={<ZoomIn size={18} />} label={t('ctrl_zoom')} desc={t('ctrl_zoom_desc')} />
-                                        <ControlItem icon={<Mouse size={18} />} label={t('ctrl_select')} desc={t('ctrl_select_desc')} />
-                                    </div>
-                                </div>
-
-                                {/* Keyboard Shortcuts */}
-                                <div>
-                                    <h3 style={{
-                                        margin: '0 0 12px 0',
-                                        fontSize: '0.85rem',
-                                        color: '#64748b',
-                                        fontWeight: 600,
-                                        letterSpacing: '0.05em',
-                                        textTransform: 'uppercase'
-                                    }}>
-                                        キーボードショートカット
-                                    </h3>
-                                    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                                        <ShortcutItem shortcut="Alt + 1" desc="コントロールタブに切り替え" />
-                                        <ShortcutItem shortcut="Alt + 2" desc="天体リストタブに切り替え" />
-                                        <ShortcutItem shortcut="Alt + 3" desc="インスペクタータブに切り替え" />
-                                        <ShortcutItem shortcut="Alt + F" desc="天体検索にフォーカス" />
-                                        <ShortcutItem shortcut="Ctrl + Z" desc="元に戻す (Undo)" />
-                                        <ShortcutItem shortcut="Ctrl + Shift + Z" desc="やり直す (Redo)" />
-                                    </div>
-                                </div>
-                            </div>
-                        )}
-
-                        {activeTab === 'changelog' && (
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-                                {getChangelogData(t).map((log, index) => (
-                                    <div key={log.version}>
-                                        <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: log.isCurrent ? '#10b981' : '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                                            {log.title || `v${log.version}`}
-                                            {log.isCurrent && <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'normal' }}>Current</span>}
-                                        </h4>
-                                        <div style={{
-                                            background: 'rgba(255,255,255,0.02)',
-                                            borderRadius: '8px',
-                                            padding: '16px',
-                                            border: '1px solid rgba(255,255,255,0.05)',
-                                            opacity: index > 2 ? 0.7 : 1
-                                        }}>
-                                            <ul style={{ paddingLeft: '20px', margin: 0, color: '#e2e8f0', lineHeight: 1.8, fontSize: '0.9rem' }}>
-                                                {log.changes.map((change, i) => (
-                                                    <li key={i} style={{ marginBottom: i === log.changes.length - 1 ? 0 : '8px' }}>
-                                                        <ChangeBadge type={change.type} />
-                                                        {change.content}
-                                                    </li>
-                                                ))}
-                                            </ul>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
                 </div>
+
+                {/* Main Panel */}
+                <div style={{
+                    flex: 1,
+                    padding: isMobile ? '16px' : '24px',
+                    overflowY: 'auto' // Vertical Scroll
+                }}>
+
+                    {/* Tab Content starts at the very top for both */}
+
+                    {activeTab === 'controls' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            {/* Camera Controls */}
+                            <div>
+                                <h3 style={{
+                                    margin: '0 0 12px 0',
+                                    fontSize: '0.85rem',
+                                    color: '#64748b',
+                                    fontWeight: 600,
+                                    letterSpacing: '0.05em',
+                                    textTransform: 'uppercase'
+                                }}>
+                                    カメラ操作
+                                </h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <ControlItem icon={<Rotate3D size={18} />} label={t('ctrl_rotate')} desc={t('ctrl_rotate_desc')} />
+                                    <ControlItem icon={<Move size={18} />} label={t('ctrl_pan')} desc={t('ctrl_pan_desc')} />
+                                    <ControlItem icon={<ZoomIn size={18} />} label={t('ctrl_zoom')} desc={t('ctrl_zoom_desc')} />
+                                    <ControlItem icon={<Mouse size={18} />} label={t('ctrl_select')} desc={t('ctrl_select_desc')} />
+                                </div>
+                            </div>
+
+                            {/* Keyboard Shortcuts */}
+                            <div>
+                                <h3 style={{
+                                    margin: '0 0 12px 0',
+                                    fontSize: '0.85rem',
+                                    color: '#64748b',
+                                    fontWeight: 600,
+                                    letterSpacing: '0.05em',
+                                    textTransform: 'uppercase'
+                                }}>
+                                    キーボードショートカット
+                                </h3>
+                                <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+                                    <ShortcutItem shortcut="Alt + 1" desc="コントロールタブに切り替え" />
+                                    <ShortcutItem shortcut="Alt + 2" desc="天体リストタブに切り替え" />
+                                    <ShortcutItem shortcut="Alt + 3" desc="インスペクタータブに切り替え" />
+                                    <ShortcutItem shortcut="Alt + F" desc="天体検索にフォーカス" />
+                                    <ShortcutItem shortcut="Ctrl + Z" desc="元に戻す (Undo)" />
+                                    <ShortcutItem shortcut="Ctrl + Shift + Z" desc="やり直す (Redo)" />
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    {activeTab === 'changelog' && (
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                            {getChangelogData(t).map((log, index) => (
+                                <div key={log.version}>
+                                    <h4 style={{ margin: '0 0 8px 0', fontSize: '0.9rem', color: log.isCurrent ? '#10b981' : '#64748b', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                                        {log.title || `v${log.version}`}
+                                        {log.isCurrent && <span style={{ fontSize: '0.7rem', color: '#94a3b8', fontWeight: 'normal' }}>Current</span>}
+                                    </h4>
+                                    <div style={{
+                                        background: 'rgba(255,255,255,0.02)',
+                                        borderRadius: '8px',
+                                        padding: '16px',
+                                        border: '1px solid rgba(255,255,255,0.05)',
+                                        opacity: index > 2 ? 0.7 : 1
+                                    }}>
+                                        <ul style={{ paddingLeft: '20px', margin: 0, color: '#e2e8f0', lineHeight: 1.8, fontSize: '0.9rem' }}>
+                                            {log.changes.map((change, i) => (
+                                                <li key={i} style={{ marginBottom: i === log.changes.length - 1 ? 0 : '8px' }}>
+                                                    <ChangeBadge type={change.type} />
+                                                    {change.content}
+                                                </li>
+                                            ))}
+                                        </ul>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            </div>
         </div>,
         document.body
     );
@@ -428,7 +428,8 @@ if (typeof document !== 'undefined') {
     }
 }
 
-const getChangelogData = (t: any): VersionLog[] => [
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const getChangelogData = (t: (key: any) => string): VersionLog[] => [
     {
         version: '0.6.0',
         isCurrent: true,

@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
-import { useFrame } from '@react-three/fiber';
+import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Sphere, useTexture, Line, Html } from '@react-three/drei';
 import { usePhysicsStore } from '../../store/physicsStore';
 import type { CelestialBody as BodyType } from '../../types/physics';
-import { Vector3, CatmullRomCurve3 } from 'three';
+import { Vector3, CatmullRomCurve3, Group, Mesh } from 'three';
 import { AccretionDisk } from '../effects/AccretionDisk';
 import { RelativisticJet } from '../effects/RelativisticJet';
 import { ProceduralPlanet } from './ProceduralPlanet';
@@ -14,10 +14,8 @@ interface CelestialBodyProps {
 
 // Separate component since useTexture suspends
 const TextureOrb = ({ body }: { body: BodyType }) => {
-    const texturePath = body.texturePath;
-    if (!texturePath) return null;
-
-    const texture = useTexture(texturePath);
+    // TextureOrb is only rendered if texturePath exists
+    const texture = useTexture(body.texturePath!);
 
     return (
         <meshStandardMaterial
@@ -106,8 +104,8 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
     const showGrid = usePhysicsStore(state => state.showGrid);
     const simulationTime = usePhysicsStore(state => state.simulationTime);
 
-    const groupRef = React.useRef<any>(null);
-    const meshRef = React.useRef<any>(null);
+    const groupRef = React.useRef<Group>(null);
+    const meshRef = React.useRef<Mesh>(null);
 
     const positionVector = useMemo(() => new Vector3(body.position.x, body.position.y, body.position.z), [body.position]);
 
@@ -172,7 +170,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
     const isSurfaceView = cameraMode === 'surface_lock';
     const isSelf = isSurfaceView && followingBodyId === body.id;
 
-    const handleClick = (e: any) => {
+    const handleClick = (e: ThreeEvent<MouseEvent>) => {
         if (isSurfaceView) return;
         e.stopPropagation();
         selectBody(body.id);

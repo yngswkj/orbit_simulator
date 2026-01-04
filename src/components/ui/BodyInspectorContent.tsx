@@ -6,7 +6,7 @@ import { VectorInput } from './common/VectorInput';
 import { SafeInput } from './common/SafeInput';
 import type { CelestialBody } from '../../types/physics';
 
-import { useToast } from './common/Toast';
+import { useToast } from './common/ToastContext';
 
 import { ConfirmModal } from './common/ConfirmModal';
 import { ContextHelp } from './common/ContextHelp';
@@ -118,10 +118,10 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
                             // Store implicit start value from store (since range is log10)
                             // Actually, simpler to just store the actual mass on start
                             // We use a ref or dataset.
-                            (e.target as any).dataset.startMass = selectedBody.mass.toString();
+                            (e.target as HTMLInputElement).dataset.startMass = selectedBody.mass.toString();
                         }}
                         onPointerUp={(e) => {
-                            const startMass = parseFloat((e.target as any).dataset.startMass);
+                            const startMass = parseFloat((e.target as HTMLInputElement).dataset.startMass || '0');
                             if (!isNaN(startMass) && startMass !== selectedBody.mass) {
                                 pushHistoryAction({
                                     type: 'UPDATE',
@@ -171,11 +171,11 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
                         min="0.1" max="100" step="0.1"
                         value={selectedBody.radius}
                         onChange={(e) => updateBody(selectedBody.id, { radius: parseFloat(e.target.value) })}
-                        onPointerDown={(e) => {
-                            (e.target as any).dataset.startRadius = selectedBody.radius.toString();
+                        onPointerDown={(e: React.PointerEvent<HTMLInputElement>) => {
+                            (e.target as HTMLInputElement).dataset.startRadius = selectedBody.radius.toString();
                         }}
                         onPointerUp={(e) => {
-                            const startRadius = parseFloat((e.target as any).dataset.startRadius);
+                            const startRadius = parseFloat((e.target as HTMLInputElement).dataset.startRadius || '0');
                             if (!isNaN(startRadius) && startRadius !== selectedBody.radius) {
                                 pushHistoryAction({
                                     type: 'UPDATE',
@@ -200,11 +200,11 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
                         min="0" max="10" step="0.1"
                         value={selectedBody.rotationSpeed || 1.0}
                         onChange={(e) => updateBody(selectedBody.id, { rotationSpeed: parseFloat(e.target.value) })}
-                        onPointerDown={(e) => {
-                            (e.target as any).dataset.startSpeed = (selectedBody.rotationSpeed || 1.0).toString();
+                        onPointerDown={(e: React.PointerEvent<HTMLInputElement>) => {
+                            (e.target as HTMLInputElement).dataset.startSpeed = (selectedBody.rotationSpeed || 1.0).toString();
                         }}
                         onPointerUp={(e) => {
-                            const startSpeed = parseFloat((e.target as any).dataset.startSpeed);
+                            const startSpeed = parseFloat((e.target as HTMLInputElement).dataset.startSpeed || '0');
                             const currentSpeed = selectedBody.rotationSpeed || 1.0;
                             if (!isNaN(startSpeed) && startSpeed !== currentSpeed) {
                                 pushHistoryAction({
@@ -244,10 +244,10 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
                         <input
                             type="color"
                             value={selectedBody.color}
-                            onChange={(e) => updateBody(selectedBody.id, { color: e.target.value })}
-                            onFocus={(e) => { (e.target as any).dataset.startColor = selectedBody.color; }}
-                            onBlur={(e) => {
-                                const startColor = (e.target as any).dataset.startColor;
+                            onChange={(e: React.ChangeEvent<HTMLInputElement>) => updateBody(selectedBody.id, { color: e.target.value })}
+                            onFocus={(e: React.FocusEvent<HTMLInputElement>) => { (e.target as HTMLInputElement).dataset.startColor = selectedBody.color; }}
+                            onBlur={(e: React.FocusEvent<HTMLInputElement>) => {
+                                const startColor = (e.target as HTMLInputElement).dataset.startColor;
                                 if (startColor && startColor !== selectedBody.color) {
                                     pushHistoryAction({
                                         type: 'UPDATE',
@@ -266,9 +266,9 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
                             type="text"
                             value={selectedBody.color}
                             onChange={(e) => updateBody(selectedBody.id, { color: e.target.value })}
-                            onFocus={(e) => { (e.target as any).dataset.startColor = selectedBody.color; }}
+                            onFocus={(e) => { (e.target as HTMLInputElement).dataset.startColor = selectedBody.color; }}
                             onBlur={(e) => {
-                                const startColor = (e.target as any).dataset.startColor;
+                                const startColor = (e.target as HTMLInputElement).dataset.startColor;
                                 if (startColor && startColor !== selectedBody.color) {
                                     pushHistoryAction({
                                         type: 'UPDATE',
@@ -297,7 +297,8 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
                     {isAdvancedOpen ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                 </button>
 
-                {isAdvancedOpen && (
+                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                {(selectedBody as any).isStar && (
                     <div style={{ marginTop: '10px' }}>
                         <VectorInput
                             label="Position"
@@ -341,7 +342,7 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
                         style={{
                             flex: 1, padding: '8px',
                             background: followingBodyId === selectedBody.id ? 'rgba(34, 170, 255, 0.3)' : 'rgba(255, 255, 255, 0.1)',
-                            border: `1px solid ${followingBodyId === selectedBody.id ? '#22aaff' : 'rgba(255, 255, 255, 0.2)'}`,
+                            border: `1px solid ${followingBodyId === selectedBody.id ? '#22aaff' : 'rgba(255, 255, 255, 0.2)'} `,
                             borderRadius: '6px', color: 'white', cursor: 'pointer', transition: 'all 0.2s', fontWeight: 500, fontSize: '0.9rem'
                         }}
                     >

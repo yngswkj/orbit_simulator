@@ -45,7 +45,7 @@ export const runBenchmark = async (iterations: number = 600, bodyCounts: number[
     console.log(`Starting Benchmark Comparison (${iterations} frames)...`);
     console.log('--------------------------------------------------');
 
-    const results: Record<string, any> = {};
+    const results: Record<string, { direct: number; bh: number; worker: number }> = {};
 
     for (const count of bodyCounts) {
         console.log(`Testing with ${count} bodies...`);

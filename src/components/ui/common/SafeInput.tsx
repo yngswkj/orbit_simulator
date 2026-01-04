@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 
 interface SafeInputProps {
     value: number;
@@ -27,11 +27,14 @@ export const SafeInput: React.FC<SafeInputProps> = ({
 
     const [startValue, setStartValue] = useState<number | null>(null);
 
+    const [prevValue, setPrevValue] = useState(value);
+
     // Sync with external value changes
-    useEffect(() => {
+    if (value !== prevValue) {
+        setPrevValue(value);
         setInputValue(value.toString());
         setError(null);
-    }, [value]);
+    }
 
     const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         const newValue = e.target.value;

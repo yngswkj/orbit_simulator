@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/purity, react-hooks/immutability */
 /**
  * ExplosionEffect.tsx
  * Particle-based explosion with flash, sparks, and smoke

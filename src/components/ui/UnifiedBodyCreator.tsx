@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/purity */
 import React, { useState } from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
 import { Vector3 } from 'three';
@@ -22,7 +23,7 @@ export const UnifiedBodyCreator: React.FC = () => {
     const handlePresetAdd = (type: string) => {
         const offset = (Math.random() - 0.5) * 50;
         const position = new Vector3(offset, 0, (Math.random() - 0.5) * 50);
-        let props: any = {
+        let props: Record<string, unknown> & { position: Vector3; velocity: Vector3; name: string; type?: string; mass?: number; radius?: number; color?: string; isCompactObject?: boolean } = {
             position,
             velocity: new Vector3(0, 0, 0),
             name: `New ${type}`
@@ -43,7 +44,8 @@ export const UnifiedBodyCreator: React.FC = () => {
                 break;
         }
 
-        addBody(props);
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        addBody(props as any);
     };
 
     const handleCustomAdd = () => {

@@ -141,9 +141,9 @@ class GravitationalLensEffectImpl extends Effect {
     }
 
     update(
-        _renderer: unknown,
-        _inputBuffer: unknown,
-        _deltaTime: number
+        _renderer: unknown, // eslint-disable-line @typescript-eslint/no-unused-vars
+        _inputBuffer: unknown, // eslint-disable-line @typescript-eslint/no-unused-vars
+        _deltaTime: number // eslint-disable-line @typescript-eslint/no-unused-vars
     ) {
         // Updates are handled externally
     }

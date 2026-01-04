@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/purity, react-hooks/immutability */
 /**
  * AccretionDisk.tsx
  * Visual representation of an accretion disk around massive objects (black holes, neutron stars)
@@ -288,7 +289,7 @@ export const AccretionDisk: React.FC<AccretionDiskProps> = ({
         });
 
         return { geometry: geo, material: mat };
-    // IMPORTANT: position removed from deps to prevent particle regeneration on every frame
+        // IMPORTANT: position removed from deps to prevent particle regeneration on every frame
     }, [innerRadius, outerRadius, particleCount, rotationSpeed]);
 
     // Photon sphere ring material

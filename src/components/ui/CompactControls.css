@@ -128,28 +128,28 @@
 /* モバイル対応: アイコンのみ表示 */
 @media (max-width: 768px) {
   .compact-controls-container {
-    width: 56px;
-    max-width: 56px;
+    width: 48px;
+    max-width: 48px;
   }
 
   .compact-toolbar {
-    padding: 6px;
-    gap: 4px;
+    padding: 4px;
+    gap: 3px;
     align-items: center;
   }
 
   .compact-button {
-    padding: 8px;
+    padding: 4px;
     justify-content: center;
-    min-width: 44px;
-    width: 44px;
-    min-height: 44px;
+    min-width: 40px;
+    width: 40px;
+    min-height: 40px;
   }
 
   .compact-button.body-button.active {
     border-left: none;
     border: 2px solid var(--color-primary-500);
-    padding-left: 8px;
+    padding: 4px;
   }
 
   /* モバイルではテキストラベルを非表示 */
@@ -159,8 +159,8 @@
 
   /* モバイルではアイコン内に先頭2文字を表示 */
   .body-indicator {
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
   }
 
   .body-name-short {

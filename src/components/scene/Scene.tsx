@@ -61,7 +61,7 @@ const CameraController = () => {
             const body = usePhysicsStore.getState().bodies.find(b => b.id === followingBodyId);
             if (body) {
                 const bodyPos = new Vector3(body.position.x, body.position.y, body.position.z);
-                const orbitControls = controls as any;
+                const orbitControls = controls as unknown as { target: THREE.Vector3; update: () => void };
 
                 // If switching mode or target, ensure we set up the view correctly
                 if (cameraMode !== lastUsedMode.current || isFirstLockFrame.current) {
@@ -168,7 +168,7 @@ const CameraController = () => {
         const primaryStar = findPrimaryStar(bodies);
 
         if (body && state.controls) {
-            const controls = state.controls as any;
+            const controls = state.controls as unknown as { target: THREE.Vector3; update: () => void };
             const currentBodyPos = new Vector3(body.position.x, body.position.y, body.position.z);
 
             // Initialization for the first frame of tracking
@@ -260,7 +260,7 @@ const CameraScaleAdjuster = () => {
 
             // Scale OrbitControls target
             if (controls) {
-                const orbitControls = controls as any;
+                const orbitControls = controls as unknown as { target: THREE.Vector3; update: () => void };
                 orbitControls.target.multiplyScalar(factor);
                 orbitControls.update();
             }
@@ -283,7 +283,7 @@ const CameraScaleAdjuster = () => {
             camera.position.set(camConfig.position[0], camConfig.position[1], camConfig.position[2]);
 
             if (controls) {
-                const orbitControls = controls as any;
+                const orbitControls = controls as unknown as { target: THREE.Vector3; update: () => void };
                 orbitControls.target.set(camConfig.target[0], camConfig.target[1], camConfig.target[2]);
                 orbitControls.update();
             }
@@ -467,7 +467,6 @@ const SceneGrid = () => {
 };
 
 const SceneContent = () => {
-    const showGrid = usePhysicsStore((state) => state.showGrid);
     const zenMode = usePhysicsStore((state) => state.zenMode);
     const cameraMode = usePhysicsStore((state) => state.cameraMode);
     const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
@@ -498,12 +497,12 @@ const SceneContent = () => {
 
             <SceneGrid />
 
-            {/* Always render to prevent EffectComposer unmounting */}
-            <group visible={showGrid && !zenMode}>
+            {/* Gizmo: Hidden in Zen mode */}
+            {!zenMode && (
                 <GizmoHelper alignment="bottom-left" margin={[100, 100]}>
                     <GizmoViewport axisColors={['#ff3653', '#0adb50', '#2c8fdf']} labelColor="black" />
                 </GizmoHelper>
-            </group>
+            )}
 
             {/* Post-processing effects are rendered last to capture everything including the grid */}
             <GravitationalLensPostProcess />

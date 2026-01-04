@@ -5,16 +5,16 @@ import type { CelestialBody } from '../../../types/physics';
 import { useTranslation } from '../../../utils/i18n';
 import { ConfirmModal } from '../common/ConfirmModal';
 import '../common/ConfirmModal.css';
-import { useToast } from '../common/Toast';
+import { useToast } from '../common/ToastContext';
 import { ContextHelp } from '../common/ContextHelp';
 
 // Helper to determine body type string
 const getBodyType = (body: CelestialBody) => {
     if (body.type) return body.type;
-    // @ts-ignore
-    if (body.isStar) return 'star';
-    // @ts-ignore
-    if (body.isCompactObject) return 'black_hole';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((body as any).isStar) return 'star';
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    if ((body as any).isCompactObject) return 'black_hole';
     return 'planet';
 };
 
@@ -202,6 +202,7 @@ export const BodiesTab: React.FC = () => {
                                     minHeight: '36px'
                                 }}
                             >
+                                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
                                 <span>{t(`filter_${f}` as any)}</span>
                                 <span style={{
                                     fontSize: '10px',
@@ -242,49 +243,50 @@ export const BodiesTab: React.FC = () => {
                                 position: 'relative'
                             }}
                         >
-                        <div style={{ flexShrink: 0 }}>{getIcon(body)}</div>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                            <div style={{ fontSize: '0.9rem', fontWeight: selectedBodyId === body.id ? 600 : 400, color: selectedBodyId === body.id ? 'white' : '#ddd' }} className="truncate">
-                                {body.name}
+                            <div style={{ flexShrink: 0 }}>{getIcon(body)}</div>
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                                <div style={{ fontSize: '0.9rem', fontWeight: selectedBodyId === body.id ? 600 : 400, color: selectedBodyId === body.id ? 'white' : '#ddd' }} className="truncate">
+                                    {body.name}
+                                </div>
+                                {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
+                                <div style={{ fontSize: '0.75rem', color: '#666', textTransform: 'capitalize' }}>{t(`filter_${getBodyType(body)}` as any)}</div>
                             </div>
-                            <div style={{ fontSize: '0.75rem', color: '#666', textTransform: 'capitalize' }}>{t(`filter_${getBodyType(body)}` as any)}</div>
-                        </div>
 
-                        <div style={{ display: 'flex', gap: '4px', opacity: isHighlighted ? 1 : 0.5 }}>
-                            {isMultiSelected && (
-                                <div style={{
-                                    position: 'absolute',
-                                    top: '8px',
-                                    left: '8px',
-                                    width: '6px',
-                                    height: '6px',
-                                    borderRadius: '50%',
-                                    background: '#60a5fa'
-                                }} />
-                            )}
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    duplicateBody(body.id);
-                                    showToast(`${body.name} duplicated`, 'success');
-                                }}
-                                style={{ background: 'transparent', border: 'none', color: '#aaa', cursor: 'pointer', padding: '4px' }}
-                                title={t('duplicate')}
-                            >
-                                <Copy size={14} />
-                            </button>
-                            <button
-                                onClick={(e) => {
-                                    e.stopPropagation();
-                                    setConfirmDeleteId(body.id);
-                                }}
-                                style={{ background: 'transparent', border: 'none', color: '#aaa', cursor: 'pointer', padding: '4px' }}
-                                title={t('remove')}
-                            >
-                                <Trash2 size={14} />
-                            </button>
+                            <div style={{ display: 'flex', gap: '4px', opacity: isHighlighted ? 1 : 0.5 }}>
+                                {isMultiSelected && (
+                                    <div style={{
+                                        position: 'absolute',
+                                        top: '8px',
+                                        left: '8px',
+                                        width: '6px',
+                                        height: '6px',
+                                        borderRadius: '50%',
+                                        background: '#60a5fa'
+                                    }} />
+                                )}
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        duplicateBody(body.id);
+                                        showToast(`${body.name} duplicated`, 'success');
+                                    }}
+                                    style={{ background: 'transparent', border: 'none', color: '#aaa', cursor: 'pointer', padding: '4px' }}
+                                    title={t('duplicate')}
+                                >
+                                    <Copy size={14} />
+                                </button>
+                                <button
+                                    onClick={(e) => {
+                                        e.stopPropagation();
+                                        setConfirmDeleteId(body.id);
+                                    }}
+                                    style={{ background: 'transparent', border: 'none', color: '#aaa', cursor: 'pointer', padding: '4px' }}
+                                    title={t('remove')}
+                                >
+                                    <Trash2 size={14} />
+                                </button>
+                            </div>
                         </div>
-                    </div>
                     );
                 })}
 

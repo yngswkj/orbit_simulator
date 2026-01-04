@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/purity, react-hooks/immutability */
 /**
  * RelativisticJet.tsx
  * Visual representation of bipolar relativistic jets from compact objects

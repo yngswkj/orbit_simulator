@@ -22,7 +22,7 @@ export class PhysicsWorkerManager {
         if (!this.isSupported) {
             console.warn('SharedArrayBuffer is not supported. Falling back to main thread.');
             // Fallback initialization
-            this.sharedBuffer = new ArrayBuffer(0) as any; // Cast to satisfy type
+            this.sharedBuffer = new ArrayBuffer(0) as unknown as SharedArrayBuffer; // Cast to satisfy type
             this.positions = new Float64Array(0);
             this.velocities = new Float64Array(0);
             this.accelerations = new Float64Array(0);
@@ -67,7 +67,7 @@ export class PhysicsWorkerManager {
     public onCollision: ((pairs: [number, number][]) => void) | null = null;
     private initialized: boolean = false;
     private initPromise: Promise<void> | null = null;
-    private pendingReject: ((reason?: any) => void) | null = null;
+    private pendingReject: ((reason?: unknown) => void) | null = null;
 
     public initWorkers(): void {
         if (!this.isSupported) return;
@@ -181,7 +181,7 @@ export class PhysicsWorkerManager {
         this.initPromise = null;
     }
 
-    public setBodies(bodies: any[]): void {
+    public setBodies(bodies: { position: { x: number; y: number; z: number }; velocity: { x: number; y: number; z: number }; mass: number; radius: number }[]): void {
         if (!this.isSupported) return;
 
         const count = bodies.length;
@@ -211,7 +211,17 @@ export class PhysicsWorkerManager {
         }
     }
 
-    public getPhysicsState(count: number): any {
+    public getPhysicsState(count: number): {
+        count: number;
+        maxCount: number;
+        positions: Float64Array;
+        velocities: Float64Array;
+        accelerations: Float64Array;
+        masses: Float64Array;
+        radii: Float64Array;
+        ids: string[];
+        idToIndex: Map<string, number>;
+    } {
         return {
             count,
             maxCount: this.maxBodies,

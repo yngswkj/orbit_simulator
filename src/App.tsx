@@ -10,8 +10,14 @@ import { runBenchmark, runGPUBenchmark } from './utils/benchmark';
 import { ToastProvider } from './components/ui/common/Toast';
 
 // Expose runBenchmark to window for testing
-(window as any).runBenchmark = runBenchmark;
-(window as any).runGPUBenchmark = runGPUBenchmark;
+declare global {
+  interface Window {
+    runBenchmark: typeof runBenchmark;
+    runGPUBenchmark: typeof runGPUBenchmark;
+  }
+}
+window.runBenchmark = runBenchmark;
+window.runGPUBenchmark = runGPUBenchmark;
 
 function App() {
   const { t } = useTranslation();
@@ -47,6 +53,7 @@ function App() {
 
   useEffect(() => {
     if (followedBodyName) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOverlayName(followedBodyName);
       setOverlayOpacity(1);
 

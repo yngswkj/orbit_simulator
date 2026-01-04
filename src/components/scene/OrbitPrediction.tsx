@@ -31,7 +31,7 @@ const getPredictionWorker = (): Worker | null => {
                 new URL('../../workers/predictionWorker.ts', import.meta.url),
                 { type: 'module' }
             );
-        } catch (e) {
+        } catch {
             console.warn('Prediction worker not available, using main thread fallback');
             return null;
         }
@@ -72,7 +72,7 @@ const SmoothOrbitLine: React.FC<{ points: Vector3[]; color: string }> = ({ point
 };
 
 export const OrbitPrediction: React.FC = () => {
-    const bodies = usePhysicsStore((state) => state.bodies);
+    const bodiesLength = usePhysicsStore((state) => state.bodies.length);
     const simulationState = usePhysicsStore((state) => state.simulationState);
     const timeScale = usePhysicsStore((state) => state.timeScale);
     const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
@@ -146,7 +146,7 @@ export const OrbitPrediction: React.FC = () => {
         }, updateInterval);
 
         return () => clearInterval(interval);
-    }, [simulationState, timeScale, bodies.length]);
+    }, [simulationState, timeScale, bodiesLength]);
 
     return (
         <group>

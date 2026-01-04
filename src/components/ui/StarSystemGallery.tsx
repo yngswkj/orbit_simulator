@@ -10,13 +10,13 @@ interface StarSystemGalleryProps {
     onClose: () => void;
 }
 
-// Category icons using Lucide
+// Category icons using Lucide (size will be overridden by cloneElement)
 const getCategoryIcon = (category: string) => {
     switch (category) {
-        case 'classic': return <Sun size={32} color="#fcd34d" />;
-        case 'multi-star': return <Star size={32} color="#60a5fa" fill="#60a5fa" fillOpacity={0.2} />;
-        case 'choreography': return <InfinityIcon size={32} color="#a78bfa" />;
-        default: return <Star size={32} color="#94a3b8" />;
+        case 'classic': return <Sun color="#fcd34d" />;
+        case 'multi-star': return <Star color="#60a5fa" fill="#60a5fa" fillOpacity={0.2} />;
+        case 'choreography': return <InfinityIcon color="#a78bfa" />;
+        default: return <Star color="#94a3b8" />;
     }
 };
 
@@ -154,11 +154,12 @@ export const StarSystemGallery: React.FC<StarSystemGalleryProps> = ({ isOpen, on
 
                 {/* Preset Grid */}
                 <div style={{
-                    padding: isMobile ? '16px' : '24px',
+                    padding: isMobile ? '12px' : '14px',
                     overflowY: 'auto',
                     display: 'grid',
-                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))',
-                    gap: isMobile ? '16px' : '20px',
+                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(220px, 1fr))',
+                    gridAutoRows: '1fr',
+                    gap: isMobile ? '10px' : '10px',
                     flex: 1
                 }}>
                     {STAR_SYSTEM_PRESETS.map(preset => {
@@ -183,46 +184,51 @@ export const StarSystemGallery: React.FC<StarSystemGalleryProps> = ({ isOpen, on
                                     border: isActive
                                         ? '1px solid rgba(59, 130, 246, 0.5)'
                                         : (isHovered ? '1px solid rgba(255, 255, 255, 0.2)' : '1px solid rgba(255, 255, 255, 0.08)'),
-                                    borderRadius: '12px',
-                                    padding: '20px',
+                                    borderRadius: isMobile ? '8px' : '8px',
+                                    padding: isMobile ? '12px' : '12px',
                                     cursor: 'default',
                                     transition: 'all 0.2s ease',
                                     transform: isHovered ? 'translateY(-2px)' : 'none',
                                     boxShadow: isHovered ? '0 10px 25px -5px rgba(0, 0, 0, 0.3)' : 'none',
                                     display: 'flex',
-                                    flexDirection: 'column'
+                                    flexDirection: 'column',
+                                    height: '100%'
                                 }}
                             >
                                 {/* Header / Icon */}
                                 <div style={{
                                     display: 'flex',
                                     alignItems: 'center',
-                                    gap: '12px',
-                                    marginBottom: '16px'
+                                    gap: isMobile ? '8px' : '8px',
+                                    marginBottom: isMobile ? '8px' : '10px'
                                 }}>
                                     <div style={{
-                                        width: '48px',
-                                        height: '48px',
-                                        borderRadius: '10px',
+                                        width: isMobile ? '32px' : '36px',
+                                        height: isMobile ? '32px' : '36px',
+                                        borderRadius: '7px',
                                         background: isActive ? 'rgba(59, 130, 246, 0.2)' : 'rgba(255, 255, 255, 0.05)',
                                         display: 'flex',
                                         justifyContent: 'center',
                                         alignItems: 'center',
-                                        border: '1px solid rgba(255, 255, 255, 0.05)'
+                                        border: '1px solid rgba(255, 255, 255, 0.05)',
+                                        flexShrink: 0
                                     }}>
-                                        {getCategoryIcon(preset.category)}
+                                        {React.cloneElement(getCategoryIcon(preset.category), { size: isMobile ? 18 : 20 })}
                                     </div>
-                                    <div>
+                                    <div style={{ flex: 1, minWidth: 0 }}>
                                         <h3 style={{
                                             margin: '0 0 2px 0',
                                             color: 'white',
-                                            fontSize: '1.05rem',
-                                            fontWeight: 600
+                                            fontSize: isMobile ? '0.85rem' : '0.9rem',
+                                            fontWeight: 600,
+                                            overflow: 'hidden',
+                                            textOverflow: 'ellipsis',
+                                            whiteSpace: 'nowrap'
                                         }}>
                                             {isJapanese ? preset.nameJa : preset.name}
                                         </h3>
                                         <span style={{
-                                            fontSize: '0.75rem',
+                                            fontSize: isMobile ? '0.6rem' : '0.65rem',
                                             color: isActive ? '#60a5fa' : '#64748b',
                                             fontWeight: 500
                                         }}>
@@ -233,23 +239,28 @@ export const StarSystemGallery: React.FC<StarSystemGalleryProps> = ({ isOpen, on
 
                                 {/* Description */}
                                 <p style={{
-                                    margin: '0 0 20px 0',
+                                    margin: isMobile ? '0 0 8px 0' : '0 0 10px 0',
                                     color: '#94a3b8',
-                                    fontSize: '0.875rem',
-                                    lineHeight: 1.6,
-                                    flex: 1
+                                    fontSize: isMobile ? '0.7rem' : '0.75rem',
+                                    lineHeight: 1.4,
+                                    flex: 1,
+                                    display: '-webkit-box',
+                                    WebkitLineClamp: 2,
+                                    WebkitBoxOrient: 'vertical',
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis'
                                 }}>
                                     {isJapanese ? preset.descriptionJa : preset.description}
                                 </p>
 
                                 {/* Mode Selector */}
                                 {preset.modes && (
-                                    <div style={{ marginBottom: '16px' }}>
+                                    <div style={{ marginBottom: isMobile ? '8px' : '10px' }}>
                                         <label style={{
                                             display: 'block',
-                                            fontSize: '0.75rem',
+                                            fontSize: isMobile ? '0.6rem' : '0.65rem',
                                             color: '#64748b',
-                                            marginBottom: '8px',
+                                            marginBottom: isMobile ? '5px' : '6px',
                                             fontWeight: 600
                                         }}>
                                             {isJapanese ? 'モード選択' : 'SELECT MODE'}
@@ -257,7 +268,7 @@ export const StarSystemGallery: React.FC<StarSystemGalleryProps> = ({ isOpen, on
                                         <div style={{
                                             display: 'flex',
                                             background: 'rgba(0, 0, 0, 0.3)',
-                                            borderRadius: '8px',
+                                            borderRadius: '5px',
                                             padding: '2px',
                                             gap: '2px'
                                         }}>
@@ -272,15 +283,15 @@ export const StarSystemGallery: React.FC<StarSystemGalleryProps> = ({ isOpen, on
                                                         }}
                                                         style={{
                                                             flex: 1,
-                                                            padding: '6px 4px',
-                                                            fontSize: '0.75rem',
+                                                            padding: isMobile ? '4px 3px' : '5px 4px',
+                                                            fontSize: isMobile ? '0.6rem' : '0.65rem',
                                                             fontWeight: 500,
                                                             background: isModeSelected
                                                                 ? 'rgba(55, 65, 81, 0.8)'
                                                                 : 'transparent',
                                                             color: isModeSelected ? 'white' : '#94a3b8',
                                                             border: 'none',
-                                                            borderRadius: '6px',
+                                                            borderRadius: '4px',
                                                             cursor: 'pointer',
                                                             transition: 'all 0.2s',
                                                             borderBottom: isModeSelected ? '2px solid #3b82f6' : '2px solid transparent'
@@ -303,21 +314,21 @@ export const StarSystemGallery: React.FC<StarSystemGalleryProps> = ({ isOpen, on
                                     disabled={isFullyActive}
                                     style={{
                                         width: '100%',
-                                        padding: '10px',
+                                        padding: isMobile ? '7px' : '8px',
                                         background: isFullyActive
                                             ? 'rgba(16, 185, 129, 0.1)'
                                             : (isModeChanged ? '#3b82f6' : 'white'),
                                         color: isFullyActive ? '#10b981' : (isModeChanged ? 'white' : 'black'),
                                         border: isFullyActive ? '1px solid rgba(16, 185, 129, 0.3)' : 'none',
-                                        borderRadius: '8px',
+                                        borderRadius: isMobile ? '6px' : '6px',
                                         cursor: isFullyActive ? 'default' : 'pointer',
                                         fontWeight: 600,
-                                        fontSize: '0.9rem',
+                                        fontSize: isMobile ? '0.75rem' : '0.8rem',
                                         transition: 'all 0.2s',
                                         display: 'flex',
                                         justifyContent: 'center',
                                         alignItems: 'center',
-                                        gap: '8px'
+                                        gap: isMobile ? '5px' : '6px'
                                     }}
                                     onMouseEnter={e => {
                                         if (!isFullyActive) {
@@ -332,17 +343,17 @@ export const StarSystemGallery: React.FC<StarSystemGalleryProps> = ({ isOpen, on
                                 >
                                     {isFullyActive ? (
                                         <>
-                                            <CheckCircle2 size={16} />
+                                            <CheckCircle2 size={isMobile ? 13 : 14} />
                                             {isJapanese ? '読み込み済み' : 'Active'}
                                         </>
                                     ) : isModeChanged ? (
                                         <>
-                                            <Activity size={16} />
+                                            <Activity size={isMobile ? 13 : 14} />
                                             {isJapanese ? 'モード切替' : 'Switch Mode'}
                                         </>
                                     ) : (
                                         <>
-                                            <Activity size={16} />
+                                            <Activity size={isMobile ? 13 : 14} />
                                             {isJapanese ? 'シミュレーション開始' : 'Launch Simulation'}
                                         </>
                                     )}

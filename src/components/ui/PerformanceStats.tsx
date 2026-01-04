@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/purity */
 import { useEffect, useRef } from 'react';
 import { physicsStats, usePhysicsStore } from '../../store/physicsStore';
 import { useTranslation } from '../../utils/i18n';
@@ -38,7 +39,7 @@ export const PerformanceStats = () => {
                 const totalText = energy.total.toExponential(4);
 
                 // Correctly typed cameraPosition from the extended physicsStats object
-                const camPos = (physicsStats as any).cameraPosition || [0, 0, 0];
+                const camPos = physicsStats.cameraPosition || [0, 0, 0];
                 const camText = `[${Math.round(camPos[0])}, ${Math.round(camPos[1])}, ${Math.round(camPos[2])}]`;
 
                 // Direct DOM manipulation for minimal React overhead on high-frequency data

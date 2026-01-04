@@ -1,28 +1,10 @@
-import React, { createContext, useContext, useState, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { CheckCircle2, AlertCircle, X, Info } from 'lucide-react';
+import { ToastContext } from './ToastContext';
+import type { ToastType, ToastMessage } from './ToastContext';
 
-export type ToastType = 'success' | 'error' | 'info';
-
-interface ToastMessage {
-    id: string;
-    message: string;
-    type: ToastType;
-}
-
-interface ToastContextType {
-    showToast: (message: string, type?: ToastType) => void;
-}
-
-const ToastContext = createContext<ToastContextType | undefined>(undefined);
-
-export const useToast = () => {
-    const context = useContext(ToastContext);
-    if (!context) {
-        throw new Error('useToast must be used within a ToastProvider');
-    }
-    return context;
-};
+// useToast moved to ToastContext.tsx to avoid Fast Refresh warning
 
 interface ToastProviderProps {
     children: React.ReactNode;
@@ -67,8 +49,8 @@ export const ToastProvider: React.FC<ToastProviderProps> = ({ children }) => {
                                 background: 'rgba(20, 20, 30, 0.9)',
                                 backdropFilter: 'blur(12px)',
                                 border: `1px solid ${toast.type === 'success' ? 'rgba(16, 185, 129, 0.3)' :
-                                        toast.type === 'error' ? 'rgba(239, 68, 68, 0.3)' :
-                                            'rgba(59, 130, 246, 0.3)'
+                                    toast.type === 'error' ? 'rgba(239, 68, 68, 0.3)' :
+                                        'rgba(59, 130, 246, 0.3)'
                                     }`,
                                 borderRadius: '8px',
                                 padding: '12px 16px',

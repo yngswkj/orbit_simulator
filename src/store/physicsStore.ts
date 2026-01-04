@@ -529,7 +529,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                 // Determine if worker returns object or number
                 // Worker currently returns number, we will accept it for now or assume implementation plan allows simpler update
                 // For now, let's treat worker result as total
-                getWorkerManager().calculateEnergy(bodies.length).then((e: any) => {
+                getWorkerManager().calculateEnergy(bodies.length).then((e: number | { kinetic: number; potential: number; total: number }) => {
                     // Temporarily handle both until worker is updated
                     handleEnergyUpdate(e);
                 });

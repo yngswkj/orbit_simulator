@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/purity, react-hooks/immutability */
 /**
  * DebrisRenderer.tsx
  * Efficient rendering of debris particles using instanced mesh

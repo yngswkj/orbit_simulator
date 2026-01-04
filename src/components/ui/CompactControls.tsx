@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { Play, Pause, RefreshCw, Camera, Maximize, Menu, Orbit, HelpCircle, MoreHorizontal } from 'lucide-react';
+import { Play, Pause, RefreshCw, Camera, Maximize, Minimize, Menu, Orbit, HelpCircle, MoreHorizontal } from 'lucide-react';
 import { useTranslation } from '../../utils/i18n';
 import { StarSystemGallery } from './StarSystemGallery';
 import { HelpModal } from './HelpModal';
@@ -21,6 +21,7 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel, o
     const followingBodyId = usePhysicsStore((state) => state.followingBodyId);
     const setFollowingBody = usePhysicsStore((state) => state.setFollowingBody);
     const bodies = usePhysicsStore((state) => state.bodies);
+    const zenMode = usePhysicsStore((state) => state.zenMode);
 
     const [showGallery, setShowGallery] = React.useState(false);
     const [showHelp, setShowHelp] = React.useState(false);
@@ -56,6 +57,25 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel, o
         onSwitchToBodiesTab();
         onOpenPanel();
     };
+
+    // Zen Mode: Show only the Zen button
+    if (zenMode) {
+        return (
+            <div className="compact-controls-container zen-mode-container" style={{ pointerEvents: 'auto' }}>
+                <div className="compact-toolbar">
+                    <button
+                        onClick={toggleZenMode}
+                        className="compact-button"
+                        style={{ color: '#aaddff' }}
+                        title="Exit Zen Mode"
+                    >
+                        <Minimize size={18} />
+                        <span className="button-label">Exit</span>
+                    </button>
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="compact-controls-container">
