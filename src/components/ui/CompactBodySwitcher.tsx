@@ -53,8 +53,10 @@ export const CompactBodySwitcher: React.FC<CompactBodySwitcherProps> = ({
 
         {/* 天体アイコン（最大10個） */}
         {visibleBodies.map(body => {
-          // 天体名の先頭2文字を取得（日本語・英語両対応）
-          const shortName = body.name.substring(0, 2).toUpperCase();
+          // 天体名の先頭2文字を取得（先頭のみ大文字、2文字目は小文字）
+          const shortName = body.name.length >= 2
+            ? body.name.charAt(0).toUpperCase() + body.name.charAt(1).toLowerCase()
+            : body.name.toUpperCase();
 
           return (
             <button

@@ -86,8 +86,9 @@
 @media (max-width: 768px) {
   .compact-body-switcher {
     top: 370px; /* スマホでは少し上に */
-    right: 5px;
-    max-width: 56px;
+    right: 10px; /* CompactControlsと右端を揃える */
+    max-width: 56px; /* CompactControlsと幅を統一 */
+    width: 56px;
   }
 
   .compact-body-list {
