@@ -28,9 +28,9 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
         <div style={{
             position: 'fixed',
             top: isMobile ? 'auto' : '20px',
-            left: isMobile ? '8px' : '20px',
+            left: isMobile ? '8px' : 'auto',
             bottom: isMobile ? '8px' : 'auto',
-            right: isMobile ? '8px' : 'auto',
+            right: isMobile ? '8px' : '20px',
             width: isMobile ? 'calc(100% - 16px)' : '700px',
             height: isMobile ? 'auto' : 'calc(100vh - 40px)',
             maxHeight: isMobile ? '50vh' : '800px',
@@ -45,7 +45,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({ isOpen, onClose }) => {
             color: 'white',
             overflow: 'hidden',
             zIndex: 2000,
-            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
+            transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+            transform: isMobile ? 'translateY(0)' : 'translateX(0)',
+            opacity: 1,
+            animation: isMobile ? 'slideUpIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)' : 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
         }}>
                 {/* Header */}
                 <div style={{
@@ -378,6 +381,39 @@ const ChangeBadge = ({ type }: { type: ChangeType }) => {
         </span>
     );
 };
+
+// CSS animations injected into document head
+if (typeof document !== 'undefined') {
+    const styleId = 'help-modal-animations';
+    if (!document.getElementById(styleId)) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+            @keyframes slideInRight {
+                from {
+                    transform: translateX(calc(100% + 40px));
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes slideUpIn {
+                from {
+                    transform: translateY(calc(100% + 20px));
+                    opacity: 0;
+                }
+                to {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
 
 const getChangelogData = (t: any): VersionLog[] => [
     {
