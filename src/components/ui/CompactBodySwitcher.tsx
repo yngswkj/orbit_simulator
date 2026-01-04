@@ -1,94 +1,87 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { ChevronDown } from 'lucide-react';
+import { MoreHorizontal } from 'lucide-react';
 import './CompactBodySwitcher.css';
+
+interface CompactBodySwitcherProps {
+  isOpen: boolean;
+  onOpenPanel: () => void;
+  onSwitchToBodiesTab: () => void;
+}
 
 /**
  * コンパクトな天体切り替えUI
- * パネルが閉じていても常に表示され、スマホでも使いやすい
+ * パネルが閉じているときのみ表示され、最大10個の天体をアイコンで表示
  */
-export const CompactBodySwitcher: React.FC = () => {
+export const CompactBodySwitcher: React.FC<CompactBodySwitcherProps> = ({
+  isOpen,
+  onOpenPanel,
+  onSwitchToBodiesTab,
+}) => {
   const bodies = usePhysicsStore(s => s.bodies);
   const followingBodyId = usePhysicsStore(s => s.followingBodyId);
   const setFollowingBody = usePhysicsStore(s => s.setFollowingBody);
   const zenMode = usePhysicsStore(s => s.zenMode);
-  const [isExpanded, setIsExpanded] = useState(false);
 
-  if (zenMode) return null;
+  // パネルが開いているかzenModeの場合は非表示
+  if (isOpen || zenMode) return null;
 
-  const followedBody = bodies.find(b => b.id === followingBodyId);
+  const MAX_VISIBLE_BODIES = 10;
+  const visibleBodies = bodies.slice(0, MAX_VISIBLE_BODIES);
+  const hasMore = bodies.length > MAX_VISIBLE_BODIES;
+
+  const handleMoreClick = () => {
+    onSwitchToBodiesTab();
+    onOpenPanel();
+  };
 
   return (
     <div className="compact-body-switcher">
-      {/* トグルボタン */}
-      <button
-        className="compact-switcher-toggle"
-        onClick={() => setIsExpanded(!isExpanded)}
-        title={followedBody ? `Following: ${followedBody.name}` : 'Select a body to follow'}
-      >
-        {followedBody ? (
-          <>
+      <div className="compact-body-list">
+        {/* フリーカメラボタン */}
+        <button
+          className={`body-icon ${!followingBodyId ? 'active' : ''}`}
+          onClick={() => setFollowingBody(null)}
+          title="フリーカメラ"
+          aria-label="フリーカメラ"
+        >
+          <span className="body-indicator" style={{ background: '#666' }} />
+          <span className="body-label">Free</span>
+        </button>
+
+        {/* 天体アイコン（最大10個） */}
+        {visibleBodies.map(body => (
+          <button
+            key={body.id}
+            className={`body-icon ${followingBodyId === body.id ? 'active' : ''}`}
+            onClick={() => setFollowingBody(body.id)}
+            title={body.name}
+            aria-label={`Follow ${body.name}`}
+          >
             <span
               className="body-indicator"
               style={{
-                background: followedBody.color,
-                boxShadow: `0 0 8px ${followedBody.color}`,
+                background: body.color,
+                boxShadow: `0 0 8px ${body.color}`,
               }}
             />
-            <span className="body-name">{followedBody.name}</span>
-          </>
-        ) : (
-          <span className="body-name">天体を選択</span>
-        )}
-        <ChevronDown
-          size={16}
-          style={{
-            transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
-            transition: 'transform 0.2s',
-          }}
-        />
-      </button>
+            <span className="body-label">{body.name}</span>
+          </button>
+        ))}
 
-      {/* ドロップダウンリスト */}
-      {isExpanded && (
-        <>
-          <div className="compact-switcher-backdrop" onClick={() => setIsExpanded(false)} />
-          <div className="compact-switcher-dropdown">
-            <button
-              className={`compact-switcher-item ${!followingBodyId ? 'active' : ''}`}
-              onClick={() => {
-                setFollowingBody(null);
-                setIsExpanded(false);
-              }}
-            >
-              <span className="body-indicator" style={{ background: '#666' }} />
-              <span>フリーカメラ</span>
-            </button>
-            {bodies.map(body => (
-              <button
-                key={body.id}
-                className={`compact-switcher-item ${followingBodyId === body.id ? 'active' : ''}`}
-                onClick={() => {
-                  setFollowingBody(body.id);
-                  setIsExpanded(false);
-                }}
-              >
-                <span
-                  className="body-indicator"
-                  style={{
-                    background: body.color,
-                    boxShadow: `0 0 6px ${body.color}`,
-                  }}
-                />
-                <span>{body.name}</span>
-                {followingBodyId === body.id && (
-                  <span className="active-badge">ON</span>
-                )}
-              </button>
-            ))}
-          </div>
-        </>
-      )}
+        {/* More...ボタン（11個以上の場合） */}
+        {hasMore && (
+          <button
+            className="body-icon more-button"
+            onClick={handleMoreClick}
+            title={`${bodies.length - MAX_VISIBLE_BODIES}個の天体を表示`}
+            aria-label="Show more bodies"
+          >
+            <MoreHorizontal size={16} />
+            <span className="body-label">More</span>
+          </button>
+        )}
+      </div>
     </div>
   );
 };
