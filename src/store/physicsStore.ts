@@ -12,6 +12,8 @@ import { useEffectsStore } from './effectsStore';
 
 import { BUFFER_LIMITS } from '../constants/physics';
 import { DISTANCE_SCALE_FACTOR } from '../utils/solarSystem';
+import type { QualityLevel } from '../utils/deviceDetection';
+import { recommendQualityLevel } from '../utils/deviceDetection';
 
 // Helper to trigger visual effects for collisions
 const triggerCollisionEffects = (events: CollisionEvent[]) => {
@@ -90,6 +92,10 @@ interface PhysicsStore {
     zenMode: boolean;
     labMode: boolean;
     resetToken: number; // Increment to signal forced visual resets
+
+    // Performance / Quality
+    qualityLevel: QualityLevel;
+    setQualityLevel: (level: QualityLevel) => void;
 
     // User Mode
     userMode: 'beginner' | 'advanced';
@@ -189,6 +195,11 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     zenMode: false,
     labMode: false,
     resetToken: 0,
+
+    // Performance / Quality - detect and apply recommended quality on init
+    qualityLevel: typeof window !== 'undefined' && localStorage.getItem('orbit-simulator-quality')
+        ? (localStorage.getItem('orbit-simulator-quality') as QualityLevel)
+        : recommendQualityLevel(),
 
     // User Mode - default to beginner for better onboarding, restore from localStorage
     userMode: typeof window !== 'undefined' && localStorage.getItem('orbit-simulator-user-mode') === 'advanced' ? 'advanced' : 'beginner',
@@ -825,6 +836,21 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
     toggleZenMode: () => set((state) => ({ zenMode: !state.zenMode })),
     toggleLabMode: () => set((state) => ({ labMode: !state.labMode })),
+
+    setQualityLevel: (level) => {
+        // Save to localStorage for persistence
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('orbit-simulator-quality', level);
+        }
+
+        // If 'auto', resolve to actual quality level
+        let actualLevel = level;
+        if (level === 'auto') {
+            actualLevel = recommendQualityLevel();
+        }
+
+        set({ qualityLevel: actualLevel });
+    },
 
     setUserMode: (mode) => {
         // Save to localStorage for persistence

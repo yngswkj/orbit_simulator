@@ -7,6 +7,7 @@ import { Vector3, CatmullRomCurve3, Group, Mesh } from 'three';
 import { AccretionDisk } from '../effects/AccretionDisk';
 import { RelativisticJet } from '../effects/RelativisticJet';
 import { ProceduralPlanet } from './ProceduralPlanet';
+import { getPerformanceConfig } from '../../constants/performance';
 
 interface CelestialBodyProps {
     body: BodyType;
@@ -27,15 +28,6 @@ const TextureOrb = ({ body }: { body: BodyType }) => {
             metalness={0}
         />
     );
-};
-
-// Trail configuration
-const TRAIL_CONFIG = {
-    RECENT_MAX: 60,
-    RECENT_INTERVAL: 2,
-    COMPRESSED_MAX: 120,
-    COMPRESS_RATIO: 4,
-    COMPRESS_TRIGGER: 80
 };
 
 // Spline interpolation for smooth curves (memoized)
@@ -60,6 +52,17 @@ const ConstantWidthTrail = ({ position, color }: { position: Vector3, color: str
     const useRealisticDistances = usePhysicsStore(state => state.useRealisticDistances);
     const resetToken = usePhysicsStore(state => state.resetToken);
     const simulationState = usePhysicsStore(state => state.simulationState);
+    const qualityLevel = usePhysicsStore(state => state.qualityLevel);
+
+    // Get trail config from performance settings
+    const perfConfig = getPerformanceConfig(qualityLevel);
+    const TRAIL_CONFIG = {
+        RECENT_MAX: perfConfig.trailRecentPoints,
+        RECENT_INTERVAL: 2,
+        COMPRESSED_MAX: perfConfig.trailCompressedPoints,
+        COMPRESS_RATIO: perfConfig.trailCompressionRatio,
+        COMPRESS_TRIGGER: Math.floor(perfConfig.trailRecentPoints * 1.33)
+    };
 
     React.useEffect(() => {
         recentPoints.current = [];

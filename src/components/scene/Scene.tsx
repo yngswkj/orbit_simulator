@@ -20,6 +20,8 @@ import { TidalDisruptionEffect } from '../effects/TidalDisruptionEffect';
 import { ShockwaveEffect } from '../effects/ShockwaveEffect';
 import { StarfieldBackground } from './StarfieldBackground';
 import { transitionCamera } from '../../utils/cameraTransitions';
+import { getPerformanceConfig } from '../../constants/performance';
+import { PerformanceStats } from '../ui/PerformanceStats';
 
 // Helper to find the primary star (most massive star body)
 const findPrimaryStar = (bodies: BodyType[]): BodyType | undefined => {
@@ -430,8 +432,6 @@ const SimulationContent = () => {
     );
 };
 
-import { PerformanceStats } from '../ui/PerformanceStats';
-
 const SceneGrid = () => {
     const showGrid = usePhysicsStore((state) => state.showGrid);
     const zenMode = usePhysicsStore((state) => state.zenMode);
@@ -470,14 +470,24 @@ const SceneContent = () => {
     const zenMode = usePhysicsStore((state) => state.zenMode);
     const cameraMode = usePhysicsStore((state) => state.cameraMode);
     const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
+    const qualityLevel = usePhysicsStore((state) => state.qualityLevel);
 
     const isSurfaceLock = cameraMode === 'surface_lock';
 
     // Camera far value based on distance scale
     const cameraFar = useRealisticDistances ? 200000 : 50000;
 
+    // Get performance config for pixel ratio
+    const perfConfig = getPerformanceConfig(qualityLevel);
+    const pixelRatio = typeof window !== 'undefined'
+        ? Math.min(window.devicePixelRatio * perfConfig.pixelRatioMultiplier, 2)
+        : 1;
+
     return (
-        <Canvas camera={{ position: [0, 25, 50], fov: 45, near: 0.1, far: cameraFar }}>
+        <Canvas
+            camera={{ position: [0, 25, 50], fov: 45, near: 0.1, far: cameraFar }}
+            dpr={pixelRatio}
+        >
             <color attach="background" args={['#000000']} />
             <StarfieldBackground />
             <SimulationContent />
