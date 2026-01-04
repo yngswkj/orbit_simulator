@@ -37,28 +37,31 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
 
     return (
         <div className="compact-controls-container">
-            {/* Top Buttons: Menu and Help */}
-            <div className="compact-top-buttons">
+            {/* Unified Tool Bar */}
+            <div className="compact-toolbar">
+                {/* Menu Button */}
                 <button
                     onClick={onOpenPanel}
-                    className="compact-top-button"
+                    className="compact-button"
                     title={t('open_controls')}
                 >
                     <Menu size={20} />
                     <span className="button-label">Menu</span>
                 </button>
+
+                {/* Help Button */}
                 <button
                     onClick={() => setShowHelp(true)}
-                    className="compact-top-button"
+                    className="compact-button"
                     title={t('help_title')}
                 >
                     <HelpCircle size={20} />
                     <span className="button-label">Help</span>
                 </button>
-            </div>
 
-            {/* Compact Tool Bar */}
-            <div className="compact-toolbar">
+                <div className="compact-divider" />
+
+                {/* Play/Pause Button */}
                 <button
                     onClick={togglePause}
                     className="compact-button"
@@ -73,6 +76,7 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
                     </span>
                 </button>
 
+                {/* Reset Button */}
                 <button
                     onClick={reset}
                     className="compact-button"
@@ -82,6 +86,7 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
                     <span className="button-label">Reset</span>
                 </button>
 
+                {/* Gallery Button */}
                 <button
                     onClick={() => setShowGallery(true)}
                     className="compact-button"
@@ -92,6 +97,7 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
                     <span className="button-label">Gallery</span>
                 </button>
 
+                {/* Camera Button */}
                 <button
                     onClick={cycleCamera}
                     disabled={!followingBodyId}
@@ -109,6 +115,7 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
 
                 <div className="compact-divider" />
 
+                {/* Zen Mode Button */}
                 <button
                     onClick={toggleZenMode}
                     className="compact-button"
