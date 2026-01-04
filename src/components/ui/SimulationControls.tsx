@@ -4,6 +4,7 @@ import { Play, Pause, RefreshCw, AlertCircle, Trash2, Zap, LayoutGrid, Undo, Red
 import { useTranslation } from '../../utils/i18n';
 import { StarSystemGallery } from './StarSystemGallery';
 import { ContextHelp } from './common/ContextHelp';
+import { Button } from './common/Button';
 
 export const SimulationControls: React.FC = () => {
     const simulationState = usePhysicsStore((state) => state.simulationState);
@@ -46,116 +47,59 @@ export const SimulationControls: React.FC = () => {
                 <ContextHelp topic="controls" />
             </div>
 
-            <div style={{ display: 'flex', gap: '8px' }} className="sim-controls-buttons">
-                <button
+            <div className="flex gap-sm">
+                <Button
+                    variant={simulationState === 'running' ? 'danger' : 'success'}
+                    leftIcon={simulationState === 'running' ? Pause : Play}
                     onClick={togglePause}
-                    style={{
-                        flex: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '8px',
-                        background: simulationState === 'running' ? '#ff4050' : '#00ce7c',
-                        border: 'none',
-                        borderRadius: '6px',
-                        padding: '8px',
-                        color: 'white',
-                        cursor: 'pointer',
-                        fontWeight: 'bold'
-                    }}
+                    fullWidth
                 >
-                    {simulationState === 'running' ? <Pause size={16} /> : <Play size={16} />}
                     {simulationState === 'running' ? t('pause') : t('resume')}
-                </button>
+                </Button>
 
-                <button
+                <Button
+                    variant="secondary"
+                    leftIcon={RefreshCw}
                     onClick={reset}
-                    style={{
-                        background: 'rgba(255, 255, 255, 0.1)',
-                        border: 'none',
-                        borderRadius: '6px',
-                        padding: '8px',
-                        color: 'white',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                    }}
+                    iconOnly
                     title={t('reset')}
-                >
-                    <RefreshCw size={16} />
-                </button>
+                />
             </div>
 
             {/* Undo/Redo Controls */}
-            <div style={{ display: 'flex', gap: '8px', marginTop: '4px' }}>
-                <button
+            <div className="flex gap-sm" style={{ marginTop: '4px' }}>
+                <Button
+                    variant="ghost"
+                    leftIcon={Undo}
                     onClick={undo}
                     disabled={historyIndex <= 0}
-                    style={{
-                        flex: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        background: historyIndex > 0 ? 'rgba(96, 165, 250, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                        border: `1px solid ${historyIndex > 0 ? 'rgba(96, 165, 250, 0.3)' : 'rgba(255, 255, 255, 0.1)'}`,
-                        borderRadius: '6px',
-                        padding: '6px 8px',
-                        color: historyIndex > 0 ? '#60a5fa' : 'rgba(255, 255, 255, 0.3)',
-                        cursor: historyIndex > 0 ? 'pointer' : 'not-allowed',
-                        fontSize: '0.85rem',
-                        transition: 'all 0.2s'
-                    }}
+                    fullWidth
+                    size="sm"
                     title="Undo (Ctrl+Z)"
                 >
-                    <Undo size={14} />
-                    <span>Undo</span>
-                </button>
-                <button
+                    Undo
+                </Button>
+                <Button
+                    variant="ghost"
+                    leftIcon={Redo}
                     onClick={redo}
                     disabled={historyIndex >= history.length}
-                    style={{
-                        flex: 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        gap: '6px',
-                        background: historyIndex < history.length ? 'rgba(96, 165, 250, 0.2)' : 'rgba(255, 255, 255, 0.05)',
-                        border: `1px solid ${historyIndex < history.length ? 'rgba(96, 165, 250, 0.3)' : 'rgba(255, 255, 255, 0.1)'}`,
-                        borderRadius: '6px',
-                        padding: '6px 8px',
-                        color: historyIndex < history.length ? '#60a5fa' : 'rgba(255, 255, 255, 0.3)',
-                        cursor: historyIndex < history.length ? 'pointer' : 'not-allowed',
-                        fontSize: '0.85rem',
-                        transition: 'all 0.2s'
-                    }}
+                    fullWidth
+                    size="sm"
                     title="Redo (Ctrl+Shift+Z)"
                 >
-                    <Redo size={14} />
-                    <span>Redo</span>
-                </button>
+                    Redo
+                </Button>
             </div>
 
-            <button
+            <Button
+                variant="secondary"
+                leftIcon={LayoutGrid}
                 onClick={() => setShowGallery(true)}
-                style={{
-                    background: 'rgba(255, 255, 255, 0.1)',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    borderRadius: '6px',
-                    padding: '8px',
-                    color: 'white',
-                    cursor: 'pointer',
-                    fontSize: '0.8rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    gap: '6px'
-                }}
+                fullWidth
             >
-                <LayoutGrid size={16} />
-                <span>{t('star_system_gallery')}</span>
-            </button>
+                {t('star_system_gallery')}
+            </Button>
 
             <StarSystemGallery
                 isOpen={showGallery}
