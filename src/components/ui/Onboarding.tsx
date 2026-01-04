@@ -16,17 +16,18 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
     description: '惑星軌道シミュレーターで、重力と天体の動きを体験しましょう。基本的な使い方をご紹介します。',
   },
   {
-    title: '天体を追加する',
-    description: '画面をクリックして新しい天体を追加できます。ドラッグで初速度を設定し、重力の影響を観察しましょう。',
-  },
-  {
     title: 'カメラ操作',
     description: 'マウスドラッグで視点を回転、ホイールでズーム。天体をクリックして追跡モードに切り替えられます。',
   },
   {
     title: 'シミュレーション制御',
-    description: '左パネルで再生/一時停止、時間スケール調整、表示設定の変更ができます。',
+    description: 'コントロールパネルで再生/一時停止、時間スケール調整、表示設定の変更ができます。',
   },
+  {
+    title: '天体の追加と恒星系ギャラリー切り替え',
+    description: 'コントロールパネルの天体追加ボタンをクリックして新しい天体を追加できます。また、恒星系ギャラリーボタンを押して好きな世界を表示できます。',
+  },
+
   {
     title: 'モード選択',
     description: '初心者モードでは基本機能のみ表示、上級者モードでは全機能にアクセスできます。いつでも切り替え可能です。',
@@ -37,9 +38,17 @@ export const Onboarding: React.FC = () => {
   const hasSeenOnboarding = usePhysicsStore(s => s.hasSeenOnboarding);
   const setHasSeenOnboarding = usePhysicsStore(s => s.setHasSeenOnboarding);
   const setUserMode = usePhysicsStore(s => s.setUserMode);
+  const setSimulationState = usePhysicsStore(s => s.setSimulationState);
 
   const [currentStep, setCurrentStep] = useState(0);
   const [selectedMode, setSelectedMode] = useState<'beginner' | 'advanced'>('beginner');
+
+  // Pause simulation during onboarding
+  React.useEffect(() => {
+    if (!hasSeenOnboarding) {
+      setSimulationState('paused');
+    }
+  }, [hasSeenOnboarding, setSimulationState]);
 
   if (hasSeenOnboarding) return null;
 
@@ -50,6 +59,7 @@ export const Onboarding: React.FC = () => {
     if (isLastStep) {
       setUserMode(selectedMode);
       setHasSeenOnboarding(true);
+      setSimulationState('running'); // Resume simulation after onboarding
     } else {
       setCurrentStep(prev => prev + 1);
     }
@@ -64,6 +74,7 @@ export const Onboarding: React.FC = () => {
   const handleSkip = () => {
     setUserMode('beginner');
     setHasSeenOnboarding(true);
+    setSimulationState('running'); // Resume simulation after skip
   };
 
   const step = ONBOARDING_STEPS[currentStep];
