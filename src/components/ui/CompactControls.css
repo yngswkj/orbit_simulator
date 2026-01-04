@@ -6,7 +6,7 @@
   flex-direction: column;
   gap: 6px;
   z-index: 1000;
-  width: 200px; /* CompactBodySwitcherと完全に統一 */
+  width: 200px;
   max-width: 200px;
 }
 
@@ -39,10 +39,17 @@
   min-height: 36px;
   width: 100%;
   text-align: left;
+  position: relative;
 }
 
 .compact-button:hover:not(:disabled) {
   background: rgba(255, 255, 255, 0.1);
+}
+
+.compact-button.body-button.active {
+  background: rgba(59, 130, 246, 0.2);
+  border-left: 3px solid var(--color-primary-500);
+  padding-left: 7px;
 }
 
 .button-label {
@@ -59,10 +66,39 @@
   margin: 2px 0;
 }
 
+/* Body indicator (color circle) */
+.body-indicator {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  position: relative;
+}
+
+.body-name-short {
+  display: none; /* デフォルトでは非表示 */
+  position: absolute;
+  font-size: 0.6rem;
+  font-weight: 600;
+  color: white;
+  text-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+  pointer-events: none;
+}
+
+.more-button {
+  justify-content: center;
+  color: var(--color-primary-400);
+  font-weight: 500;
+}
+
+.more-button:hover {
+  background: rgba(59, 130, 246, 0.15);
+}
+
 /* モバイル対応: アイコンのみ表示 */
 @media (max-width: 768px) {
   .compact-controls-container {
-    width: 56px; /* CompactBodySwitcherと幅を統一 */
+    width: 56px;
     max-width: 56px;
   }
 
@@ -80,9 +116,28 @@
     min-height: 44px;
   }
 
+  .compact-button.body-button.active {
+    border-left: none;
+    border: 2px solid var(--color-primary-500);
+    padding-left: 8px;
+  }
+
   /* モバイルではテキストラベルを非表示 */
   .button-label {
     display: none;
+  }
+
+  /* モバイルではアイコン内に先頭2文字を表示 */
+  .body-indicator {
+    width: 32px;
+    height: 32px;
+  }
+
+  .body-name-short {
+    display: block;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
   }
 
   .compact-divider {

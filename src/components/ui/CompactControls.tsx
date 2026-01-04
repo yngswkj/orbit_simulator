@@ -1,6 +1,6 @@
 import React from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { Play, Pause, RefreshCw, Camera, Maximize, Menu, Orbit, HelpCircle } from 'lucide-react';
+import { Play, Pause, RefreshCw, Camera, Maximize, Menu, Orbit, HelpCircle, MoreHorizontal } from 'lucide-react';
 import { useTranslation } from '../../utils/i18n';
 import { StarSystemGallery } from './StarSystemGallery';
 import { HelpModal } from './HelpModal';
@@ -8,9 +8,10 @@ import './CompactControls.css';
 
 interface CompactControlsProps {
     onOpenPanel: () => void;
+    onSwitchToBodiesTab: () => void;
 }
 
-export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel }) => {
+export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel, onSwitchToBodiesTab }) => {
     const simulationState = usePhysicsStore((state) => state.simulationState);
     const setSimulationState = usePhysicsStore((state) => state.setSimulationState);
     const reset = usePhysicsStore((state) => state.reset);
@@ -18,10 +19,16 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
     const setCameraMode = usePhysicsStore((state) => state.setCameraMode);
     const toggleZenMode = usePhysicsStore((state) => state.toggleZenMode);
     const followingBodyId = usePhysicsStore((state) => state.followingBodyId);
+    const setFollowingBody = usePhysicsStore((state) => state.setFollowingBody);
+    const bodies = usePhysicsStore((state) => state.bodies);
 
     const [showGallery, setShowGallery] = React.useState(false);
     const [showHelp, setShowHelp] = React.useState(false);
     const { t } = useTranslation();
+
+    const MAX_VISIBLE_BODIES = 10;
+    const visibleBodies = bodies.slice(0, MAX_VISIBLE_BODIES);
+    const hasMore = bodies.length > MAX_VISIBLE_BODIES;
 
     const togglePause = () => {
         setSimulationState(simulationState === 'running' ? 'paused' : 'running');
@@ -33,6 +40,11 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
         if (cameraMode === 'free') setCameraMode('sun_lock');
         else if (cameraMode === 'sun_lock') setCameraMode('surface_lock');
         else setCameraMode('free');
+    };
+
+    const handleMoreClick = () => {
+        onSwitchToBodiesTab();
+        onOpenPanel();
     };
 
     return (
@@ -125,6 +137,60 @@ export const CompactControls: React.FC<CompactControlsProps> = ({ onOpenPanel })
                     <Maximize size={18} />
                     <span className="button-label">Zen</span>
                 </button>
+
+                <div className="compact-divider" />
+
+                {/* Body Switcher Section */}
+                {/* Free Camera Button */}
+                <button
+                    className={`compact-button body-button ${!followingBodyId ? 'active' : ''}`}
+                    onClick={() => setFollowingBody(null)}
+                    title="フリーカメラ"
+                >
+                    <span className="body-indicator" style={{ background: '#666' }}>
+                        <span className="body-name-short">Fr</span>
+                    </span>
+                    <span className="button-label">Free</span>
+                </button>
+
+                {/* Body Buttons (最大10個) */}
+                {visibleBodies.map(body => {
+                    const shortName = body.name.length >= 2
+                        ? body.name.charAt(0).toUpperCase() + body.name.charAt(1).toLowerCase()
+                        : body.name.toUpperCase();
+
+                    return (
+                        <button
+                            key={body.id}
+                            className={`compact-button body-button ${followingBodyId === body.id ? 'active' : ''}`}
+                            onClick={() => setFollowingBody(body.id)}
+                            title={body.name}
+                        >
+                            <span
+                                className="body-indicator"
+                                style={{
+                                    background: body.color,
+                                    boxShadow: `0 0 8px ${body.color}`,
+                                }}
+                            >
+                                <span className="body-name-short">{shortName}</span>
+                            </span>
+                            <span className="button-label">{body.name}</span>
+                        </button>
+                    );
+                })}
+
+                {/* More Button (11個以上の場合) */}
+                {hasMore && (
+                    <button
+                        className="compact-button more-button"
+                        onClick={handleMoreClick}
+                        title={`${bodies.length - MAX_VISIBLE_BODIES}個の天体を表示`}
+                    >
+                        <MoreHorizontal size={16} />
+                        <span className="button-label">More</span>
+                    </button>
+                )}
             </div>
 
             <StarSystemGallery

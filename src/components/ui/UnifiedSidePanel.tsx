@@ -4,7 +4,6 @@ import { TabNavigation, type TabId } from './TabNavigation';
 import { TabContent } from './TabContent';
 import './UnifiedSidePanel.css';
 import { CompactControls } from './CompactControls';
-import { CompactBodySwitcher } from './CompactBodySwitcher';
 
 interface UnifiedSidePanelProps {
     defaultTab?: TabId;
@@ -69,14 +68,10 @@ export const UnifiedSidePanel: React.FC<UnifiedSidePanelProps> = ({ defaultTab =
     return (
         <>
             {!isOpen && (
-                <>
-                    <CompactControls onOpenPanel={() => setIsOpen(true)} />
-                    <CompactBodySwitcher
-                        isOpen={isOpen}
-                        onOpenPanel={() => setIsOpen(true)}
-                        onSwitchToBodiesTab={() => setActiveTab('bodies')}
-                    />
-                </>
+                <CompactControls
+                    onOpenPanel={() => setIsOpen(true)}
+                    onSwitchToBodiesTab={() => setActiveTab('bodies')}
+                />
             )}
 
             <div className={`unified-side-panel ${!isOpen ? 'collapsed' : ''}`}>
