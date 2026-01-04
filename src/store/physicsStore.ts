@@ -13,8 +13,8 @@ import { useEffectsStore } from './effectsStore';
 import { BUFFER_LIMITS } from '../constants/physics';
 import { DISTANCE_SCALE_FACTOR } from '../utils/solarSystem';
 import type { QualityLevel } from '../utils/deviceDetection';
-import { recommendQualityLevel, getDeviceCapabilities } from '../utils/deviceDetection';
-import { getPerformanceConfig, PERFORMANCE_CONFIGS } from '../constants/performance';
+import { recommendQualityLevel } from '../utils/deviceDetection';
+import { getPerformanceConfig } from '../constants/performance';
 
 // Helper to trigger visual effects for collisions
 const triggerCollisionEffects = (events: CollisionEvent[]) => {

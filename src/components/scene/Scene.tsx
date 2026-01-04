@@ -432,8 +432,6 @@ const SimulationContent = () => {
     );
 };
 
-import { PerformanceStats } from '../ui/PerformanceStats';
-
 const SceneGrid = () => {
     const showGrid = usePhysicsStore((state) => state.showGrid);
     const zenMode = usePhysicsStore((state) => state.zenMode);
