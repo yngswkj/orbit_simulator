@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom';
 import { usePhysicsStore } from '../../store/physicsStore';
 import { STAR_SYSTEM_PRESETS } from '../../utils/starSystems';
 import type { StarSystemMode } from '../../types/starSystem';
-import { X, Sun, Star, Activity, Infinity as InfinityIcon, CheckCircle2, Orbit } from 'lucide-react';
+import { Sun, Star, Activity, Infinity as InfinityIcon, CheckCircle2, Orbit } from 'lucide-react';
 
 interface StarSystemGalleryProps {
     isOpen: boolean;
@@ -27,9 +27,18 @@ export const StarSystemGallery: React.FC<StarSystemGalleryProps> = ({ isOpen, on
 
     const [selectedModes, setSelectedModes] = useState<Record<string, StarSystemMode>>({});
     const [hoveredPreset, setHoveredPreset] = useState<string | null>(null);
+    const [isClosing, setIsClosing] = useState(false);
+    const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
 
     // Detect language from navigator
     const isJapanese = typeof navigator !== 'undefined' && navigator.language.startsWith('ja');
+
+    // Mobile detection
+    React.useEffect(() => {
+        const handleResize = () => setIsMobile(window.innerWidth < 768);
+        window.addEventListener('resize', handleResize);
+        return () => window.removeEventListener('resize', handleResize);
+    }, []);
 
     // Sync selectedModes with current store mode when gallery opens
     React.useEffect(() => {
@@ -37,6 +46,14 @@ export const StarSystemGallery: React.FC<StarSystemGalleryProps> = ({ isOpen, on
             setSelectedModes(prev => ({ ...prev, [currentSystemId]: currentSystemMode }));
         }
     }, [isOpen, currentSystemId, currentSystemMode]);
+
+    const handleClose = () => {
+        setIsClosing(true);
+        setTimeout(() => {
+            setIsClosing(false);
+            onClose();
+        }, 300); // Match animation duration
+    };
 
     if (!isOpen) return null;
 
@@ -54,91 +71,95 @@ export const StarSystemGallery: React.FC<StarSystemGalleryProps> = ({ isOpen, on
         <div
             style={{
                 position: 'fixed',
-                top: 0,
-                left: 0,
-                right: 0,
-                bottom: 0,
-                background: 'rgba(0, 0, 0, 0.6)',
-                backdropFilter: 'blur(4px)',
+                top: isMobile ? 'auto' : '10px',
+                left: isMobile ? '8px' : 'auto',
+                bottom: isMobile ? '8px' : 'auto',
+                right: isMobile ? '8px' : '10px',
+                width: isMobile ? 'calc(100% - 16px)' : '900px',
+                height: isMobile ? 'auto' : 'calc(100vh - 20px)',
+                maxHeight: isMobile ? '50vh' : '800px',
+                minHeight: isMobile ? '240px' : 'auto',
+                background: 'rgba(20, 20, 30, 0.92)',
+                backdropFilter: 'blur(16px)',
+                border: '1px solid rgba(255, 255, 255, 0.15)',
+                borderRadius: isMobile ? '12px' : '8px',
                 display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
+                flexDirection: 'column',
+                boxShadow: isMobile ? '0 -4px 20px rgba(0, 0, 0, 0.5)' : '0 8px 32px rgba(0, 0, 0, 0.4)',
+                overflow: 'hidden',
                 zIndex: 2000,
+                transition: 'all 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+                transform: isClosing
+                    ? (isMobile ? 'translateY(calc(100% + 16px))' : 'translateX(calc(100% + 20px))')
+                    : (isMobile ? 'translateY(0)' : 'translateX(0)'),
+                opacity: isClosing ? 0 : 1,
+                animation: !isClosing
+                    ? (isMobile ? 'slideUpIn 0.3s cubic-bezier(0.16, 1, 0.3, 1)' : 'slideInRight 0.3s cubic-bezier(0.16, 1, 0.3, 1)')
+                    : 'none'
             }}
-            onClick={onClose}
         >
-            <div
-                style={{
-                    background: 'rgba(10, 10, 15, 0.9)',
-                    backdropFilter: 'blur(16px)',
-                    borderRadius: '16px',
-                    border: '1px solid rgba(255, 255, 255, 0.1)',
-                    padding: '0', // Reset padding for cleaner layout
-                    maxWidth: '900px',
-                    maxHeight: '85vh',
-                    width: '90%',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.5)',
-                    overflow: 'hidden'
-                }}
-                onClick={e => e.stopPropagation()}
-            >
                 {/* Header */}
                 <div style={{
-                    padding: '20px 24px',
+                    padding: isMobile ? '12px 16px' : '16px 24px',
                     borderBottom: '1px solid rgba(255, 255, 255, 0.08)',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    background: 'rgba(255, 255, 255, 0.02)'
+                    background: 'rgba(0,0,0,0.1)',
+                    flexShrink: 0,
+                    minHeight: isMobile ? '56px' : '64px'
                 }}>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                        <Orbit size={24} color="#3b82f6" />
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                        <Orbit size={isMobile ? 18 : 20} color="#3b82f6" />
                         <h2 style={{
                             margin: 0,
                             color: 'white',
-                            fontSize: '1.25rem',
+                            fontSize: isMobile ? '1rem' : '1.1rem',
                             fontWeight: 600,
-                            letterSpacing: '0.025em'
+                            letterSpacing: '0.02em'
                         }}>
                             {isJapanese ? '恒星系ギャラリー' : 'Star System Gallery'}
                         </h2>
                     </div>
                     <button
-                        onClick={onClose}
+                        onClick={handleClose}
                         style={{
-                            background: 'transparent',
-                            border: 'none',
-                            color: '#94a3b8',
+                            background: 'rgba(255, 255, 255, 0.08)',
+                            border: '1px solid rgba(255, 255, 255, 0.12)',
+                            borderRadius: '8px',
+                            color: 'rgba(255, 255, 255, 0.6)',
                             cursor: 'pointer',
-                            padding: '6px',
+                            fontSize: isMobile ? '20px' : '24px',
+                            lineHeight: 1,
+                            width: isMobile ? '32px' : '36px',
+                            height: isMobile ? '32px' : '36px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            borderRadius: '6px',
-                            transition: 'all 0.2s',
+                            transition: 'all 0.2s ease',
+                            fontWeight: 300
                         }}
                         onMouseEnter={e => {
-                            e.currentTarget.style.color = 'white';
-                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.1)';
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.15)';
+                            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.9)';
+                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
                         }}
                         onMouseLeave={e => {
-                            e.currentTarget.style.color = '#94a3b8';
-                            e.currentTarget.style.background = 'transparent';
+                            e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                            e.currentTarget.style.color = 'rgba(255, 255, 255, 0.6)';
+                            e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.12)';
                         }}
-                    >
-                        <X size={20} />
-                    </button>
+                    >×</button>
                 </div>
 
                 {/* Preset Grid */}
                 <div style={{
-                    padding: '24px',
+                    padding: isMobile ? '16px' : '24px',
                     overflowY: 'auto',
                     display: 'grid',
-                    gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))',
-                    gap: '20px'
+                    gridTemplateColumns: isMobile ? '1fr' : 'repeat(auto-fill, minmax(280px, 1fr))',
+                    gap: isMobile ? '16px' : '20px',
+                    flex: 1
                 }}>
                     {STAR_SYSTEM_PRESETS.map(preset => {
                         const isActive = currentSystemId === preset.id;
@@ -330,9 +351,41 @@ export const StarSystemGallery: React.FC<StarSystemGalleryProps> = ({ isOpen, on
                         );
                     })}
                 </div>
-            </div>
         </div>
     );
 
     return createPortal(modalContent, document.body);
 };
+
+// CSS animations injected into document head (reuse from HelpModal if exists)
+if (typeof document !== 'undefined') {
+    const styleId = 'gallery-modal-animations';
+    if (!document.getElementById(styleId) && !document.getElementById('help-modal-animations')) {
+        const style = document.createElement('style');
+        style.id = styleId;
+        style.textContent = `
+            @keyframes slideInRight {
+                from {
+                    transform: translateX(calc(100% + 20px));
+                    opacity: 0;
+                }
+                to {
+                    transform: translateX(0);
+                    opacity: 1;
+                }
+            }
+
+            @keyframes slideUpIn {
+                from {
+                    transform: translateY(calc(100% + 16px));
+                    opacity: 0;
+                }
+                to {
+                    transform: translateY(0);
+                    opacity: 1;
+                }
+            }
+        `;
+        document.head.appendChild(style);
+    }
+}
