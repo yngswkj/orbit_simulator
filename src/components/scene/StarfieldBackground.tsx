@@ -2,18 +2,21 @@
 import { useRef, useMemo } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { usePhysicsStore } from '../../store/physicsStore';
+import { getPerformanceConfig } from '../../constants/performance';
 
 const starfieldShader = {
     vertexShader: `
         varying vec3 vWorldPosition;
         void main() {
-            vWorldPosition = position; 
+            vWorldPosition = position;
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
     `,
     fragmentShader: `
         uniform float time;
         uniform float seed;
+        uniform int fbmOctaves;
         uniform vec3 uColorDeep;
         uniform vec3 uColorMist;
         uniform vec3 uColorGlow;
@@ -68,12 +71,13 @@ const starfieldShader = {
             return 42.0 * dot( m*m, vec4( dot(p0,x0), dot(p1,x1), dot(p2,x2), dot(p3,x3) ) );
         }
 
-        // Fractal Brownian Motion (Layered Noise)
+        // Fractal Brownian Motion (Layered Noise) with dynamic octaves
         float fbm(vec3 p) {
             float value = 0.0;
             float amplitude = 0.5;
             float frequency = 1.0;
             for (int i = 0; i < 4; i++) {
+                if (i >= fbmOctaves) break;
                 value += amplitude * snoise(p * frequency);
                 p += vec3(10.0); // Shift next layer to avoid alignment artifacts
                 frequency *= 2.0;
@@ -177,6 +181,7 @@ const starfieldShader = {
 export const StarfieldBackground = () => {
     const materialRef = useRef<THREE.ShaderMaterial>(null);
     const meshRef = useRef<THREE.Mesh>(null);
+    const qualityLevel = usePhysicsStore(state => state.qualityLevel);
 
     useFrame(({ clock, camera }) => {
         if (materialRef.current) {
@@ -186,6 +191,9 @@ export const StarfieldBackground = () => {
             meshRef.current.position.copy(camera.position);
         }
     });
+
+    // Get performance config
+    const perfConfig = getPerformanceConfig(qualityLevel);
 
     const uniforms = useMemo(() => {
         // Random Seed
@@ -203,16 +211,17 @@ export const StarfieldBackground = () => {
         return {
             time: { value: 0 },
             seed: { value: seed },
+            fbmOctaves: { value: perfConfig.starfieldFBMOctaves },
             uColorDeep: { value: deep },
             uColorMist: { value: mist },
             uColorGlow: { value: glow },
             uColorCore: { value: core },
         };
-    }, []);
+    }, [perfConfig.starfieldFBMOctaves]);
 
     return (
         <mesh ref={meshRef} frustumCulled={false}>
-            <sphereGeometry args={[40000, 64, 64]} />
+            <sphereGeometry args={[perfConfig.starfieldRadius, perfConfig.starfieldSegments[0], perfConfig.starfieldSegments[1]]} />
             <shaderMaterial
                 ref={materialRef}
                 uniforms={uniforms}

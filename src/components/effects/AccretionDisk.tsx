@@ -12,6 +12,7 @@ import React, { useRef, useMemo } from 'react';
 import { useFrame, useThree } from '@react-three/fiber';
 import * as THREE from 'three';
 import { usePhysicsStore } from '../../store/physicsStore';
+import { getPerformanceConfig } from '../../constants/performance';
 
 interface AccretionDiskProps {
     position: { x: number; y: number; z: number };
@@ -200,7 +201,7 @@ export const AccretionDisk: React.FC<AccretionDiskProps> = ({
     innerRadius,
     outerRadius,
     rotationSpeed = 1,
-    particleCount = 30000,
+    particleCount,
     tilt = 0.1
 }) => {
     const pointsRef = useRef<THREE.Points>(null);
@@ -209,22 +210,26 @@ export const AccretionDisk: React.FC<AccretionDiskProps> = ({
     const baseRadiiRef = useRef<Float32Array | null>(null); // Original radii for respawn
     const groupRef = useRef<THREE.Group>(null);
     const simulationState = usePhysicsStore(state => state.simulationState);
+    const qualityLevel = usePhysicsStore(state => state.qualityLevel);
 
     useThree(); // Keep for potential future use
+
+    // Get particle count from performance config if not explicitly provided
+    const actualParticleCount = particleCount ?? getPerformanceConfig(qualityLevel).accretionDiskParticles;
 
     // Create particle geometry and material
     const { geometry, material } = useMemo(() => {
         const geo = new THREE.BufferGeometry();
-        const positions = new Float32Array(particleCount * 3);
-        const sizes = new Float32Array(particleCount);
-        const temperatures = new Float32Array(particleCount);
-        const velocities = new Float32Array(particleCount);
-        const velocityDirs = new Float32Array(particleCount * 2);
-        const angles = new Float32Array(particleCount);
-        const radii = new Float32Array(particleCount);
-        const baseRadii = new Float32Array(particleCount);
+        const positions = new Float32Array(actualParticleCount * 3);
+        const sizes = new Float32Array(actualParticleCount);
+        const temperatures = new Float32Array(actualParticleCount);
+        const velocities = new Float32Array(actualParticleCount);
+        const velocityDirs = new Float32Array(actualParticleCount * 2);
+        const angles = new Float32Array(actualParticleCount);
+        const radii = new Float32Array(actualParticleCount);
+        const baseRadii = new Float32Array(actualParticleCount);
 
-        for (let i = 0; i < particleCount; i++) {
+        for (let i = 0; i < actualParticleCount; i++) {
             // Logarithmic distribution - more particles near inner edge
             const t = Math.random();
             const r = innerRadius + (outerRadius - innerRadius) * Math.pow(t, 0.35);
@@ -290,7 +295,7 @@ export const AccretionDisk: React.FC<AccretionDiskProps> = ({
 
         return { geometry: geo, material: mat };
         // IMPORTANT: position removed from deps to prevent particle regeneration on every frame
-    }, [innerRadius, outerRadius, particleCount, rotationSpeed]);
+    }, [innerRadius, outerRadius, actualParticleCount, rotationSpeed]);
 
     // Photon sphere ring material
     const photonRingMaterial = useMemo(() => {
@@ -337,7 +342,7 @@ export const AccretionDisk: React.FC<AccretionDiskProps> = ({
         const baseSpeed = 0.15;
         const infallSpeed = 0.02; // Slow spiral infall
 
-        for (let i = 0; i < particleCount; i++) {
+        for (let i = 0; i < actualParticleCount; i++) {
             let r = radii[i];
 
             // Normalize radius
