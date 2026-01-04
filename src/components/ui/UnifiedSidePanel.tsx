@@ -75,16 +75,11 @@ export const UnifiedSidePanel: React.FC<UnifiedSidePanelProps> = ({ defaultTab =
             )}
 
             <div className={`unified-side-panel ${!isOpen ? 'collapsed' : ''}`}>
-                <div style={{ // Header bar with close button if needed
-                    display: 'flex', justifyContent: 'flex-end', padding: '10px',
-                    borderBottom: '1px solid rgba(255,255,255,0.05)'
-                }}>
+                <div className="panel-header">
                     <button
+                        className="close-button"
                         onClick={() => setIsOpen(false)}
-                        style={{
-                            background: 'transparent', border: 'none', color: 'rgba(255,255,255,0.5)',
-                            cursor: 'pointer', fontSize: '20px', lineHeight: 1
-                        }}
+                        title="パネルを閉じる"
                     >×</button>
                 </div>
 
