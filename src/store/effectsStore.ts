@@ -445,7 +445,7 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
         const { addSupernova, addShockwave, addDebrisCloud, addExplosion, addRadialRays, addCameraShake, addGammaRayBurst } = get();
 
         // Get quality level and camera shake intensity from physics store
-        // @ts-expect-error - Accessing physicsStore from effectsStore (circular dependency handled at runtime)
+        // Accessing physicsStore from effectsStore (circular dependency handled at runtime)
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const physicsState = typeof window !== 'undefined' && (window as any).__physicsStore?.getState?.();
         const qualityLevel = physicsState?.qualityLevel || 'medium';
