@@ -397,11 +397,11 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
             return {
                 ...body,
-                velocity: {
-                    x: body.velocity.x + dirX * accelerationMagnitude,
-                    y: body.velocity.y + dirY * accelerationMagnitude,
-                    z: body.velocity.z + dirZ * accelerationMagnitude
-                }
+                velocity: new Vector3(
+                    body.velocity.x + dirX * accelerationMagnitude,
+                    body.velocity.y + dirY * accelerationMagnitude,
+                    body.velocity.z + dirZ * accelerationMagnitude
+                )
             };
         });
 
@@ -487,16 +487,16 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
                     return {
                         ...body,
-                        velocity: {
-                            x: body.velocity.x + dirX * velocityDelta,
-                            y: body.velocity.y + dirY * velocityDelta,
-                            z: body.velocity.z + dirZ * velocityDelta
-                        }
+                        velocity: new Vector3(
+                            body.velocity.x + dirX * velocityDelta,
+                            body.velocity.y + dirY * velocityDelta,
+                            body.velocity.z + dirZ * velocityDelta
+                        )
                     };
                 });
 
                 // Apply the gravitational effects before updating to remnant
-                set((state) => ({
+                set(() => ({
                     bodies: bodiesWithPull.map(b =>
                         b.id === starId ? { ...b, ...remnant } : b
                     ),
