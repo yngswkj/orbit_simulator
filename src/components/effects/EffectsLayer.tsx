@@ -11,17 +11,23 @@ import { HeatGlowEffect } from './HeatGlowEffect';
 import { ExplosionEffect } from './ExplosionEffect';
 import { DebrisRenderer } from './DebrisRenderer';
 import { SupernovaEffect } from './SupernovaEffect';
+import { RadialRaysEffect } from './RadialRaysEffect';
+import { CameraShakeEffect } from './CameraShakeEffect';
 
 export const EffectsLayer: React.FC = () => {
     const shockwaves = useEffectsStore(state => state.shockwaves);
     const heatGlows = useEffectsStore(state => state.heatGlows);
     const explosions = useEffectsStore(state => state.explosions);
     const supernovas = useEffectsStore(state => state.supernovas);
+    const radialRays = useEffectsStore(state => state.radialRays);
+    const cameraShakes = useEffectsStore(state => state.cameraShakes);
 
     const removeShockwave = useEffectsStore(state => state.removeShockwave);
     const removeHeatGlow = useEffectsStore(state => state.removeHeatGlow);
     const removeExplosion = useEffectsStore(state => state.removeExplosion);
     const removeSupernova = useEffectsStore(state => state.removeSupernova);
+    const removeRadialRays = useEffectsStore(state => state.removeRadialRays);
+    const removeCameraShake = useEffectsStore(state => state.removeCameraShake);
     const removeExpiredEffects = useEffectsStore(state => state.removeExpiredEffects);
 
     // Periodic cleanup of expired effects
@@ -91,6 +97,32 @@ export const EffectsLayer: React.FC = () => {
                     color={sn.color}
                     intensity={sn.intensity}
                     onComplete={() => removeSupernova(sn.id)}
+                />
+            ))}
+
+            {/* Radial Rays */}
+            {radialRays.map(rr => (
+                <RadialRaysEffect
+                    key={rr.id}
+                    position={rr.position}
+                    startTime={rr.startTime}
+                    duration={rr.duration}
+                    rayCount={rr.rayCount}
+                    maxLength={rr.maxLength}
+                    color={rr.color}
+                    onComplete={() => removeRadialRays(rr.id)}
+                />
+            ))}
+
+            {/* Camera Shakes */}
+            {cameraShakes.map(cs => (
+                <CameraShakeEffect
+                    key={cs.id}
+                    startTime={cs.startTime}
+                    duration={cs.duration}
+                    intensity={cs.intensity}
+                    falloff={cs.falloff}
+                    onComplete={() => removeCameraShake(cs.id)}
                 />
             ))}
 

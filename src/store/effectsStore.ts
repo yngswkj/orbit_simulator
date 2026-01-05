@@ -13,7 +13,9 @@ import type {
     TidalDisruptionEvent,
     ExplosionEffect,
     CollisionEventData,
-    SupernovaEffect
+    SupernovaEffect,
+    RadialRaysEffect,
+    CameraShakeEffect
 } from '../types/effects';
 
 interface EffectsStore {
@@ -24,6 +26,8 @@ interface EffectsStore {
     tidalDisruptions: TidalDisruptionEvent[];
     explosions: ExplosionEffect[];
     supernovas: SupernovaEffect[];
+    radialRays: RadialRaysEffect[];
+    cameraShakes: CameraShakeEffect[];
 
     // Actions - Shockwaves
     addShockwave: (
@@ -99,6 +103,23 @@ interface EffectsStore {
         starColor: string
     ) => void;
 
+    // Actions - Radial Rays
+    addRadialRays: (
+        position: { x: number; y: number; z: number },
+        maxLength: number,
+        color?: string,
+        duration?: number
+    ) => string;
+    removeRadialRays: (id: string) => void;
+
+    // Actions - Camera Shake
+    addCameraShake: (
+        intensity: number,
+        duration?: number,
+        falloff?: 'linear' | 'exponential'
+    ) => string;
+    removeCameraShake: (id: string) => void;
+
     // High-level action - Trigger collision effects
     triggerCollisionEffects: (data: CollisionEventData) => void;
 
@@ -114,6 +135,8 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
     tidalDisruptions: [],
     explosions: [],
     supernovas: [],
+    radialRays: [],
+    cameraShakes: [],
 
     // Shockwave actions
     addShockwave: (position, maxRadius, color = '#ffaa00', duration = 2000) => {
@@ -327,9 +350,53 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
         }));
     },
 
+    // Radial rays actions
+    addRadialRays: (position, maxLength, color = '#ffffff', duration = 8000) => {
+        const id = uuidv4();
+        set(state => ({
+            radialRays: [...state.radialRays, {
+                id,
+                position,
+                startTime: performance.now(),
+                duration,
+                rayCount: 12,
+                maxLength,
+                color
+            }]
+        }));
+        return id;
+    },
+
+    removeRadialRays: (id) => {
+        set(state => ({
+            radialRays: state.radialRays.filter(r => r.id !== id)
+        }));
+    },
+
+    // Camera shake actions
+    addCameraShake: (intensity, duration = 3000, falloff = 'exponential') => {
+        const id = uuidv4();
+        set(state => ({
+            cameraShakes: [...state.cameraShakes, {
+                id,
+                startTime: performance.now(),
+                duration,
+                intensity,
+                falloff
+            }]
+        }));
+        return id;
+    },
+
+    removeCameraShake: (id) => {
+        set(state => ({
+            cameraShakes: state.cameraShakes.filter(c => c.id !== id)
+        }));
+    },
+
     // High-level supernova trigger with complete visual sequence
     triggerSupernova: (starId, position, starMass, starRadius, starColor) => {
-        const { addSupernova, addShockwave, addDebrisCloud, addExplosion } = get();
+        const { addSupernova, addShockwave, addDebrisCloud, addExplosion, addRadialRays, addCameraShake } = get();
 
         // Calculate explosion parameters based on star mass
         const explosionScale = Math.pow(starMass / 100000, 0.4); // Scale with mass
@@ -345,18 +412,45 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
             15000 // 15 second total duration
         );
 
-        // 2. Initial brightening flash (very bright, short duration)
+        // 2. Camera shake (starts immediately with strong shake)
+        addCameraShake(
+            3.0, // Strong intensity
+            4000, // 4 second duration
+            'exponential' // Quick falloff
+        );
+
+        // 3. Initial brightening flash (very bright, short duration)
         setTimeout(() => {
             addExplosion(
                 position,
                 starRadius * 3,
                 '#ffffff',
-                100,
-                500
+                200, // More particles
+                800
             );
         }, 2000); // After 2s brightening phase
 
-        // 3. Main explosion shockwave (blue-white)
+        // 4. Radial rays burst (star-like rays)
+        setTimeout(() => {
+            addRadialRays(
+                position,
+                shockwaveRadius * 1.2,
+                '#ccddff',
+                10000 // Long duration rays
+            );
+        }, 2200);
+
+        // 5. Multi-layer shockwaves - Layer 1 (inner, fast, blue-white)
+        setTimeout(() => {
+            addShockwave(
+                position,
+                shockwaveRadius * 0.5,
+                '#aaccff',
+                4000
+            );
+        }, 2500);
+
+        // 6. Multi-layer shockwaves - Layer 2 (main, blue)
         setTimeout(() => {
             addShockwave(
                 position,
@@ -364,9 +458,9 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
                 '#88bbff',
                 8000
             );
-        }, 2500);
+        }, 2700);
 
-        // 4. Secondary shockwave (faster, brighter)
+        // 7. Multi-layer shockwaves - Layer 3 (secondary, bright white)
         setTimeout(() => {
             addShockwave(
                 position,
@@ -376,9 +470,19 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
             );
         }, 3000);
 
-        // 5. Debris ejection (stellar material)
+        // 8. Multi-layer shockwaves - Layer 4 (purple - ionized gas)
         setTimeout(() => {
-            const debrisCount = Math.min(Math.floor(starMass / 100) + 200, 1500);
+            addShockwave(
+                position,
+                shockwaveRadius * 1.2,
+                '#bb88ff',
+                9000
+            );
+        }, 3500);
+
+        // 9. Enhanced debris ejection (MORE particles)
+        setTimeout(() => {
+            const debrisCount = Math.min(Math.floor(starMass / 100) + 400, 2000); // Increased
             addDebrisCloud(
                 starId,
                 position,
@@ -386,19 +490,52 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
                 starColor,
                 debrisCount,
                 starRadius * 0.2,
-                starRadius * 2.0 // High-speed ejecta
+                starRadius * 2.5 // Even faster ejecta
             );
-        }, 3500);
+        }, 3700);
 
-        // 6. Outer shock front (red/orange - hydrogen emission)
+        // 10. Second camera shake (residual)
+        setTimeout(() => {
+            addCameraShake(
+                1.5, // Medium intensity
+                2000,
+                'linear'
+            );
+        }, 4000);
+
+        // 11. Multi-layer shockwaves - Layer 5 (outer, slow, red - hydrogen)
         setTimeout(() => {
             addShockwave(
                 position,
                 shockwaveRadius * 1.5,
                 '#ff6633',
-                10000
+                12000
             );
         }, 5000);
+
+        // 12. Multi-layer shockwaves - Layer 6 (outermost, very slow, orange)
+        setTimeout(() => {
+            addShockwave(
+                position,
+                shockwaveRadius * 1.8,
+                '#ff9944',
+                15000
+            );
+        }, 6000);
+
+        // 13. Additional debris burst (asymmetric ejection)
+        setTimeout(() => {
+            const lateDebrisCount = Math.min(Math.floor(starMass / 150) + 150, 1000);
+            addDebrisCloud(
+                starId,
+                position,
+                { x: 0, y: 0, z: 0 },
+                '#ffaa66', // Hot gas color
+                lateDebrisCount,
+                starRadius * 0.15,
+                starRadius * 1.5
+            );
+        }, 7000);
     },
 
     // High-level collision effect trigger
@@ -474,6 +611,12 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
             ),
             supernovas: state.supernovas.filter(s =>
                 now - s.startTime < s.duration
+            ),
+            radialRays: state.radialRays.filter(r =>
+                now - r.startTime < r.duration
+            ),
+            cameraShakes: state.cameraShakes.filter(c =>
+                now - c.startTime < c.duration
             )
         }));
 
@@ -488,7 +631,9 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
             debrisClouds: [],
             tidalDisruptions: [],
             explosions: [],
-            supernovas: []
+            supernovas: [],
+            radialRays: [],
+            cameraShakes: []
         });
     }
 }));

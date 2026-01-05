@@ -93,3 +93,23 @@ export interface SupernovaEffect {
     intensity: number;
     phase: 'brightening' | 'explosion' | 'fading'; // Current phase of the supernova
 }
+
+// Radial rays effect
+export interface RadialRaysEffect {
+    id: string;
+    position: { x: number; y: number; z: number };
+    startTime: number;
+    duration: number;
+    rayCount: number;
+    maxLength: number;
+    color: string;
+}
+
+// Camera shake effect
+export interface CameraShakeEffect {
+    id: string;
+    startTime: number;
+    duration: number;
+    intensity: number;
+    falloff: 'linear' | 'exponential';
+}
