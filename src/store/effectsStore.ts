@@ -12,7 +12,8 @@ import type {
     HeatGlowEffect,
     TidalDisruptionEvent,
     ExplosionEffect,
-    CollisionEventData
+    CollisionEventData,
+    SupernovaEffect
 } from '../types/effects';
 
 interface EffectsStore {
@@ -22,6 +23,7 @@ interface EffectsStore {
     debrisClouds: DebrisCloud[];
     tidalDisruptions: TidalDisruptionEvent[];
     explosions: ExplosionEffect[];
+    supernovas: SupernovaEffect[];
 
     // Actions - Shockwaves
     addShockwave: (
@@ -79,6 +81,24 @@ interface EffectsStore {
     ) => string;
     removeExplosion: (id: string) => void;
 
+    // Actions - Supernova
+    addSupernova: (
+        starId: string,
+        position: { x: number; y: number; z: number },
+        maxRadius: number,
+        color?: string,
+        intensity?: number,
+        duration?: number
+    ) => string;
+    removeSupernova: (id: string) => void;
+    triggerSupernova: (
+        starId: string,
+        position: { x: number; y: number; z: number },
+        starMass: number,
+        starRadius: number,
+        starColor: string
+    ) => void;
+
     // High-level action - Trigger collision effects
     triggerCollisionEffects: (data: CollisionEventData) => void;
 
@@ -93,6 +113,7 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
     debrisClouds: [],
     tidalDisruptions: [],
     explosions: [],
+    supernovas: [],
 
     // Shockwave actions
     addShockwave: (position, maxRadius, color = '#ffaa00', duration = 2000) => {
@@ -281,6 +302,105 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
         }));
     },
 
+    // Supernova actions
+    addSupernova: (starId, position, maxRadius, color = '#aaccff', intensity = 3.0, duration = 15000) => {
+        const id = uuidv4();
+        set(state => ({
+            supernovas: [...state.supernovas, {
+                id,
+                starId,
+                position,
+                startTime: performance.now(),
+                duration,
+                maxRadius,
+                color,
+                intensity,
+                phase: 'brightening'
+            }]
+        }));
+        return id;
+    },
+
+    removeSupernova: (id) => {
+        set(state => ({
+            supernovas: state.supernovas.filter(s => s.id !== id)
+        }));
+    },
+
+    // High-level supernova trigger with complete visual sequence
+    triggerSupernova: (starId, position, starMass, starRadius, starColor) => {
+        const { addSupernova, addShockwave, addDebrisCloud, addExplosion } = get();
+
+        // Calculate explosion parameters based on star mass
+        const explosionScale = Math.pow(starMass / 100000, 0.4); // Scale with mass
+        const shockwaveRadius = starRadius * 100 * explosionScale;
+
+        // 1. Add main supernova effect (brightening -> explosion -> fading)
+        addSupernova(
+            starId,
+            position,
+            shockwaveRadius,
+            '#aaccff', // Blue-white supernova color
+            3.0,
+            15000 // 15 second total duration
+        );
+
+        // 2. Initial brightening flash (very bright, short duration)
+        setTimeout(() => {
+            addExplosion(
+                position,
+                starRadius * 3,
+                '#ffffff',
+                100,
+                500
+            );
+        }, 2000); // After 2s brightening phase
+
+        // 3. Main explosion shockwave (blue-white)
+        setTimeout(() => {
+            addShockwave(
+                position,
+                shockwaveRadius,
+                '#88bbff',
+                8000
+            );
+        }, 2500);
+
+        // 4. Secondary shockwave (faster, brighter)
+        setTimeout(() => {
+            addShockwave(
+                position,
+                shockwaveRadius * 0.7,
+                '#ffffff',
+                5000
+            );
+        }, 3000);
+
+        // 5. Debris ejection (stellar material)
+        setTimeout(() => {
+            const debrisCount = Math.min(Math.floor(starMass / 100) + 200, 1500);
+            addDebrisCloud(
+                starId,
+                position,
+                { x: 0, y: 0, z: 0 },
+                starColor,
+                debrisCount,
+                starRadius * 0.2,
+                starRadius * 2.0 // High-speed ejecta
+            );
+        }, 3500);
+
+        // 6. Outer shock front (red/orange - hydrogen emission)
+        setTimeout(() => {
+            addShockwave(
+                position,
+                shockwaveRadius * 1.5,
+                '#ff6633',
+                10000
+            );
+        }, 5000);
+    },
+
     // High-level collision effect trigger
     triggerCollisionEffects: (data) => {
         const { addShockwave, addHeatGlow, addDebrisCloud, addExplosion } = get();
@@ -351,6 +471,9 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
             ),
             explosions: state.explosions.filter(e =>
                 now - e.startTime < e.duration
+            ),
+            supernovas: state.supernovas.filter(s =>
+                now - s.startTime < s.duration
             )
         }));
 
@@ -364,7 +487,8 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
             heatGlows: [],
             debrisClouds: [],
             tidalDisruptions: [],
-            explosions: []
+            explosions: [],
+            supernovas: []
         });
     }
 }));

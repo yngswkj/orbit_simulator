@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { CelestialBody, SimulationState, CameraMode, PhysicsState, TidalDisruptionEvent, LegacyCollisionEvent, CollisionEvent } from '../types/physics';
+import type { CelestialBody, SimulationState, CameraMode, PhysicsState, TidalDisruptionEvent, LegacyCollisionEvent, CollisionEvent, SupernovaEvent } from '../types/physics';
 import type { StarSystemMode } from '../types/starSystem';
 import { updatePhysicsSoA, createPhysicsState, syncStateToBodies, BASE_DT, calculateTotalEnergy, applyCollisions } from '../utils/physics';
 import { Vector3 } from 'three';
@@ -141,10 +141,12 @@ interface PhysicsStore {
     // Destruction Events
     tidallyDisruptedEvents: TidalDisruptionEvent[];
     collisionEvents: LegacyCollisionEvent[];
+    supernovaEvents: SupernovaEvent[];
     addTidalDisruptionEvent: (event: TidalDisruptionEvent) => void;
     removeTidalDisruptionEvent: (bodyId: string) => void;
     addCollisionEvent: (event: LegacyCollisionEvent) => void;
     removeCollisionEvent: (eventId: string) => void;
+    triggerSupernova: (starId: string) => void;
 
     updateBodies: () => void;
     loadSolarSystem: () => void;
@@ -185,6 +187,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
     tidallyDisruptedEvents: [],
     collisionEvents: [],
+    supernovaEvents: [],
 
     // Star System
     currentSystemId: 'solar-system',
@@ -344,6 +347,100 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     removeCollisionEvent: (eventId) => set((state) => ({
         collisionEvents: state.collisionEvents.filter(e => e.id !== eventId)
     })),
+
+    triggerSupernova: (starId) => {
+        const { bodies } = get();
+        const star = bodies.find(b => b.id === starId);
+
+        if (!star || !star.isStar) {
+            console.warn('Cannot trigger supernova: body is not a star');
+            return;
+        }
+
+        // Trigger visual effects via effects store
+        const effectsStore = useEffectsStore.getState();
+        effectsStore.triggerSupernova(
+            starId,
+            { x: star.position.x, y: star.position.y, z: star.position.z },
+            star.mass,
+            star.radius,
+            star.color
+        );
+
+        // Create supernova event record
+        const supernovaEvent: SupernovaEvent = {
+            id: uuidv4(),
+            starId,
+            position: { x: star.position.x, y: star.position.y, z: star.position.z },
+            mass: star.mass,
+            radius: star.radius,
+            color: star.color,
+            startTime: performance.now(),
+            duration: 15000,
+            explosionEnergy: star.mass * 1000,
+            remnantType: star.mass > 200000 ? 'black-hole' : star.mass > 100000 ? 'neutron-star' : 'none',
+            shockwaveRadius: star.radius * 100
+        };
+
+        set((state) => ({
+            supernovaEvents: [...state.supernovaEvents, supernovaEvent]
+        }));
+
+        // After explosion animation (15s), transform star into remnant
+        setTimeout(() => {
+            const currentState = get();
+            const currentStar = currentState.bodies.find(b => b.id === starId);
+
+            if (!currentStar) return;
+
+            let remnant: Partial<CelestialBody> = {};
+
+            if (supernovaEvent.remnantType === 'black-hole') {
+                remnant = {
+                    name: `${currentStar.name} (Black Hole)`,
+                    radius: currentStar.radius * 0.1,
+                    color: '#000000',
+                    isCompactObject: true,
+                    hasAccretionDisk: true,
+                    hasJets: true,
+                    accretionDiskConfig: {
+                        innerRadius: 3,
+                        outerRadius: 15,
+                        rotationSpeed: 2.0,
+                        particleCount: 3000,
+                        tilt: 0.3
+                    }
+                };
+            } else if (supernovaEvent.remnantType === 'neutron-star') {
+                remnant = {
+                    name: `${currentStar.name} (Neutron Star)`,
+                    mass: currentStar.mass * 0.15, // Core collapse remnant
+                    radius: currentStar.radius * 0.05,
+                    color: '#88ccff',
+                    isCompactObject: true
+                };
+            } else {
+                // Complete stellar disruption - remove the star
+                set((state) => ({
+                    bodies: state.bodies.filter(b => b.id !== starId),
+                    physicsState: null,
+                    gpuDataInvalidated: true,
+                    selectedBodyId: state.selectedBodyId === starId ? null : state.selectedBodyId,
+                    followingBodyId: state.followingBodyId === starId ? null : state.followingBodyId
+                }));
+                return;
+            }
+
+            // Update star to remnant
+            set((state) => ({
+                bodies: state.bodies.map(b =>
+                    b.id === starId ? { ...b, ...remnant } : b
+                ),
+                physicsState: null,
+                gpuDataInvalidated: true
+            }));
+        }, 15000);
+    },
 
     toggleGravityField: () => set((state) => ({ showGravityField: !state.showGravityField })),
 

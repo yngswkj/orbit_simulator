@@ -2,7 +2,7 @@ import type { CelestialBody } from './physics';
 
 export type StarSystemMode = 'stable' | 'chaotic';
 
-export type StarSystemCategory = 'classic' | 'multi-star' | 'choreography';
+export type StarSystemCategory = 'classic' | 'multi-star' | 'choreography' | 'catastrophic';
 
 export interface StarSystemModeConfig {
     id: StarSystemMode;

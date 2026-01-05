@@ -450,6 +450,78 @@ export const BLACK_HOLE_SYSTEM: StarSystemPreset = {
 };
 
 // ============================================
+// SUPERNOVA SYSTEM
+// ============================================
+
+export const SUPERNOVA_SYSTEM: StarSystemPreset = {
+    id: 'supernova',
+    name: 'Supernova Explosion',
+    nameJa: '超新星爆発',
+    description: 'A massive blue supergiant star ready to go supernova. Watch the spectacular stellar death and transformation.',
+    descriptionJa: '超新星爆発を起こす大質量の青色超巨星。壮大な恒星の死と変化を観察する。',
+    category: 'catastrophic',
+    initialCamera: {
+        position: [0, 50, 120],
+        target: [0, 0, 0]
+    },
+    createBodies: () => {
+        // Helper to resolve texture path
+        const getTexture = (filename: string) => `${import.meta.env.BASE_URL}textures/${filename}`;
+
+        const SUPERGIANT_MASS = SUN_MASS * 20; // 20 solar masses (Type II supernova candidate)
+        const PLANET_MASS = 300; // Gas giant
+
+        return [
+            // Massive blue supergiant star (about to explode)
+            {
+                name: 'Betelgeuse',
+                mass: SUPERGIANT_MASS,
+                radius: 15, // Large supergiant
+                position: new Vector3(0, 0, 0),
+                velocity: new Vector3(0, 0, 0),
+                color: '#aaccff', // Blue-white supergiant
+                isStar: true,
+                isFixed: true,
+                type: 'star'
+            },
+            // Nearby companion planet (will be affected by supernova)
+            {
+                name: 'Prometheus',
+                mass: PLANET_MASS,
+                radius: 8,
+                position: new Vector3(80, 0, 0),
+                velocity: new Vector3(0, 0, Math.sqrt(SUPERGIANT_MASS / 80) * 0.95),
+                color: '#cc8844',
+                texturePath: getTexture('jupiter.jpg'),
+                type: 'planet'
+            },
+            // Outer planet (safer distance)
+            {
+                name: 'Erebus',
+                mass: 1,
+                radius: 3,
+                position: new Vector3(0, 0, 150),
+                velocity: new Vector3(Math.sqrt(SUPERGIANT_MASS / 150) * 0.98, 0, 0),
+                color: '#6688aa',
+                texturePath: getTexture('neptune.jpg'),
+                type: 'planet'
+            },
+            // Inner rocky planet (doomed)
+            {
+                name: 'Icarus',
+                mass: 1,
+                radius: 2,
+                position: new Vector3(-45, 0, 0),
+                velocity: new Vector3(0, 0, -Math.sqrt(SUPERGIANT_MASS / 45)),
+                color: '#dd6633',
+                texturePath: getTexture('mars.jpg'),
+                type: 'planet'
+            }
+        ];
+    }
+};
+
+// ============================================
 // PRESET REGISTRY
 // ============================================
 
@@ -458,6 +530,7 @@ export const STAR_SYSTEM_PRESETS: StarSystemPreset[] = [
     THREE_BODY_SYSTEM,
     FIGURE_EIGHT,
     BLACK_HOLE_SYSTEM,
+    SUPERNOVA_SYSTEM,
 ];
 
 export const getPresetById = (id: string): StarSystemPreset | undefined => {

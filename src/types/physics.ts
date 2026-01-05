@@ -88,3 +88,18 @@ export interface CollisionEvent {
   smallerBodyColor: string;
   smallerBodyRadius: number;
 }
+
+// Supernova explosion event
+export interface SupernovaEvent {
+  id: string;
+  starId: string;
+  position: { x: number; y: number; z: number };
+  mass: number;
+  radius: number;
+  color: string;
+  startTime: number;
+  duration: number; // Total duration of the event
+  explosionEnergy: number; // Energy released
+  remnantType: 'neutron-star' | 'black-hole' | 'none';
+  shockwaveRadius: number; // Maximum shockwave radius
+}

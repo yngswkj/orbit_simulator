@@ -10,15 +10,18 @@ import { ShockwaveEffect } from './ShockwaveEffect';
 import { HeatGlowEffect } from './HeatGlowEffect';
 import { ExplosionEffect } from './ExplosionEffect';
 import { DebrisRenderer } from './DebrisRenderer';
+import { SupernovaEffect } from './SupernovaEffect';
 
 export const EffectsLayer: React.FC = () => {
     const shockwaves = useEffectsStore(state => state.shockwaves);
     const heatGlows = useEffectsStore(state => state.heatGlows);
     const explosions = useEffectsStore(state => state.explosions);
+    const supernovas = useEffectsStore(state => state.supernovas);
 
     const removeShockwave = useEffectsStore(state => state.removeShockwave);
     const removeHeatGlow = useEffectsStore(state => state.removeHeatGlow);
     const removeExplosion = useEffectsStore(state => state.removeExplosion);
+    const removeSupernova = useEffectsStore(state => state.removeSupernova);
     const removeExpiredEffects = useEffectsStore(state => state.removeExpiredEffects);
 
     // Periodic cleanup of expired effects
@@ -74,6 +77,20 @@ export const EffectsLayer: React.FC = () => {
                     color={exp.color}
                     particleCount={exp.particleCount}
                     onComplete={() => removeExplosion(exp.id)}
+                />
+            ))}
+
+            {/* Supernovas */}
+            {supernovas.map(sn => (
+                <SupernovaEffect
+                    key={sn.id}
+                    position={sn.position}
+                    startTime={sn.startTime}
+                    duration={sn.duration}
+                    maxRadius={sn.maxRadius}
+                    color={sn.color}
+                    intensity={sn.intensity}
+                    onComplete={() => removeSupernova(sn.id)}
                 />
             ))}
 

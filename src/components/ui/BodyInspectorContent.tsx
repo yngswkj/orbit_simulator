@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
 import { useTranslation } from '../../utils/i18n';
-import { Trash2, Settings, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Trash2, Settings, ChevronDown, ChevronUp, X, Zap } from 'lucide-react';
 import { VectorInput } from './common/VectorInput';
 import { SafeInput } from './common/SafeInput';
 import type { CelestialBody } from '../../types/physics';
@@ -22,6 +22,7 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
     const setFollowingBody = usePhysicsStore(state => state.setFollowingBody);
     const followingBodyId = usePhysicsStore(state => state.followingBodyId);
     const pushHistoryAction = usePhysicsStore(state => state.pushHistoryAction);
+    const triggerSupernova = usePhysicsStore(state => state.triggerSupernova);
 
 
 
@@ -30,6 +31,7 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
     const { showToast } = useToast();
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(true);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showSupernovaModal, setShowSupernovaModal] = useState(false);
 
     const sun = bodies.find(b => b.name === 'Sun');
     const distanceToSun = sun && selectedBody.id !== sun.id
@@ -362,6 +364,42 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
                         </button>
                     )}
                 </div>
+
+                {/* Supernova Button (for stars only) */}
+                {selectedBody.isStar && selectedBody.mass > 100000 && (
+                    <div style={{ marginTop: '8px' }}>
+                        <button
+                            onClick={() => setShowSupernovaModal(true)}
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(147, 51, 234, 0.2))',
+                                border: '1px solid rgba(239, 68, 68, 0.4)',
+                                borderRadius: '6px',
+                                color: '#ef4444',
+                                cursor: 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                fontWeight: 600,
+                                fontSize: '0.95rem',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(147, 51, 234, 0.3))';
+                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.6)';
+                            }}
+                            onMouseLeave={(e) => {
+                                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(147, 51, 234, 0.2))';
+                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                            }}
+                        >
+                            <Zap size={18} />
+                            Trigger Supernova
+                        </button>
+                    </div>
+                )}
             </div>
 
             <ConfirmModal
@@ -378,6 +416,21 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
                 danger={true}
                 confirmText={t('delete_confirm')}
                 cancelText={t('delete_cancel')}
+            />
+
+            <ConfirmModal
+                isOpen={showSupernovaModal}
+                title="⭐ Trigger Supernova"
+                message={`Are you sure you want to trigger a supernova explosion for ${selectedBody.name}? This will create a spectacular stellar explosion and transform the star into a ${selectedBody.mass > 200000 ? 'black hole' : 'neutron star'}.`}
+                onConfirm={() => {
+                    triggerSupernova(selectedBody.id);
+                    showToast(`🌟 Supernova initiated for ${selectedBody.name}!`, 'success');
+                    setShowSupernovaModal(false);
+                }}
+                onCancel={() => setShowSupernovaModal(false)}
+                danger={true}
+                confirmText="Trigger Supernova"
+                cancelText="Cancel"
             />
         </div>
     );

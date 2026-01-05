@@ -80,3 +80,16 @@ export interface CollisionEventData {
     smallerBodyColor: string;
     smallerBodyRadius: number;
 }
+
+// Supernova explosion effect
+export interface SupernovaEffect {
+    id: string;
+    starId: string;
+    position: { x: number; y: number; z: number };
+    startTime: number;
+    duration: number;
+    maxRadius: number;
+    color: string;
+    intensity: number;
+    phase: 'brightening' | 'explosion' | 'fading'; // Current phase of the supernova
+}
