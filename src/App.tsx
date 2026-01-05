@@ -8,6 +8,7 @@ import { usePhysicsStore } from './store/physicsStore';
 import './App.css';
 import { runBenchmark, runGPUBenchmark } from './utils/benchmark';
 import { ToastProvider } from './components/ui/common/Toast';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 // Expose runBenchmark to window for testing
 declare global {
@@ -122,9 +123,10 @@ function App() {
   }, [simulationState, setSimulationState, bodies, followingBodyId, setFollowingBody, setCameraMode]);
 
   return (
-    <ToastProvider>
-      <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
-        <Scene />
+    <ErrorBoundary>
+      <ToastProvider>
+        <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
+          <Scene />
 
         <div className="app-header" style={{
           position: 'absolute',
@@ -159,6 +161,7 @@ function App() {
         <Onboarding />
       </div>
     </ToastProvider>
+    </ErrorBoundary>
   );
 }
 

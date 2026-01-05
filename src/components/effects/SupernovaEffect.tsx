@@ -17,61 +17,57 @@ interface SupernovaEffectProps {
     onComplete?: () => void;
 }
 
-// Custom shader for supernova core glow
+// Custom shader for supernova core glow (mobile-compatible)
 const supernovaShader = {
     vertexShader: `
+        precision mediump float;
         varying vec2 vUv;
-        varying vec3 vPosition;
         void main() {
             vUv = uv;
-            vPosition = position;
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
     `,
     fragmentShader: `
+        precision mediump float;
         uniform float progress;
         uniform float opacity;
         uniform vec3 color;
         uniform float intensity;
-        uniform float phase; // 0-1: brightening, 1-2: explosion, 2-3: fading
+        uniform float phase;
         varying vec2 vUv;
-        varying vec3 vPosition;
 
         void main() {
-            // Distance from center (spherical)
+            // Distance from center
             vec2 centered = vUv - 0.5;
             float dist = length(centered) * 2.0;
 
-            float alpha = 0.0;
-            float brightness = 1.0;
+            // Smooth phase transitions using step functions
+            float brightenMask = step(phase, 0.33);
+            float explosionMask = step(0.33, phase) * step(phase, 0.5);
+            float fadeMask = step(0.5, phase);
 
-            // Phase 0-0.33: Brightening (core intensifies)
-            if (phase < 0.33) {
-                float phaseProgress = phase / 0.33;
-                // Core glow that intensifies
-                alpha = smoothstep(1.0, 0.3, dist) * (0.5 + phaseProgress * 0.5);
-                brightness = 1.0 + phaseProgress * intensity * 2.0;
-            }
-            // Phase 0.33-0.5: Explosion (rapid expansion)
-            else if (phase < 0.5) {
-                float phaseProgress = (phase - 0.33) / 0.17;
-                // Bright flash
-                alpha = smoothstep(1.2, 0.0, dist) * (1.0 - phaseProgress * 0.3);
-                brightness = intensity * 3.0 * (1.0 - phaseProgress * 0.5);
-            }
-            // Phase 0.5-1.0: Fading (remnant glow)
-            else {
-                float phaseProgress = (phase - 0.5) / 0.5;
-                // Fading core
-                alpha = smoothstep(0.8, 0.0, dist) * (1.0 - phaseProgress);
-                brightness = intensity * (1.0 - phaseProgress);
-            }
+            // Calculate phase-specific values
+            float phaseProgress1 = phase / 0.33;
+            float phaseProgress2 = (phase - 0.33) / 0.17;
+            float phaseProgress3 = (phase - 0.5) / 0.5;
 
-            // Add pulsating effect during brightening
-            if (phase < 0.33) {
-                float pulse = sin(phase * 30.0) * 0.1 + 0.9;
-                brightness *= pulse;
-            }
+            // Brightening phase
+            float alpha1 = smoothstep(1.0, 0.3, dist) * (0.5 + phaseProgress1 * 0.5);
+            float bright1 = 1.0 + phaseProgress1 * intensity * 2.0;
+            float pulse = sin(phase * 30.0) * 0.1 + 0.9;
+            bright1 *= pulse;
+
+            // Explosion phase
+            float alpha2 = smoothstep(1.2, 0.0, dist) * (1.0 - phaseProgress2 * 0.3);
+            float bright2 = intensity * 3.0 * (1.0 - phaseProgress2 * 0.5);
+
+            // Fading phase
+            float alpha3 = smoothstep(0.8, 0.0, dist) * (1.0 - phaseProgress3);
+            float bright3 = intensity * (1.0 - phaseProgress3);
+
+            // Combine phases
+            float alpha = alpha1 * brightenMask + alpha2 * explosionMask + alpha3 * fadeMask;
+            float brightness = bright1 * brightenMask + bright2 * explosionMask + bright3 * fadeMask;
 
             // Radial gradient for depth
             float radialGradient = 1.0 - dist * 0.5;
@@ -95,6 +91,7 @@ export const SupernovaEffect: React.FC<SupernovaEffectProps> = ({
     const meshRef = useRef<THREE.Mesh>(null);
     const materialRef = useRef<THREE.ShaderMaterial>(null);
     const completedRef = useRef(false);
+    const [hasError, setHasError] = React.useState(false);
 
     const uniforms = useMemo(() => ({
         progress: { value: 0 },
@@ -103,6 +100,24 @@ export const SupernovaEffect: React.FC<SupernovaEffectProps> = ({
         intensity: { value: intensity },
         phase: { value: 0 }
     }), [color, intensity]);
+
+    // Error handling for shader compilation
+    React.useEffect(() => {
+        if (materialRef.current) {
+            const material = materialRef.current;
+            // Check if shader compiled successfully
+            const onError = () => {
+                console.warn('SupernovaEffect shader failed to compile, using fallback');
+                setHasError(true);
+            };
+
+            // Listen for WebGL errors
+            if (material.program) {
+                const gl = material.program.getUniforms();
+                if (!gl) onError();
+            }
+        }
+    }, []);
 
     useFrame(() => {
         if (!materialRef.current || completedRef.current) return;
@@ -154,13 +169,31 @@ export const SupernovaEffect: React.FC<SupernovaEffectProps> = ({
         }
     });
 
+    // Fallback to simple mesh material if shader fails
+    if (hasError) {
+        return (
+            <mesh
+                ref={meshRef}
+                position={[position.x, position.y, position.z]}
+            >
+                <sphereGeometry args={[1, 16, 16]} />
+                <meshBasicMaterial
+                    color={color}
+                    transparent
+                    opacity={0.8}
+                    blending={THREE.AdditiveBlending}
+                />
+            </mesh>
+        );
+    }
+
     return (
         <mesh
             ref={meshRef}
             position={[position.x, position.y, position.z]}
         >
-            {/* Spherical billboard effect */}
-            <sphereGeometry args={[1, 32, 32]} />
+            {/* Lower poly count for mobile compatibility */}
+            <sphereGeometry args={[1, 16, 16]} />
             <shaderMaterial
                 ref={materialRef}
                 uniforms={uniforms}
