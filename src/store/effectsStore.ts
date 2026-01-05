@@ -36,7 +36,9 @@ interface EffectsStore {
         position: { x: number; y: number; z: number },
         maxRadius: number,
         color?: string,
-        duration?: number
+        duration?: number,
+        asymmetry?: number,
+        directionBias?: { x: number; y: number; z: number }
     ) => string;
     removeShockwave: (id: string) => void;
 
@@ -150,7 +152,7 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
     gammaRayBursts: [],
 
     // Shockwave actions
-    addShockwave: (position, maxRadius, color = '#ffaa00', duration = 2000) => {
+    addShockwave: (position, maxRadius, color = '#ffaa00', duration = 2000, asymmetry = 0, directionBias) => {
         const id = uuidv4();
         set(state => ({
             shockwaves: [...state.shockwaves, {
@@ -159,7 +161,9 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
                 startTime: performance.now(),
                 maxRadius,
                 color,
-                duration
+                duration,
+                asymmetry,
+                directionBias
             }]
         }));
         return id;
@@ -200,13 +204,23 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
         const now = performance.now();
         const particles: DebrisParticle[] = [];
 
+        // Box-Muller transform for Gaussian random numbers
+        const gaussianRandom = (): number => {
+            let u = 0, v = 0;
+            while (u === 0) u = Math.random();
+            while (v === 0) v = Math.random();
+            return Math.sqrt(-2.0 * Math.log(u)) * Math.cos(2.0 * Math.PI * v);
+        };
+
         for (let i = 0; i < particleCount; i++) {
             // Random direction on sphere
             const theta = Math.random() * Math.PI * 2;
             const phi = Math.acos(2 * Math.random() - 1);
 
-            // Speed varies
-            const speed = spreadSpeed * (0.3 + Math.random() * 0.7);
+            // Maxwell-Boltzmann-like speed distribution
+            // Most particles have speeds near the mean, with a tail toward higher speeds
+            const gaussianSpeed = Math.abs(gaussianRandom());
+            const speed = spreadSpeed * (0.5 + gaussianSpeed * 0.3); // Mean at spreadSpeed * 0.5
 
             // Direction vector
             const dx = Math.sin(phi) * Math.cos(theta);
@@ -430,6 +444,32 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
     triggerSupernova: (starId, position, starMass, starRadius, starColor) => {
         const { addSupernova, addShockwave, addDebrisCloud, addExplosion, addRadialRays, addCameraShake, addGammaRayBurst } = get();
 
+        // Get quality level and camera shake intensity from physics store
+        // @ts-expect-error - Accessing physicsStore from effectsStore (circular dependency handled at runtime)
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const physicsState = typeof window !== 'undefined' && (window as any).__physicsStore?.getState?.();
+        const qualityLevel = physicsState?.qualityLevel || 'medium';
+        const cameraShakeIntensity = physicsState?.cameraShakeIntensity ?? 1.0;
+
+        // Device performance-based particle count limits
+        const debrisCountByQuality: Record<string, number> = {
+            'very-low': 300,
+            'low': 600,
+            'medium': 1200,
+            'high': 2000,
+            'ultra': 2000
+        };
+        const maxDebrisCount = debrisCountByQuality[qualityLevel] || 1200;
+
+        const explosionParticlesByQuality: Record<string, number> = {
+            'very-low': 50,
+            'low': 100,
+            'medium': 200,
+            'high': 300,
+            'ultra': 500
+        };
+        const explosionParticles = explosionParticlesByQuality[qualityLevel] || 200;
+
         // Calculate explosion parameters based on star mass
         const explosionScale = Math.pow(starMass / 100000, 0.4); // Scale with mass
         const shockwaveRadius = starRadius * 100 * explosionScale;
@@ -447,9 +487,9 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
             15000 // 15 second total duration
         );
 
-        // 2. Camera shake (starts immediately with strong shake)
+        // 2. Camera shake (starts immediately with strong shake, scaled by user preference)
         addCameraShake(
-            3.0, // Strong intensity
+            3.0 * cameraShakeIntensity, // Strong intensity, user-adjustable
             4000, // 4 second duration
             'exponential' // Quick falloff
         );
@@ -460,7 +500,7 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
                 position,
                 starRadius * 3,
                 '#ffffff',
-                200, // More particles
+                explosionParticles, // Quality-adjusted particle count
                 800
             );
         }, 2000); // After 2s brightening phase
@@ -475,49 +515,70 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
             );
         }, 2200);
 
-        // 5. Multi-layer shockwaves - Layer 1 (inner, fast, blue-white)
+        // Generate random direction bias for asymmetric expansion
+        const biasDirection = {
+            x: (Math.random() - 0.5) * 2,
+            y: (Math.random() - 0.5) * 2,
+            z: (Math.random() - 0.5) * 2
+        };
+        const magnitude = Math.sqrt(biasDirection.x ** 2 + biasDirection.y ** 2 + biasDirection.z ** 2);
+        const normalizedBias = {
+            x: biasDirection.x / magnitude,
+            y: biasDirection.y / magnitude,
+            z: biasDirection.z / magnitude
+        };
+
+        // 5. Multi-layer shockwaves - Layer 1 (inner, fast, blue-white, slight asymmetry)
         setTimeout(() => {
             addShockwave(
                 position,
                 shockwaveRadius * 0.5,
                 '#aaccff',
-                4000
+                4000,
+                0.15, // Slight asymmetry
+                normalizedBias
             );
         }, 2500);
 
-        // 6. Multi-layer shockwaves - Layer 2 (main, blue)
+        // 6. Multi-layer shockwaves - Layer 2 (main, blue, moderate asymmetry)
         setTimeout(() => {
             addShockwave(
                 position,
                 shockwaveRadius,
                 '#88bbff',
-                8000
+                8000,
+                0.25, // Moderate asymmetry
+                normalizedBias
             );
         }, 2700);
 
-        // 7. Multi-layer shockwaves - Layer 3 (secondary, bright white)
+        // 7. Multi-layer shockwaves - Layer 3 (secondary, bright white, slight asymmetry)
         setTimeout(() => {
             addShockwave(
                 position,
                 shockwaveRadius * 0.7,
                 '#ffffff',
-                5000
+                5000,
+                0.2,
+                normalizedBias
             );
         }, 3000);
 
-        // 8. Multi-layer shockwaves - Layer 4 (purple - ionized gas)
+        // 8. Multi-layer shockwaves - Layer 4 (purple - ionized gas, strong asymmetry)
         setTimeout(() => {
             addShockwave(
                 position,
                 shockwaveRadius * 1.2,
                 '#bb88ff',
-                9000
+                9000,
+                0.35, // Strong asymmetry for outer layers
+                normalizedBias
             );
         }, 3500);
 
-        // 9. Enhanced debris ejection (MORE particles)
+        // 9. Enhanced debris ejection (quality-adjusted particle count)
         setTimeout(() => {
-            const debrisCount = Math.min(Math.floor(starMass / 100) + 400, 2000); // Increased
+            const debrisCount = Math.min(Math.floor(starMass / 100) + 400, maxDebrisCount);
             addDebrisCloud(
                 starId,
                 position,
@@ -529,38 +590,42 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
             );
         }, 3700);
 
-        // 10. Second camera shake (residual)
+        // 10. Second camera shake (residual, scaled by user preference)
         setTimeout(() => {
             addCameraShake(
-                1.5, // Medium intensity
+                1.5 * cameraShakeIntensity, // Medium intensity, user-adjustable
                 2000,
                 'linear'
             );
         }, 4000);
 
-        // 11. Multi-layer shockwaves - Layer 5 (outer, slow, red - hydrogen)
+        // 11. Multi-layer shockwaves - Layer 5 (outer, slow, red - hydrogen, very asymmetric)
         setTimeout(() => {
             addShockwave(
                 position,
                 shockwaveRadius * 1.5,
                 '#ff6633',
-                12000
+                12000,
+                0.45, // Very asymmetric for hydrogen envelope
+                normalizedBias
             );
         }, 5000);
 
-        // 12. Multi-layer shockwaves - Layer 6 (outermost, very slow, orange)
+        // 12. Multi-layer shockwaves - Layer 6 (outermost, very slow, orange, extremely asymmetric)
         setTimeout(() => {
             addShockwave(
                 position,
                 shockwaveRadius * 1.8,
                 '#ff9944',
-                15000
+                15000,
+                0.5, // Maximum asymmetry for outermost layer
+                normalizedBias
             );
         }, 6000);
 
-        // 13. Additional debris burst (asymmetric ejection)
+        // 13. Additional debris burst (asymmetric ejection, quality-adjusted)
         setTimeout(() => {
-            const lateDebrisCount = Math.min(Math.floor(starMass / 150) + 150, 1000);
+            const lateDebrisCount = Math.min(Math.floor(starMass / 150) + 150, Math.floor(maxDebrisCount * 0.5));
             addDebrisCloud(
                 starId,
                 position,

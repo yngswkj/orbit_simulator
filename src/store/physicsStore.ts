@@ -97,6 +97,10 @@ interface PhysicsStore {
     qualityLevel: QualityLevel;
     setQualityLevel: (level: QualityLevel) => void;
 
+    // Visual Effects Settings
+    cameraShakeIntensity: number; // 0.0 - 2.0, default 1.0
+    setCameraShakeIntensity: (intensity: number) => void;
+
     // User Mode
     userMode: 'beginner' | 'advanced';
     setUserMode: (mode: 'beginner' | 'advanced') => void;
@@ -203,6 +207,11 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     qualityLevel: typeof window !== 'undefined' && localStorage.getItem('orbit-simulator-quality')
         ? (localStorage.getItem('orbit-simulator-quality') as QualityLevel)
         : recommendQualityLevel(),
+
+    // Visual Effects Settings - camera shake intensity (0.0 - 2.0)
+    cameraShakeIntensity: typeof window !== 'undefined' && localStorage.getItem('orbit-simulator-camera-shake')
+        ? parseFloat(localStorage.getItem('orbit-simulator-camera-shake') || '1.0')
+        : 1.0,
 
     // User Mode - default to beginner for better onboarding, restore from localStorage
     userMode: typeof window !== 'undefined' && localStorage.getItem('orbit-simulator-user-mode') === 'advanced' ? 'advanced' : 'beginner',
@@ -1042,6 +1051,18 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         set({ qualityLevel: actualLevel });
     },
 
+    setCameraShakeIntensity: (intensity) => {
+        // Clamp intensity to valid range (0.0 - 2.0)
+        const clampedIntensity = Math.max(0, Math.min(2, intensity));
+
+        // Save to localStorage for persistence
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('orbit-simulator-camera-shake', String(clampedIntensity));
+        }
+
+        set({ cameraShakeIntensity: clampedIntensity });
+    },
+
     setUserMode: (mode) => {
         // Save to localStorage for persistence
         if (typeof window !== 'undefined') {
@@ -1145,3 +1166,9 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         });
     }
 }));
+
+// Expose physics store to window for cross-store access (effectsStore needs qualityLevel)
+if (typeof window !== 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).__physicsStore = usePhysicsStore;
+}

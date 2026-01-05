@@ -58,6 +58,8 @@ export const EffectsLayer: React.FC = () => {
                     duration={sw.duration}
                     maxRadius={sw.maxRadius}
                     color={sw.color}
+                    asymmetry={sw.asymmetry}
+                    directionBias={sw.directionBias}
                     onComplete={() => removeShockwave(sw.id)}
                 />
             ))}

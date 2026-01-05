@@ -30,6 +30,9 @@ export interface ShockwaveEffect {
     maxRadius: number;
     color: string;
     duration: number;
+    // Asymmetry parameters for realistic supernova remnant shapes
+    asymmetry?: number; // 0.0 - 1.0, default 0 (perfectly symmetric)
+    directionBias?: { x: number; y: number; z: number }; // Normalized direction vector
 }
 
 // Heat glow effect after collision/merger

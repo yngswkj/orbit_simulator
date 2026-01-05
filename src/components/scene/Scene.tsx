@@ -484,9 +484,10 @@ const SceneContent = () => {
         ? Math.min(window.devicePixelRatio * perfConfig.pixelRatioMultiplier, 2)
         : 1;
 
-    const handleWebGLError = React.useCallback((error: any) => {
+    const handleWebGLError = React.useCallback((error: Error | unknown) => {
         console.error('WebGL initialization error:', error);
-        setWebglError(error?.message || 'WebGL failed to initialize');
+        const errorMessage = error instanceof Error ? error.message : 'WebGL failed to initialize';
+        setWebglError(errorMessage);
     }, []);
 
     if (webglError) {
