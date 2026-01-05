@@ -82,7 +82,7 @@ export const RadialRaysEffect: React.FC<RadialRaysEffectProps> = ({
 
     // Create individual ray meshes
     const rays = useMemo(() => {
-        const raysArray: JSX.Element[] = [];
+        const raysArray: React.ReactElement[] = [];
 
         for (let i = 0; i < rayCount; i++) {
             const angle = (i / rayCount) * Math.PI * 2;
