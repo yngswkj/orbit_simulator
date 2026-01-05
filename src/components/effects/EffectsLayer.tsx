@@ -13,6 +13,7 @@ import { DebrisRenderer } from './DebrisRenderer';
 import { SupernovaEffect } from './SupernovaEffect';
 import { RadialRaysEffect } from './RadialRaysEffect';
 import { CameraShakeEffect } from './CameraShakeEffect';
+import { GammaRayBurst } from './GammaRayBurst';
 
 export const EffectsLayer: React.FC = () => {
     const shockwaves = useEffectsStore(state => state.shockwaves);
@@ -21,6 +22,7 @@ export const EffectsLayer: React.FC = () => {
     const supernovas = useEffectsStore(state => state.supernovas);
     const radialRays = useEffectsStore(state => state.radialRays);
     const cameraShakes = useEffectsStore(state => state.cameraShakes);
+    const gammaRayBursts = useEffectsStore(state => state.gammaRayBursts);
 
     const removeShockwave = useEffectsStore(state => state.removeShockwave);
     const removeHeatGlow = useEffectsStore(state => state.removeHeatGlow);
@@ -28,6 +30,7 @@ export const EffectsLayer: React.FC = () => {
     const removeSupernova = useEffectsStore(state => state.removeSupernova);
     const removeRadialRays = useEffectsStore(state => state.removeRadialRays);
     const removeCameraShake = useEffectsStore(state => state.removeCameraShake);
+    const removeGammaRayBurst = useEffectsStore(state => state.removeGammaRayBurst);
     const removeExpiredEffects = useEffectsStore(state => state.removeExpiredEffects);
 
     // Periodic cleanup of expired effects
@@ -123,6 +126,18 @@ export const EffectsLayer: React.FC = () => {
                     intensity={cs.intensity}
                     falloff={cs.falloff}
                     onComplete={() => removeCameraShake(cs.id)}
+                />
+            ))}
+
+            {/* Gamma-Ray Bursts */}
+            {gammaRayBursts.map(grb => (
+                <GammaRayBurst
+                    key={grb.id}
+                    position={grb.position}
+                    startTime={grb.startTime}
+                    duration={grb.duration}
+                    length={grb.length}
+                    onComplete={() => removeGammaRayBurst(grb.id)}
                 />
             ))}
 

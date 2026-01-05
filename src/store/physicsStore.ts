@@ -367,6 +367,51 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             star.color
         );
 
+        // Apply shockwave force to nearby bodies
+        const shockwaveRadius = star.radius * 100 * Math.pow(star.mass / 100000, 0.4);
+        const shockwaveForce = star.mass * 0.5; // Base force proportional to mass
+
+        const updatedBodies = bodies.map(body => {
+            if (body.id === starId) return body; // Skip the exploding star itself
+
+            // Calculate distance from explosion
+            const dx = body.position.x - star.position.x;
+            const dy = body.position.y - star.position.y;
+            const dz = body.position.z - star.position.z;
+            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+            // Only affect bodies within shockwave radius
+            if (distance > shockwaveRadius || distance < 0.001) return body;
+
+            // Force decreases with distance (inverse square)
+            const forceMagnitude = shockwaveForce / (distance * distance);
+
+            // Direction: away from explosion
+            const dirX = dx / distance;
+            const dirY = dy / distance;
+            const dirZ = dz / distance;
+
+            // Apply impulse (F * dt, but we use a fixed impulse for instant effect)
+            // Smaller bodies get pushed more (F = ma, so a = F/m)
+            const accelerationMagnitude = forceMagnitude / Math.max(body.mass, 1);
+
+            return {
+                ...body,
+                velocity: {
+                    x: body.velocity.x + dirX * accelerationMagnitude,
+                    y: body.velocity.y + dirY * accelerationMagnitude,
+                    z: body.velocity.z + dirZ * accelerationMagnitude
+                }
+            };
+        });
+
+        // Update all bodies with new velocities
+        set({
+            bodies: updatedBodies,
+            physicsState: null, // Invalidate physics state to resync
+            gpuDataInvalidated: true
+        });
+
         // Create supernova event record
         const supernovaEvent: SupernovaEvent = {
             id: uuidv4(),
@@ -411,6 +456,54 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                         tilt: 0.3
                     }
                 };
+
+                // Apply gravitational pull to nearby bodies when black hole forms
+                const pullRadius = supernovaEvent.shockwaveRadius * 0.8;
+                const blackHoleMass = currentStar.mass; // Black hole retains full mass
+                const pullStrength = blackHoleMass * 0.3; // Strong gravitational pull
+
+                const bodiesWithPull = currentState.bodies.map(body => {
+                    if (body.id === starId) return body;
+
+                    // Calculate distance from black hole
+                    const dx = currentStar.position.x - body.position.x;
+                    const dy = currentStar.position.y - body.position.y;
+                    const dz = currentStar.position.z - body.position.z;
+                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                    // Only affect bodies within pull radius
+                    if (distance > pullRadius || distance < currentStar.radius * 5) return body;
+
+                    // Gravitational acceleration toward black hole (inverse square law)
+                    const pullMagnitude = pullStrength / (distance * distance);
+
+                    // Direction: toward black hole
+                    const dirX = dx / distance;
+                    const dirY = dy / distance;
+                    const dirZ = dz / distance;
+
+                    // Apply velocity change (lighter bodies affected more)
+                    const velocityDelta = pullMagnitude / Math.max(body.mass, 1);
+
+                    return {
+                        ...body,
+                        velocity: {
+                            x: body.velocity.x + dirX * velocityDelta,
+                            y: body.velocity.y + dirY * velocityDelta,
+                            z: body.velocity.z + dirZ * velocityDelta
+                        }
+                    };
+                });
+
+                // Apply the gravitational effects before updating to remnant
+                set((state) => ({
+                    bodies: bodiesWithPull.map(b =>
+                        b.id === starId ? { ...b, ...remnant } : b
+                    ),
+                    physicsState: null,
+                    gpuDataInvalidated: true
+                }));
+                return;
             } else if (supernovaEvent.remnantType === 'neutron-star') {
                 remnant = {
                     name: `${currentStar.name} (Neutron Star)`,

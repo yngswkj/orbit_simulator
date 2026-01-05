@@ -44,9 +44,13 @@ export const DebrisRenderer: React.FC = () => {
 
     const material = useMemo(() => {
         return new THREE.MeshStandardMaterial({
-            roughness: 0.9,
-            metalness: 0.1,
-            flatShading: true
+            roughness: 0.6,
+            metalness: 0.3,
+            flatShading: true,
+            emissive: new THREE.Color('#ff6600'),
+            emissiveIntensity: 0.0, // Will be set per-instance via color
+            transparent: true,
+            opacity: 1.0
         });
     }, []);
 
@@ -85,18 +89,33 @@ export const DebrisRenderer: React.FC = () => {
             dummy.rotation.y += p.rotationSpeed.y * delta;
             dummy.rotation.z += p.rotationSpeed.z * delta;
 
-            // Scale (shrink as it ages)
-            const scale = p.size * (1 - age * 0.5);
+            // Scale with slight pulsing effect when young
+            const pulseEffect = age < 0.3 ? 1 + Math.sin(age * 30) * 0.1 : 1;
+            const scale = p.size * (1 - age * 0.3) * pulseEffect;
             dummy.scale.setScalar(Math.max(scale, 0.01));
 
             dummy.updateMatrix();
             meshRef.current.setMatrixAt(i, dummy.matrix);
 
-            // Color with gamma-corrected fade for more natural color transition
-            const color = new THREE.Color(p.color);
-            const fade = Math.pow(1 - age, EFFECT_CONSTANTS.GAMMA_CORRECTION) * 0.7 + 0.3;
-            color.multiplyScalar(fade);
-            meshRef.current.setColorAt(i, color);
+            // Enhanced color with hot-to-cool transition
+            const baseColor = new THREE.Color(p.color);
+
+            // Emissive glow (hot when young, cools over time)
+            const glowIntensity = Math.pow(1 - age, 2) * 3; // Strong glow when young
+            const glowColor = new THREE.Color().setHSL(
+                0.05 + age * 0.15, // Hue: orange to red
+                1.0 - age * 0.3,   // Saturation: decreases with age
+                0.5 + glowIntensity * 0.2 // Lightness: brighter when glowing
+            );
+
+            // Mix base color with glow
+            const finalColor = baseColor.clone().lerp(glowColor, Math.min(glowIntensity * 0.3, 1));
+
+            // Opacity fade (sharp fade at the end)
+            const opacityFade = age < 0.8 ? 1.0 : Math.pow((1 - age) / 0.2, 2);
+            finalColor.multiplyScalar(opacityFade);
+
+            meshRef.current.setColorAt(i, finalColor);
         }
 
         // Hide unused instances

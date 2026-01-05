@@ -15,7 +15,8 @@ import type {
     CollisionEventData,
     SupernovaEffect,
     RadialRaysEffect,
-    CameraShakeEffect
+    CameraShakeEffect,
+    GammaRayBurstEffect
 } from '../types/effects';
 
 interface EffectsStore {
@@ -28,6 +29,7 @@ interface EffectsStore {
     supernovas: SupernovaEffect[];
     radialRays: RadialRaysEffect[];
     cameraShakes: CameraShakeEffect[];
+    gammaRayBursts: GammaRayBurstEffect[];
 
     // Actions - Shockwaves
     addShockwave: (
@@ -120,6 +122,14 @@ interface EffectsStore {
     ) => string;
     removeCameraShake: (id: string) => void;
 
+    // Actions - Gamma-Ray Burst
+    addGammaRayBurst: (
+        position: { x: number; y: number; z: number },
+        length: number,
+        duration?: number
+    ) => string;
+    removeGammaRayBurst: (id: string) => void;
+
     // High-level action - Trigger collision effects
     triggerCollisionEffects: (data: CollisionEventData) => void;
 
@@ -137,6 +147,7 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
     supernovas: [],
     radialRays: [],
     cameraShakes: [],
+    gammaRayBursts: [],
 
     // Shockwave actions
     addShockwave: (position, maxRadius, color = '#ffaa00', duration = 2000) => {
@@ -394,13 +405,37 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
         }));
     },
 
+    // Gamma-ray burst actions
+    addGammaRayBurst: (position, length, duration = 8000) => {
+        const id = uuidv4();
+        set(state => ({
+            gammaRayBursts: [...state.gammaRayBursts, {
+                id,
+                position,
+                startTime: performance.now(),
+                duration,
+                length
+            }]
+        }));
+        return id;
+    },
+
+    removeGammaRayBurst: (id) => {
+        set(state => ({
+            gammaRayBursts: state.gammaRayBursts.filter(g => g.id !== id)
+        }));
+    },
+
     // High-level supernova trigger with complete visual sequence
     triggerSupernova: (starId, position, starMass, starRadius, starColor) => {
-        const { addSupernova, addShockwave, addDebrisCloud, addExplosion, addRadialRays, addCameraShake } = get();
+        const { addSupernova, addShockwave, addDebrisCloud, addExplosion, addRadialRays, addCameraShake, addGammaRayBurst } = get();
 
         // Calculate explosion parameters based on star mass
         const explosionScale = Math.pow(starMass / 100000, 0.4); // Scale with mass
         const shockwaveRadius = starRadius * 100 * explosionScale;
+
+        // Determine if this will form a black hole (very massive stars)
+        const willFormBlackHole = starMass > 200000;
 
         // 1. Add main supernova effect (brightening -> explosion -> fading)
         addSupernova(
@@ -536,6 +571,19 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
                 starRadius * 1.5
             );
         }, 7000);
+
+        // 14. Gamma-ray burst (only for black hole formation)
+        // Triggered during core collapse into black hole
+        if (willFormBlackHole) {
+            setTimeout(() => {
+                const jetLength = shockwaveRadius * 3; // Very long relativistic jets
+                addGammaRayBurst(
+                    position,
+                    jetLength,
+                    10000 // 10 second duration
+                );
+            }, 11000); // At 11s, near end of supernova but before fade
+        }
     },
 
     // High-level collision effect trigger
@@ -617,6 +665,9 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
             ),
             cameraShakes: state.cameraShakes.filter(c =>
                 now - c.startTime < c.duration
+            ),
+            gammaRayBursts: state.gammaRayBursts.filter(g =>
+                now - g.startTime < g.duration
             )
         }));
 
@@ -633,7 +684,8 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
             explosions: [],
             supernovas: [],
             radialRays: [],
-            cameraShakes: []
+            cameraShakes: [],
+            gammaRayBursts: []
         });
     }
 }));

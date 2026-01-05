@@ -113,3 +113,12 @@ export interface CameraShakeEffect {
     intensity: number;
     falloff: 'linear' | 'exponential';
 }
+
+// Gamma-ray burst effect
+export interface GammaRayBurstEffect {
+    id: string;
+    position: { x: number; y: number; z: number };
+    startTime: number;
+    duration: number;
+    length: number;
+}
