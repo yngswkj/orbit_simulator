@@ -465,9 +465,6 @@ export const SUPERNOVA_SYSTEM: StarSystemPreset = {
         target: [0, 0, 0]
     },
     createBodies: () => {
-        // Helper to resolve texture path
-        const getTexture = (filename: string) => `${import.meta.env.BASE_URL}textures/${filename}`;
-
         const SUPERGIANT_MASS = SUN_MASS * 20; // 20 solar masses (Type II supernova candidate)
         const PLANET_MASS = 300; // Gas giant
 
@@ -492,7 +489,6 @@ export const SUPERNOVA_SYSTEM: StarSystemPreset = {
                 position: new Vector3(80, 0, 0),
                 velocity: new Vector3(0, 0, Math.sqrt(SUPERGIANT_MASS / 80) * 0.95),
                 color: '#cc8844',
-                texturePath: getTexture('jupiter.jpg'),
                 type: 'planet'
             },
             // Outer planet (safer distance)
@@ -503,7 +499,6 @@ export const SUPERNOVA_SYSTEM: StarSystemPreset = {
                 position: new Vector3(0, 0, 150),
                 velocity: new Vector3(Math.sqrt(SUPERGIANT_MASS / 150) * 0.98, 0, 0),
                 color: '#6688aa',
-                texturePath: getTexture('neptune.jpg'),
                 type: 'planet'
             },
             // Inner rocky planet (doomed)
@@ -514,7 +509,6 @@ export const SUPERNOVA_SYSTEM: StarSystemPreset = {
                 position: new Vector3(-45, 0, 0),
                 velocity: new Vector3(0, 0, -Math.sqrt(SUPERGIANT_MASS / 45)),
                 color: '#dd6633',
-                texturePath: getTexture('mars.jpg'),
                 type: 'planet'
             }
         ];
