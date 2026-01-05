@@ -103,20 +103,17 @@ export const SupernovaEffect: React.FC<SupernovaEffectProps> = ({
 
     // Error handling for shader compilation
     React.useEffect(() => {
-        if (materialRef.current) {
-            const material = materialRef.current;
-            // Check if shader compiled successfully
-            const onError = () => {
-                console.warn('SupernovaEffect shader failed to compile, using fallback');
+        // WebGL error handling is done at the Canvas level
+        // This effect is kept for future WebGL context checks if needed
+        const handleError = (event: ErrorEvent) => {
+            if (event.message && event.message.includes('WebGL')) {
+                console.warn('SupernovaEffect: WebGL error detected, using fallback');
                 setHasError(true);
-            };
-
-            // Listen for WebGL errors
-            if (material.program) {
-                const gl = material.program.getUniforms();
-                if (!gl) onError();
             }
-        }
+        };
+
+        window.addEventListener('error', handleError);
+        return () => window.removeEventListener('error', handleError);
     }, []);
 
     useFrame(() => {
