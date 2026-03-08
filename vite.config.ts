@@ -2,11 +2,11 @@ import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
 const MANUAL_CHUNK_GROUPS: Array<[string, string[]]> = [
-  ['react-vendor', ['react', 'react-dom', 'react/jsx-runtime']],
+  ['react-vendor', ['react', 'react-dom', 'react/jsx-runtime', 'scheduler']],
   ['three-core', ['three']],
   ['three-ecosystem', ['@react-three/fiber', '@react-three/drei', '@react-three/postprocessing', 'postprocessing']],
   ['ui-vendor', ['lucide-react', 'react-joyride', 'leva']],
-  ['state-vendor', ['zustand', 'uuid', 'type-fest']],
+  ['state-vendor', ['zustand', 'uuid', 'type-fest', 'use-sync-external-store']],
   ['animation-vendor', ['gsap']],
 ]
 
