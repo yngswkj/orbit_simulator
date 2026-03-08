@@ -7,6 +7,12 @@ import { SpatialHashGrid, calculateOptimalCellSize } from './spatialHash';
 // Physics constants
 const { G, SOFTENING_SQ } = PHYSICS_CONSTANTS;
 export const BASE_DT = PHYSICS_CONSTANTS.BASE_DT;
+export const REALISTIC_DISTANCE_DT_MULTIPLIER = 8.0;
+
+export const getSimulationStepDt = (
+    timeScale: number,
+    useRealisticDistances: boolean
+): number => BASE_DT * timeScale * (useRealisticDistances ? REALISTIC_DISTANCE_DT_MULTIPLIER : 1);
 
 // Object Pool for Vector3 to reduce GC overhead
 const vectorPool = {
@@ -48,6 +54,8 @@ export const createPhysicsState = (bodies: CelestialBody[]): PhysicsState => {
         state.ids[i] = body.id;
         state.idToIndex.set(body.id, i);
     });
+
+    initializeAccelerations(state);
 
     return state;
 };
@@ -149,6 +157,18 @@ const calculateAccelerationsSoA = (state: PhysicsState): void => {
             accelerations[j3 + 2] -= fz * mi;
         }
     }
+};
+
+export const initializeAccelerations = (
+    state: PhysicsState,
+    useBarnesHut: boolean = false
+): void => {
+    if (useBarnesHut) {
+        calculateAccelerationsBarnesHut(state);
+        return;
+    }
+
+    calculateAccelerationsSoA(state);
 };
 
 const removeBodyAt = (state: PhysicsState, index: number): void => {

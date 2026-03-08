@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
-import { BASE_DT } from '../../utils/physics';
+import { getSimulationStepDt } from '../../utils/physics';
 import { Vector3, CatmullRomCurve3 } from 'three';
 import { Line } from '@react-three/drei';
 
@@ -16,27 +16,6 @@ const getUpdateInterval = (timeScale: number): number => {
     if (timeScale >= 2) return 100;   // 10fps (default)
     if (timeScale >= 1) return 150;   // 6.7fps for normal speed
     return 200;                        // 5fps for slow simulation
-};
-
-// Worker singleton
-let predictionWorker: Worker | null = null;
-let pendingRequest = false;
-
-const getPredictionWorker = (): Worker | null => {
-    if (typeof window === 'undefined') return null;
-
-    if (!predictionWorker) {
-        try {
-            predictionWorker = new Worker(
-                new URL('../../workers/predictionWorker.ts', import.meta.url),
-                { type: 'module' }
-            );
-        } catch {
-            console.warn('Prediction worker not available, using main thread fallback');
-            return null;
-        }
-    }
-    return predictionWorker;
 };
 
 interface PathData {
@@ -78,20 +57,32 @@ export const OrbitPrediction: React.FC = () => {
     const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
 
     const [paths, setPaths] = React.useState<PathData[]>([]);
+    const workerRef = React.useRef<Worker | null>(null);
+    const pendingRequestRef = React.useRef(false);
 
     // Reset paths when distance scale changes
     React.useEffect(() => {
         setPaths([]);
     }, [useRealisticDistances]);
 
-    // Worker message handler
+    // Worker lifecycle
     React.useEffect(() => {
-        const worker = getPredictionWorker();
-        if (!worker) return;
+        if (typeof window === 'undefined') return;
+
+        try {
+            workerRef.current = new Worker(
+                new URL('../../workers/predictionWorker.ts', import.meta.url),
+                { type: 'module' }
+            );
+        } catch {
+            console.warn('Prediction worker not available, using main thread fallback');
+            workerRef.current = null;
+            return;
+        }
 
         const handleMessage = (e: MessageEvent) => {
             if (e.data.type === 'result') {
-                pendingRequest = false;
+                pendingRequestRef.current = false;
                 const result = e.data.paths.map((p: { id: string; points: number[][]; color: string }) => ({
                     id: p.id,
                     points: p.points.map((pt: number[]) => new Vector3(pt[0], pt[1], pt[2])),
@@ -101,9 +92,17 @@ export const OrbitPrediction: React.FC = () => {
             }
         };
 
+        const worker = workerRef.current;
+        if (!worker) return;
+
         worker.addEventListener('message', handleMessage);
         return () => {
+            pendingRequestRef.current = false;
             worker.removeEventListener('message', handleMessage);
+            worker.terminate();
+            if (workerRef.current === worker) {
+                workerRef.current = null;
+            }
         };
     }, []);
 
@@ -114,15 +113,19 @@ export const OrbitPrediction: React.FC = () => {
         const updateInterval = getUpdateInterval(timeScale);
 
         const interval = setInterval(() => {
-            const currentBodies = usePhysicsStore.getState().bodies;
+            const currentState = usePhysicsStore.getState();
+            const currentBodies = currentState.bodies;
             if (currentBodies.length === 0) return;
 
-            const worker = getPredictionWorker();
-            const dt = BASE_DT * TIME_MULTIPLIER;
+            const worker = workerRef.current;
+            const dt = getSimulationStepDt(
+                currentState.timeScale,
+                currentState.useRealisticDistances
+            ) * TIME_MULTIPLIER;
 
-            if (worker && !pendingRequest) {
+            if (worker && !pendingRequestRef.current) {
                 // Use Worker for calculation
-                pendingRequest = true;
+                pendingRequestRef.current = true;
 
                 const bodyData = currentBodies.map(b => ({
                     id: b.id,
@@ -145,7 +148,10 @@ export const OrbitPrediction: React.FC = () => {
             // If worker is unavailable, prediction lines won't update
         }, updateInterval);
 
-        return () => clearInterval(interval);
+        return () => {
+            clearInterval(interval);
+            pendingRequestRef.current = false;
+        };
     }, [simulationState, timeScale, bodiesLength]);
 
     return (

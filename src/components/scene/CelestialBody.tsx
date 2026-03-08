@@ -106,9 +106,16 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
     const showRealistic = usePhysicsStore(state => state.showRealisticVisuals);
     const showGrid = usePhysicsStore(state => state.showGrid);
     const simulationTime = usePhysicsStore(state => state.simulationTime);
+    const qualityLevel = usePhysicsStore(state => state.qualityLevel);
+    const bodyCount = usePhysicsStore(state => state.bodies.length);
+    const selectedBodyId = usePhysicsStore(state => state.selectedBodyId);
+    const followingBodyId = usePhysicsStore(state => state.followingBodyId);
+    const selectBody = usePhysicsStore(state => state.selectBody);
+    const cameraMode = usePhysicsStore(state => state.cameraMode);
 
     const groupRef = React.useRef<Group>(null);
     const meshRef = React.useRef<Mesh>(null);
+    const perfConfig = getPerformanceConfig(qualityLevel);
 
     const positionVector = useMemo(() => new Vector3(body.position.x, body.position.y, body.position.z), [body.position]);
 
@@ -151,14 +158,6 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
         return 'terrestrial';
     }, [body.mass, body.position.x, body.position.z, body.name]);
 
-    const [trailReady, setTrailReady] = React.useState(false);
-    React.useEffect(() => {
-        const timer = setTimeout(() => {
-            setTrailReady(true);
-        }, 600);
-        return () => clearTimeout(timer);
-    }, []);
-
     useFrame(() => {
         if (meshRef.current && body.rotationSpeed) {
             const EARTH_YEAR_RAD = 2300;
@@ -166,12 +165,32 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
         }
     });
 
-    const selectBody = usePhysicsStore(state => state.selectBody);
-    const cameraMode = usePhysicsStore(state => state.cameraMode);
-    const followingBodyId = usePhysicsStore(state => state.followingBodyId);
-
     const isSurfaceView = cameraMode === 'surface_lock';
     const isSelf = isSurfaceView && followingBodyId === body.id;
+    const isFocusedBody = body.id === selectedBodyId || body.id === followingBodyId;
+    const shouldShowLabel = !isSelf && (
+        isFocusedBody ||
+        bodyCount <= perfConfig.maxVisibleLabels ||
+        (body.isStar && bodyCount <= perfConfig.maxVisibleStarLabels)
+    );
+    const shouldShowTrail = !isSelf && (
+        isFocusedBody ||
+        bodyCount <= perfConfig.maxTrailedBodies
+    );
+    const [trailReady, setTrailReady] = React.useState(false);
+
+    React.useEffect(() => {
+        if (!shouldShowTrail) {
+            setTrailReady(false);
+            return;
+        }
+
+        const timer = setTimeout(() => {
+            setTrailReady(true);
+        }, 600);
+
+        return () => clearTimeout(timer);
+    }, [shouldShowTrail]);
 
     const handleClick = (e: ThreeEvent<MouseEvent>) => {
         if (isSurfaceView) return;
@@ -238,25 +257,27 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                     )}
                 </group>
 
-                <Html
-                    position={[0, body.radius + 1.5, 0]}
-                    center
-                    zIndexRange={[1000, 0]}
-                    style={{
-                        color: 'white',
-                        fontSize: '14px',
-                        fontFamily: 'system-ui, sans-serif',
-                        textShadow: '0 0 4px black, 0 0 2px black',
-                        whiteSpace: 'nowrap',
-                        pointerEvents: 'none',
-                        userSelect: 'none',
-                    }}
-                >
-                    {body.name}
-                </Html>
+                {shouldShowLabel && (
+                    <Html
+                        position={[0, body.radius + 1.5, 0]}
+                        center
+                        zIndexRange={[1000, 0]}
+                        style={{
+                            color: 'white',
+                            fontSize: '14px',
+                            fontFamily: 'system-ui, sans-serif',
+                            textShadow: '0 0 4px black, 0 0 2px black',
+                            whiteSpace: 'nowrap',
+                            pointerEvents: 'none',
+                            userSelect: 'none',
+                        }}
+                    >
+                        {body.name}
+                    </Html>
+                )}
             </group>
 
-            {trailReady && (
+            {shouldShowTrail && trailReady && (
                 <ConstantWidthTrail
                     position={positionVector}
                     color={body.color}

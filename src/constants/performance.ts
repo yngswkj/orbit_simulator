@@ -16,6 +16,9 @@ export interface PerformanceConfig {
     trailRecentPoints: number;
     trailCompressedPoints: number;
     trailCompressionRatio: number;
+    maxVisibleLabels: number;
+    maxTrailedBodies: number;
+    maxVisibleStarLabels: number;
 
     // Starfield
     starfieldSegments: [number, number]; // [width, height]
@@ -49,6 +52,9 @@ export const PERFORMANCE_CONFIGS: Record<QualityLevel, PerformanceConfig> = {
         trailRecentPoints: 30,
         trailCompressedPoints: 60,
         trailCompressionRatio: 6,
+        maxVisibleLabels: 8,
+        maxTrailedBodies: 4,
+        maxVisibleStarLabels: 12,
 
         // Starfield (minimal)
         starfieldSegments: [24, 24],
@@ -81,6 +87,9 @@ export const PERFORMANCE_CONFIGS: Record<QualityLevel, PerformanceConfig> = {
         trailRecentPoints: 45,
         trailCompressedPoints: 90,
         trailCompressionRatio: 5,
+        maxVisibleLabels: 12,
+        maxTrailedBodies: 8,
+        maxVisibleStarLabels: 20,
 
         // Starfield
         starfieldSegments: [32, 32],
@@ -113,6 +122,9 @@ export const PERFORMANCE_CONFIGS: Record<QualityLevel, PerformanceConfig> = {
         trailRecentPoints: 60,
         trailCompressedPoints: 120,
         trailCompressionRatio: 4,
+        maxVisibleLabels: 20,
+        maxTrailedBodies: 12,
+        maxVisibleStarLabels: 32,
 
         // Starfield
         starfieldSegments: [64, 64],
@@ -143,6 +155,9 @@ export const PERFORMANCE_CONFIGS: Record<QualityLevel, PerformanceConfig> = {
         trailRecentPoints: 45,
         trailCompressedPoints: 90,
         trailCompressionRatio: 5,
+        maxVisibleLabels: 12,
+        maxTrailedBodies: 8,
+        maxVisibleStarLabels: 20,
         starfieldSegments: [32, 32],
         starfieldFBMOctaves: 3,
         starfieldRadius: 35000,

@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { CelestialBody, SimulationState, CameraMode, PhysicsState, TidalDisruptionEvent, LegacyCollisionEvent, CollisionEvent, SupernovaEvent } from '../types/physics';
 import type { StarSystemMode } from '../types/starSystem';
-import { updatePhysicsSoA, createPhysicsState, syncStateToBodies, BASE_DT, calculateTotalEnergy, applyCollisions } from '../utils/physics';
+import { updatePhysicsSoA, createPhysicsState, syncStateToBodies, getSimulationStepDt, calculateTotalEnergy, applyCollisions } from '../utils/physics';
 import { Vector3 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { createSolarSystem } from '../utils/solarSystem';
@@ -707,9 +707,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         // Correction: We actually want this applied regardless of CPU/GPU IF we want visual parity.
         // However, GPU/Worker might need dt passed explicitly.
         // Wait, 'useRealisticDistances' is state.
-        const distModeMultiplier = get().useRealisticDistances ? 8.0 : 1.0;
-
-        const dt = BASE_DT * timeScale * distModeMultiplier;
+        const dt = getSimulationStepDt(timeScale, get().useRealisticDistances);
 
         // Energy Calculation (Throttled 1Hz)
         const now = performance.now();
