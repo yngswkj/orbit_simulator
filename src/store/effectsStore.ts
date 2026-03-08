@@ -62,7 +62,6 @@ interface EffectsStore {
         baseSize: number,
         spreadSpeed: number
     ) => string;
-    updateDebris: (dt: number) => void;
     removeExpiredDebris: () => void;
     removeDebrisCloud: (id: string) => void;
 
@@ -243,6 +242,11 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
                     x: (Math.random() - 0.5) * 5,
                     y: (Math.random() - 0.5) * 5,
                     z: (Math.random() - 0.5) * 5
+                },
+                rotation: {
+                    x: Math.random() * Math.PI * 2,
+                    y: Math.random() * Math.PI * 2,
+                    z: Math.random() * Math.PI * 2
                 }
             });
         }
@@ -258,29 +262,6 @@ export const useEffectsStore = create<EffectsStore>((set, get) => ({
 
         return id;
     },
-
-    updateDebris: (dt) => {
-        set(state => ({
-            debrisClouds: state.debrisClouds.map(cloud => ({
-                ...cloud,
-                particles: cloud.particles.map(p => ({
-                    ...p,
-                    position: {
-                        x: p.position.x + p.velocity.x * dt,
-                        y: p.position.y + p.velocity.y * dt,
-                        z: p.position.z + p.velocity.z * dt
-                    },
-                    // Gradual slowdown (drag effect)
-                    velocity: {
-                        x: p.velocity.x * 0.998,
-                        y: p.velocity.y * 0.998,
-                        z: p.velocity.z * 0.998
-                    }
-                }))
-            }))
-        }));
-    },
-
     removeExpiredDebris: () => {
         const now = performance.now();
         set(state => ({

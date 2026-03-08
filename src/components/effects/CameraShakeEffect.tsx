@@ -30,11 +30,12 @@ export const CameraShakeEffect: React.FC<CameraShakeEffectProps> = ({
     // Store original camera position
     useEffect(() => {
         originalPosition.current.copy(camera.position);
+        const initialPosition = originalPosition.current.clone();
 
         return () => {
             // Restore original position on cleanup
             if (!completedRef.current) {
-                camera.position.copy(originalPosition.current);
+                camera.position.copy(initialPosition);
             }
         };
     }, [camera]);

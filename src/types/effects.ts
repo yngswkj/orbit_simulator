@@ -12,6 +12,7 @@ export interface DebrisParticle {
     createdAt: number;
     lifetime: number; // ms
     rotationSpeed: { x: number; y: number; z: number };
+    rotation: { x: number; y: number; z: number };
 }
 
 // Collection of debris particles from a single event

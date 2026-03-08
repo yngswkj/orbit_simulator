@@ -85,6 +85,11 @@ export const RadialRaysEffect: React.FC<RadialRaysEffectProps> = ({
     const groupRef = useRef<THREE.Group>(null);
     const instancedMeshRef = useRef<THREE.InstancedMesh>(null);
     const completedRef = useRef(false);
+    const tempMatrixRef = useRef(new THREE.Matrix4());
+    const tempPosRef = useRef(new THREE.Vector3());
+    const tempQuatRef = useRef(new THREE.Quaternion());
+    const tempScaleRef = useRef(new THREE.Vector3());
+    const rotationDummyRef = useRef(new THREE.Object3D());
 
     const rayCount = 12; // Number of rays
 
@@ -137,7 +142,7 @@ export const RadialRaysEffect: React.FC<RadialRaysEffectProps> = ({
         instancedMeshRef.current.geometry.setAttribute('instanceProgress', instanceProgress);
 
         instancedMeshRef.current.instanceMatrix.needsUpdate = true;
-    }, [rayCount]);
+    }, [dummy, rayCount]);
 
     useFrame(() => {
         if (completedRef.current || !instancedMeshRef.current) return;
@@ -166,15 +171,15 @@ export const RadialRaysEffect: React.FC<RadialRaysEffectProps> = ({
             instanceProgressAttr.setX(i, easedProgress);
 
             // Slight rotation animation for each ray
-            const tempMatrix = new THREE.Matrix4();
+            const tempMatrix = tempMatrixRef.current;
+            const tempPos = tempPosRef.current;
+            const tempQuat = tempQuatRef.current;
+            const tempScale = tempScaleRef.current;
+            const rotationDummy = rotationDummyRef.current;
+
             instancedMeshRef.current.getMatrixAt(i, tempMatrix);
-            const tempPos = new THREE.Vector3();
-            const tempQuat = new THREE.Quaternion();
-            const tempScale = new THREE.Vector3();
             tempMatrix.decompose(tempPos, tempQuat, tempScale);
 
-            // Create temporary object for rotation update
-            const rotationDummy = new THREE.Object3D();
             rotationDummy.position.copy(tempPos);
             rotationDummy.quaternion.copy(tempQuat);
             rotationDummy.scale.copy(tempScale);

@@ -3,15 +3,18 @@ import { useFrame, type ThreeEvent } from '@react-three/fiber';
 import { Sphere, useTexture, Line, Html } from '@react-three/drei';
 import { usePhysicsStore } from '../../store/physicsStore';
 import type { CelestialBody as BodyType } from '../../types/physics';
-import { Vector3, CatmullRomCurve3, Group, Mesh } from 'three';
+import { Group, Mesh, Vector3 } from 'three';
 import { AccretionDisk } from '../effects/AccretionDisk';
 import { RelativisticJet } from '../effects/RelativisticJet';
 import { ProceduralPlanet } from './ProceduralPlanet';
 import { getPerformanceConfig } from '../../constants/performance';
+import type { Line2 } from 'three-stdlib';
 
 interface CelestialBodyProps {
     body: BodyType;
 }
+
+const EMPTY_LINE_POSITIONS = [0, 0, 0, 0, 0, 0];
 
 // Separate component since useTexture suspends
 const TextureOrb = ({ body }: { body: BodyType }) => {
@@ -30,25 +33,13 @@ const TextureOrb = ({ body }: { body: BodyType }) => {
     );
 };
 
-// Spline interpolation for smooth curves (memoized)
-const useSplinePoints = (controlPoints: Vector3[], segments: number): Vector3[] => {
-    return useMemo(() => {
-        if (controlPoints.length < 4) return controlPoints;
-        try {
-            const curve = new CatmullRomCurve3(controlPoints, false, 'catmullrom', 0.5);
-            return curve.getPoints(segments);
-        } catch {
-            return controlPoints;
-        }
-    }, [controlPoints, segments]);
-};
-
 // Internal component for constant width trail with LOD compression
 const ConstantWidthTrail = ({ position, color }: { position: Vector3, color: string }) => {
     const recentPoints = React.useRef<Vector3[]>([]);
     const compressedPoints = React.useRef<Vector3[]>([]);
-    const [renderPoints, setRenderPoints] = React.useState<Vector3[]>([]);
     const frameCount = React.useRef(0);
+    const lineRef = React.useRef<Line2>(null);
+    const positionBufferRef = React.useRef<number[]>([]);
     const useRealisticDistances = usePhysicsStore(state => state.useRealisticDistances);
     const resetToken = usePhysicsStore(state => state.resetToken);
     const simulationState = usePhysicsStore(state => state.simulationState);
@@ -63,15 +54,27 @@ const ConstantWidthTrail = ({ position, color }: { position: Vector3, color: str
         COMPRESS_RATIO: perfConfig.trailCompressionRatio,
         COMPRESS_TRIGGER: Math.floor(perfConfig.trailRecentPoints * 1.33)
     };
+    const maxTrailPoints = TRAIL_CONFIG.RECENT_MAX + TRAIL_CONFIG.COMPRESSED_MAX;
+
+    const syncTrailGeometry = React.useCallback((positions: number[]) => {
+        if (!lineRef.current) return;
+
+        const nextPositions = positions.length >= 6 ? positions : EMPTY_LINE_POSITIONS;
+        lineRef.current.geometry.setPositions(nextPositions);
+        lineRef.current.computeLineDistances();
+    }, []);
 
     React.useEffect(() => {
         recentPoints.current = [];
         compressedPoints.current = [];
-        setRenderPoints([]);
-    }, [useRealisticDistances, resetToken]);
+        frameCount.current = 0;
+        positionBufferRef.current.length = 0;
+        syncTrailGeometry(positionBufferRef.current);
+    }, [resetToken, syncTrailGeometry, useRealisticDistances]);
 
     useFrame(() => {
-        if (simulationState !== 'running') return;
+        if (simulationState !== 'running' || !lineRef.current) return;
+
         frameCount.current++;
         if (frameCount.current % TRAIL_CONFIG.RECENT_INTERVAL === 0) {
             recentPoints.current.push(position.clone());
@@ -84,16 +87,35 @@ const ConstantWidthTrail = ({ position, color }: { position: Vector3, color: str
                     compressedPoints.current.shift();
                 }
             }
-            setRenderPoints([...compressedPoints.current, ...recentPoints.current]);
         }
-    });
 
-    const smoothPoints = useSplinePoints(renderPoints, Math.min(renderPoints.length * 2, 400));
-    if (smoothPoints.length < 2) return null;
+        const trailPoints = [...compressedPoints.current, ...recentPoints.current];
+        const visiblePointCount = Math.min(trailPoints.length, maxTrailPoints);
+        const positionBuffer = positionBufferRef.current;
+
+        if (visiblePointCount < 2) {
+            positionBuffer.length = 0;
+            syncTrailGeometry(positionBuffer);
+            return;
+        }
+
+        positionBuffer.length = visiblePointCount * 3;
+
+        for (let i = 0; i < visiblePointCount; i++) {
+            const point = trailPoints[i];
+            const offset = i * 3;
+            positionBuffer[offset] = point.x;
+            positionBuffer[offset + 1] = point.y;
+            positionBuffer[offset + 2] = point.z;
+        }
+
+        syncTrailGeometry(positionBuffer);
+    });
 
     return (
         <Line
-            points={smoothPoints}
+            ref={lineRef}
+            points={[[0, 0, 0], [0, 0, 0]]}
             color={color}
             lineWidth={2.5}
             opacity={0.6}
