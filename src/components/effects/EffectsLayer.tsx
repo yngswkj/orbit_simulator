@@ -10,15 +10,27 @@ import { ShockwaveEffect } from './ShockwaveEffect';
 import { HeatGlowEffect } from './HeatGlowEffect';
 import { ExplosionEffect } from './ExplosionEffect';
 import { DebrisRenderer } from './DebrisRenderer';
+import { SupernovaEffect } from './SupernovaEffect';
+import { RadialRaysEffect } from './RadialRaysEffect';
+import { CameraShakeEffect } from './CameraShakeEffect';
+import { GammaRayBurst } from './GammaRayBurst';
 
 export const EffectsLayer: React.FC = () => {
     const shockwaves = useEffectsStore(state => state.shockwaves);
     const heatGlows = useEffectsStore(state => state.heatGlows);
     const explosions = useEffectsStore(state => state.explosions);
+    const supernovas = useEffectsStore(state => state.supernovas);
+    const radialRays = useEffectsStore(state => state.radialRays);
+    const cameraShakes = useEffectsStore(state => state.cameraShakes);
+    const gammaRayBursts = useEffectsStore(state => state.gammaRayBursts);
 
     const removeShockwave = useEffectsStore(state => state.removeShockwave);
     const removeHeatGlow = useEffectsStore(state => state.removeHeatGlow);
     const removeExplosion = useEffectsStore(state => state.removeExplosion);
+    const removeSupernova = useEffectsStore(state => state.removeSupernova);
+    const removeRadialRays = useEffectsStore(state => state.removeRadialRays);
+    const removeCameraShake = useEffectsStore(state => state.removeCameraShake);
+    const removeGammaRayBurst = useEffectsStore(state => state.removeGammaRayBurst);
     const removeExpiredEffects = useEffectsStore(state => state.removeExpiredEffects);
 
     // Periodic cleanup of expired effects
@@ -46,6 +58,8 @@ export const EffectsLayer: React.FC = () => {
                     duration={sw.duration}
                     maxRadius={sw.maxRadius}
                     color={sw.color}
+                    asymmetry={sw.asymmetry}
+                    directionBias={sw.directionBias}
                     onComplete={() => removeShockwave(sw.id)}
                 />
             ))}
@@ -74,6 +88,67 @@ export const EffectsLayer: React.FC = () => {
                     color={exp.color}
                     particleCount={exp.particleCount}
                     onComplete={() => removeExplosion(exp.id)}
+                />
+            ))}
+
+            {/* Supernovas */}
+            {supernovas.map(sn => (
+                <SupernovaEffect
+                    key={sn.id}
+                    position={sn.position}
+                    startTime={sn.startTime}
+                    duration={sn.duration}
+                    maxRadius={sn.maxRadius}
+                    color={sn.color}
+                    intensity={sn.intensity}
+                    coreRadius={sn.coreRadius}
+                    haloRadius={sn.haloRadius}
+                    shellCount={sn.shellCount}
+                    biasDirection={sn.biasDirection}
+                    onComplete={() => removeSupernova(sn.id)}
+                />
+            ))}
+
+            {/* Radial Rays */}
+            {radialRays.map(rr => (
+                <RadialRaysEffect
+                    key={rr.id}
+                    position={rr.position}
+                    startTime={rr.startTime}
+                    duration={rr.duration}
+                    rayCount={rr.rayCount}
+                    maxLength={rr.maxLength}
+                    color={rr.color}
+                    spread={rr.spread}
+                    pulseSpeed={rr.pulseSpeed}
+                    onComplete={() => removeRadialRays(rr.id)}
+                />
+            ))}
+
+            {/* Camera Shakes */}
+            {cameraShakes.map(cs => (
+                <CameraShakeEffect
+                    key={cs.id}
+                    startTime={cs.startTime}
+                    duration={cs.duration}
+                    intensity={cs.intensity}
+                    falloff={cs.falloff}
+                    onComplete={() => removeCameraShake(cs.id)}
+                />
+            ))}
+
+            {/* Gamma-Ray Bursts */}
+            {gammaRayBursts.map(grb => (
+                <GammaRayBurst
+                    key={grb.id}
+                    position={grb.position}
+                    startTime={grb.startTime}
+                    duration={grb.duration}
+                    length={grb.length}
+                    axis={grb.axis}
+                    width={grb.width}
+                    coreIntensity={grb.coreIntensity}
+                    onComplete={() => removeGammaRayBurst(grb.id)}
                 />
             ))}
 

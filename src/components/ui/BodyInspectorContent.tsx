@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { usePhysicsStore } from '../../store/physicsStore';
 import { useTranslation } from '../../utils/i18n';
-import { Trash2, Settings, ChevronDown, ChevronUp, X } from 'lucide-react';
+import { Trash2, Settings, ChevronDown, ChevronUp, X, Zap } from 'lucide-react';
 import { VectorInput } from './common/VectorInput';
 import { SafeInput } from './common/SafeInput';
 import type { CelestialBody } from '../../types/physics';
@@ -22,16 +22,24 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
     const setFollowingBody = usePhysicsStore(state => state.setFollowingBody);
     const followingBodyId = usePhysicsStore(state => state.followingBodyId);
     const pushHistoryAction = usePhysicsStore(state => state.pushHistoryAction);
-
-
+    const triggerSupernova = usePhysicsStore(state => state.triggerSupernova);
+    const supernovaEvents = usePhysicsStore(state => state.supernovaEvents);
+    const supernovaScenario = usePhysicsStore(state => state.supernovaScenario);
 
     const bodies = usePhysicsStore(state => state.bodies);
     const { t } = useTranslation();
     const { showToast } = useToast();
     const [isAdvancedOpen, setIsAdvancedOpen] = useState(true);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const [showSupernovaModal, setShowSupernovaModal] = useState(false);
 
     const sun = bodies.find(b => b.name === 'Sun');
+    const hasActiveSupernovaEvent = supernovaEvents.some(event => event.starId === selectedBody.id);
+    const isScenarioTarget = supernovaScenario.active && supernovaScenario.targetStarId === selectedBody.id;
+    const isSupernovaLocked = hasActiveSupernovaEvent || isScenarioTarget;
+    const remnantLabel = selectedBody.mass > 200000
+        ? t('supernova_remnant_label_black_hole')
+        : t('supernova_remnant_label_neutron_star');
     const distanceToSun = sun && selectedBody.id !== sun.id
         ? selectedBody.position.distanceTo(sun.position).toFixed(1)
         : '0.0';
@@ -362,6 +370,49 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
                         </button>
                     )}
                 </div>
+
+                {/* Supernova Button (for stars only) */}
+                {selectedBody.isStar && selectedBody.mass > 100000 && (
+                    <div style={{ marginTop: '8px' }}>
+                        <button
+                            onClick={() => setShowSupernovaModal(true)}
+                            disabled={isSupernovaLocked}
+                            style={{
+                                width: '100%',
+                                padding: '10px',
+                                background: isSupernovaLocked
+                                    ? 'linear-gradient(135deg, rgba(120, 120, 120, 0.15), rgba(80, 80, 80, 0.12))'
+                                    : 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(147, 51, 234, 0.2))',
+                                border: isSupernovaLocked
+                                    ? '1px solid rgba(255, 255, 255, 0.14)'
+                                    : '1px solid rgba(239, 68, 68, 0.4)',
+                                borderRadius: '6px',
+                                color: isSupernovaLocked ? 'rgba(255,255,255,0.5)' : '#ef4444',
+                                cursor: isSupernovaLocked ? 'not-allowed' : 'pointer',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                gap: '8px',
+                                fontWeight: 600,
+                                fontSize: '0.95rem',
+                                transition: 'all 0.2s'
+                            }}
+                            onMouseEnter={(e) => {
+                                if (isSupernovaLocked) return;
+                                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(147, 51, 234, 0.3))';
+                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.6)';
+                            }}
+                            onMouseLeave={(e) => {
+                                if (isSupernovaLocked) return;
+                                e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(147, 51, 234, 0.2))';
+                                e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
+                            }}
+                        >
+                            <Zap size={18} />
+                            {t('supernova_button')}
+                        </button>
+                    </div>
+                )}
             </div>
 
             <ConfirmModal
@@ -378,6 +429,23 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
                 danger={true}
                 confirmText={t('delete_confirm')}
                 cancelText={t('delete_cancel')}
+            />
+
+            <ConfirmModal
+                isOpen={showSupernovaModal}
+                title={`⭐ ${t('supernova_modal_title')}`}
+                message={t('supernova_modal_message')
+                    .replace('{name}', selectedBody.name)
+                    .replace('{remnant}', remnantLabel)}
+                onConfirm={() => {
+                    triggerSupernova(selectedBody.id);
+                    showToast(t('supernova_toast_triggered').replace('{name}', selectedBody.name), 'success');
+                    setShowSupernovaModal(false);
+                }}
+                onCancel={() => setShowSupernovaModal(false)}
+                danger={true}
+                confirmText={t('supernova_modal_confirm')}
+                cancelText={t('supernova_modal_cancel')}
             />
         </div>
     );

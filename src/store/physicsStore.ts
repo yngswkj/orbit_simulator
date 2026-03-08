@@ -1,7 +1,7 @@
 import { create } from 'zustand';
-import type { CelestialBody, SimulationState, CameraMode, PhysicsState, TidalDisruptionEvent, LegacyCollisionEvent, CollisionEvent } from '../types/physics';
-import type { StarSystemMode } from '../types/starSystem';
-import { updatePhysicsSoA, createPhysicsState, syncStateToBodies, BASE_DT, calculateTotalEnergy, applyCollisions } from '../utils/physics';
+import type { CelestialBody, SimulationState, CameraMode, PhysicsState, TidalDisruptionEvent, LegacyCollisionEvent, CollisionEvent, SupernovaEvent, SupernovaScenarioState } from '../types/physics';
+import type { StarSystemMode, StarSystemPreset } from '../types/starSystem';
+import { updatePhysicsSoA, createPhysicsState, syncStateToBodies, getSimulationStepDt, calculateTotalEnergy, applyCollisions } from '../utils/physics';
 import { Vector3 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
 import { createSolarSystem } from '../utils/solarSystem';
@@ -14,6 +14,9 @@ import { BUFFER_LIMITS } from '../constants/physics';
 import { DISTANCE_SCALE_FACTOR } from '../utils/solarSystem';
 import type { QualityLevel } from '../utils/deviceDetection';
 import { recommendQualityLevel } from '../utils/deviceDetection';
+import { createTimeoutRegistry } from '../utils/timeoutRegistry';
+import { SUPERNOVA_SCENARIO_TIMINGS, findMostMassiveStar, getSupernovaRemnantType } from '../utils/supernova';
+import type { SupernovaScenarioPhase } from '../utils/supernova';
 
 // Helper to trigger visual effects for collisions
 const triggerCollisionEffects = (events: CollisionEvent[]) => {
@@ -68,6 +71,24 @@ export const physicsStats = {
 };
 
 const MAX_STABLE_DT = 0.02; // Threshold to split steps
+const physicsTimeouts = createTimeoutRegistry();
+
+const createEmptySupernovaScenario = (): SupernovaScenarioState => ({
+    active: false,
+    phase: 'idle',
+    targetStarId: null,
+    startedAt: null,
+    triggerAt: null,
+    remnantBodyId: null,
+    remnantType: null,
+    autoStarted: false,
+    countdownRemainingMs: 0
+});
+
+const getScenarioConfig = (preset?: StarSystemPreset | null) => ({
+    autoStartDelayMs: preset?.scenario?.autoStartDelayMs ?? SUPERNOVA_SCENARIO_TIMINGS.introMs,
+    countdownMs: preset?.scenario?.countdownMs ?? SUPERNOVA_SCENARIO_TIMINGS.countdownMs
+});
 
 export type HistoryAction =
     | { type: 'ADD'; body: CelestialBody }
@@ -96,6 +117,10 @@ interface PhysicsStore {
     // Performance / Quality
     qualityLevel: QualityLevel;
     setQualityLevel: (level: QualityLevel) => void;
+
+    // Visual Effects Settings
+    cameraShakeIntensity: number; // 0.0 - 2.0, default 1.0
+    setCameraShakeIntensity: (intensity: number) => void;
 
     // User Mode
     userMode: 'beginner' | 'advanced';
@@ -141,10 +166,17 @@ interface PhysicsStore {
     // Destruction Events
     tidallyDisruptedEvents: TidalDisruptionEvent[];
     collisionEvents: LegacyCollisionEvent[];
+    supernovaEvents: SupernovaEvent[];
+    supernovaScenario: SupernovaScenarioState;
     addTidalDisruptionEvent: (event: TidalDisruptionEvent) => void;
     removeTidalDisruptionEvent: (bodyId: string) => void;
     addCollisionEvent: (event: LegacyCollisionEvent) => void;
     removeCollisionEvent: (eventId: string) => void;
+    triggerSupernova: (starId: string) => void;
+    startSupernovaScenario: (starId: string, autoStarted?: boolean) => void;
+    advanceSupernovaScenario: (phase: SupernovaScenarioPhase, updates?: Partial<SupernovaScenarioState>) => void;
+    completeSupernovaScenario: (remnantBodyId?: string | null, remnantType?: SupernovaEvent['remnantType'] | null) => void;
+    clearSupernovaScenario: () => void;
 
     updateBodies: () => void;
     loadSolarSystem: () => void;
@@ -185,6 +217,8 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
     tidallyDisruptedEvents: [],
     collisionEvents: [],
+    supernovaEvents: [],
+    supernovaScenario: createEmptySupernovaScenario(),
 
     // Star System
     currentSystemId: 'solar-system',
@@ -201,6 +235,11 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         ? (localStorage.getItem('orbit-simulator-quality') as QualityLevel)
         : recommendQualityLevel(),
 
+    // Visual Effects Settings - camera shake intensity (0.0 - 2.0)
+    cameraShakeIntensity: typeof window !== 'undefined' && localStorage.getItem('orbit-simulator-camera-shake')
+        ? parseFloat(localStorage.getItem('orbit-simulator-camera-shake') || '1.0')
+        : 1.0,
+
     // User Mode - default to beginner for better onboarding, restore from localStorage
     userMode: typeof window !== 'undefined' && localStorage.getItem('orbit-simulator-user-mode') === 'advanced' ? 'advanced' : 'beginner',
     hasSeenOnboarding: typeof window !== 'undefined' && localStorage.getItem('orbit-simulator-onboarding-seen') === 'true',
@@ -216,7 +255,82 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         set({ isGPUSupported: supported });
     },
 
+    startSupernovaScenario: (starId, autoStarted = true) => {
+        const preset = getPresetById(get().currentSystemId ?? '');
+        const { autoStartDelayMs, countdownMs } = getScenarioConfig(preset);
+        const now = performance.now();
+
+        physicsTimeouts.clearAll();
+
+        set({
+            supernovaScenario: {
+                active: true,
+                phase: 'intro',
+                targetStarId: starId,
+                startedAt: now,
+                triggerAt: now + autoStartDelayMs + countdownMs,
+                remnantBodyId: null,
+                remnantType: null,
+                autoStarted,
+                countdownRemainingMs: countdownMs
+            }
+        });
+
+        physicsTimeouts.schedule(() => {
+            get().advanceSupernovaScenario('countdown', {
+                triggerAt: performance.now() + countdownMs,
+                countdownRemainingMs: countdownMs
+            });
+        }, autoStartDelayMs);
+
+        physicsTimeouts.schedule(() => {
+            get().advanceSupernovaScenario('shock-breakout', {
+                countdownRemainingMs: 0
+            });
+            get().triggerSupernova(starId);
+        }, autoStartDelayMs + countdownMs);
+
+        physicsTimeouts.schedule(() => {
+            get().advanceSupernovaScenario('ejecta');
+        }, autoStartDelayMs + countdownMs + SUPERNOVA_SCENARIO_TIMINGS.shockBreakoutMs);
+
+        physicsTimeouts.schedule(() => {
+            get().advanceSupernovaScenario('remnant');
+        }, autoStartDelayMs + countdownMs + SUPERNOVA_SCENARIO_TIMINGS.ejectaMs);
+
+        physicsTimeouts.schedule(() => {
+            get().advanceSupernovaScenario('complete');
+        }, autoStartDelayMs + countdownMs + SUPERNOVA_SCENARIO_TIMINGS.ejectaMs + SUPERNOVA_SCENARIO_TIMINGS.remnantHoldMs);
+    },
+
+    advanceSupernovaScenario: (phase, updates = {}) => set((state) => ({
+        supernovaScenario: {
+            ...state.supernovaScenario,
+            ...updates,
+            active: phase !== 'idle',
+            phase
+        }
+    })),
+
+    completeSupernovaScenario: (remnantBodyId = null, remnantType = null) => set((state) => ({
+        supernovaScenario: {
+            ...state.supernovaScenario,
+            active: true,
+            phase: 'complete',
+            remnantBodyId,
+            remnantType,
+            countdownRemainingMs: 0
+        }
+    })),
+
+    clearSupernovaScenario: () => {
+        physicsTimeouts.clearAll();
+        set({ supernovaScenario: createEmptySupernovaScenario() });
+    },
+
     cleanup: () => {
+        physicsTimeouts.clearAll();
+        useEffectsStore.getState().cleanup();
         if (_workerManager) {
             _workerManager.terminate();
             _workerManager = null;
@@ -225,6 +339,12 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             _gpuEngine.dispose();
             _gpuEngine = null;
         }
+        set({
+            supernovaEvents: [],
+            supernovaScenario: createEmptySupernovaScenario(),
+            collisionEvents: [],
+            tidallyDisruptedEvents: []
+        });
     },
 
     toggleMultithreading: () => {
@@ -344,6 +464,242 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     removeCollisionEvent: (eventId) => set((state) => ({
         collisionEvents: state.collisionEvents.filter(e => e.id !== eventId)
     })),
+
+    triggerSupernova: (starId) => {
+        const { bodies, supernovaEvents } = get();
+        const star = bodies.find(b => b.id === starId);
+        const existingEvent = supernovaEvents.find(event => event.starId === starId);
+
+        if (!star || !star.isStar || existingEvent) {
+            console.warn('Cannot trigger supernova: invalid target or event already active');
+            return;
+        }
+
+        // Trigger visual effects via effects store
+        const effectsStore = useEffectsStore.getState();
+        effectsStore.triggerSupernova(
+            starId,
+            { x: star.position.x, y: star.position.y, z: star.position.z },
+            star.mass,
+            star.radius,
+            star.color
+        );
+
+        // Apply shockwave force to nearby bodies
+        const shockwaveRadius = star.radius * 100 * Math.pow(star.mass / 100000, 0.4);
+        const shockwaveForce = star.mass * 0.5; // Base force proportional to mass
+
+        const updatedBodies = bodies.map(body => {
+            if (body.id === starId) {
+                return {
+                    ...body,
+                    isBeingDestroyed: true,
+                    destructionProgress: 0,
+                    destructionStartTime: performance.now()
+                };
+            }
+
+            // Calculate distance from explosion
+            const dx = body.position.x - star.position.x;
+            const dy = body.position.y - star.position.y;
+            const dz = body.position.z - star.position.z;
+            const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+            // Only affect bodies within shockwave radius
+            if (distance > shockwaveRadius || distance < 0.001) return body;
+
+            // Force decreases with distance (inverse square)
+            const forceMagnitude = shockwaveForce / (distance * distance);
+
+            // Direction: away from explosion
+            const dirX = dx / distance;
+            const dirY = dy / distance;
+            const dirZ = dz / distance;
+
+            // Apply impulse (F * dt, but we use a fixed impulse for instant effect)
+            // Smaller bodies get pushed more (F = ma, so a = F/m)
+            const accelerationMagnitude = forceMagnitude / Math.max(body.mass, 1);
+
+            return {
+                ...body,
+                velocity: new Vector3(
+                    body.velocity.x + dirX * accelerationMagnitude,
+                    body.velocity.y + dirY * accelerationMagnitude,
+                    body.velocity.z + dirZ * accelerationMagnitude
+                )
+            };
+        });
+
+        // Update all bodies with new velocities
+        set({
+            bodies: updatedBodies,
+            physicsState: null, // Invalidate physics state to resync
+            gpuDataInvalidated: true
+        });
+
+        // Create supernova event record
+        const supernovaEvent: SupernovaEvent = {
+            id: uuidv4(),
+            starId,
+            position: { x: star.position.x, y: star.position.y, z: star.position.z },
+            mass: star.mass,
+            radius: star.radius,
+            color: star.color,
+            startTime: performance.now(),
+            duration: 15000,
+            explosionEnergy: star.mass * 1000,
+            remnantType: getSupernovaRemnantType(star.mass),
+            shockwaveRadius: star.radius * 100
+        };
+
+        set((state) => ({
+            supernovaEvents: [...state.supernovaEvents, supernovaEvent],
+            supernovaScenario: state.supernovaScenario.targetStarId === starId
+                ? {
+                    ...state.supernovaScenario,
+                    remnantType: supernovaEvent.remnantType
+                }
+                : state.supernovaScenario
+        }));
+
+        // After explosion animation (15s), transform star into remnant
+        physicsTimeouts.schedule(() => {
+            const currentState = get();
+            const currentStar = currentState.bodies.find(b => b.id === starId);
+
+            if (!currentStar) {
+                set((state) => ({
+                    supernovaEvents: state.supernovaEvents.filter(event => event.id !== supernovaEvent.id)
+                }));
+                return;
+            }
+
+            let remnant: Partial<CelestialBody> = {};
+
+            if (supernovaEvent.remnantType === 'black-hole') {
+                remnant = {
+                    name: `${currentStar.name} (Black Hole)`,
+                    radius: currentStar.radius * 0.1,
+                    color: '#000000',
+                    isCompactObject: true,
+                    type: 'black_hole',
+                    hasAccretionDisk: true,
+                    hasJets: true,
+                    accretionDiskConfig: {
+                        innerRadius: 3,
+                        outerRadius: 15,
+                        rotationSpeed: 2.0,
+                        particleCount: 3000,
+                        tilt: 0.3
+                    }
+                };
+
+                // Apply gravitational pull to nearby bodies when black hole forms
+                const pullRadius = supernovaEvent.shockwaveRadius * 0.8;
+                const blackHoleMass = currentStar.mass; // Black hole retains full mass
+                const pullStrength = blackHoleMass * 0.3; // Strong gravitational pull
+
+                const bodiesWithPull = currentState.bodies.map(body => {
+                    if (body.id === starId) return body;
+
+                    // Calculate distance from black hole
+                    const dx = currentStar.position.x - body.position.x;
+                    const dy = currentStar.position.y - body.position.y;
+                    const dz = currentStar.position.z - body.position.z;
+                    const distance = Math.sqrt(dx * dx + dy * dy + dz * dz);
+
+                    // Only affect bodies within pull radius
+                    if (distance > pullRadius || distance < currentStar.radius * 5) return body;
+
+                    // Gravitational acceleration toward black hole (inverse square law)
+                    const pullMagnitude = pullStrength / (distance * distance);
+
+                    // Direction: toward black hole
+                    const dirX = dx / distance;
+                    const dirY = dy / distance;
+                    const dirZ = dz / distance;
+
+                    // Apply velocity change (lighter bodies affected more)
+                    const velocityDelta = pullMagnitude / Math.max(body.mass, 1);
+
+                    return {
+                        ...body,
+                        velocity: new Vector3(
+                            body.velocity.x + dirX * velocityDelta,
+                            body.velocity.y + dirY * velocityDelta,
+                            body.velocity.z + dirZ * velocityDelta
+                        )
+                    };
+                });
+
+                // Apply the gravitational effects before updating to remnant
+                set((state) => ({
+                    bodies: bodiesWithPull.map(b =>
+                        b.id === starId
+                            ? { ...b, ...remnant, isBeingDestroyed: false, destructionProgress: 1 }
+                            : b
+                    ),
+                    physicsState: null,
+                    gpuDataInvalidated: true,
+                    supernovaEvents: state.supernovaEvents.filter(event => event.id !== supernovaEvent.id),
+                    supernovaScenario: state.supernovaScenario.targetStarId === starId
+                        ? {
+                            ...state.supernovaScenario,
+                            remnantBodyId: starId,
+                            remnantType: supernovaEvent.remnantType
+                        }
+                        : state.supernovaScenario
+                }));
+                return;
+            } else if (supernovaEvent.remnantType === 'neutron-star') {
+                remnant = {
+                    name: `${currentStar.name} (Neutron Star)`,
+                    mass: currentStar.mass * 0.15, // Core collapse remnant
+                    radius: currentStar.radius * 0.05,
+                    color: '#88ccff',
+                    isCompactObject: true,
+                    type: 'star'
+                };
+            } else {
+                // Complete stellar disruption - remove the star
+                set((state) => ({
+                    bodies: state.bodies.filter(b => b.id !== starId),
+                    physicsState: null,
+                    gpuDataInvalidated: true,
+                    selectedBodyId: state.selectedBodyId === starId ? null : state.selectedBodyId,
+                    followingBodyId: state.followingBodyId === starId ? null : state.followingBodyId,
+                    supernovaEvents: state.supernovaEvents.filter(event => event.id !== supernovaEvent.id),
+                    supernovaScenario: state.supernovaScenario.targetStarId === starId
+                        ? {
+                            ...state.supernovaScenario,
+                            remnantBodyId: null,
+                            remnantType: supernovaEvent.remnantType
+                        }
+                        : state.supernovaScenario
+                }));
+                return;
+            }
+
+            // Update star to remnant
+            set((state) => ({
+                bodies: state.bodies.map(b =>
+                    b.id === starId
+                        ? { ...b, ...remnant, isBeingDestroyed: false, destructionProgress: 1 }
+                        : b
+                ),
+                physicsState: null,
+                gpuDataInvalidated: true,
+                supernovaEvents: state.supernovaEvents.filter(event => event.id !== supernovaEvent.id),
+                supernovaScenario: state.supernovaScenario.targetStarId === starId
+                    ? {
+                        ...state.supernovaScenario,
+                        remnantBodyId: starId,
+                        remnantType: supernovaEvent.remnantType
+                    }
+                    : state.supernovaScenario
+            }));
+        }, 15000);
+    },
 
     toggleGravityField: () => set((state) => ({ showGravityField: !state.showGravityField })),
 
@@ -508,9 +864,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         // Correction: We actually want this applied regardless of CPU/GPU IF we want visual parity.
         // However, GPU/Worker might need dt passed explicitly.
         // Wait, 'useRealisticDistances' is state.
-        const distModeMultiplier = get().useRealisticDistances ? 8.0 : 1.0;
-
-        const dt = BASE_DT * timeScale * distModeMultiplier;
+        const dt = getSimulationStepDt(timeScale, get().useRealisticDistances);
 
         // Energy Calculation (Throttled 1Hz)
         const now = performance.now();
@@ -769,6 +1123,8 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     setSimulationState: (state) => set({ simulationState: state }),
 
     loadSolarSystem: () => {
+        physicsTimeouts.clearAll();
+        useEffectsStore.getState().cleanup();
         set({
             bodies: createSolarSystem(),
             physicsState: null,
@@ -782,6 +1138,10 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             useRealisticDistances: false,
             currentSystemId: 'solar-system',
             currentSystemMode: null,
+            tidallyDisruptedEvents: [],
+            collisionEvents: [],
+            supernovaEvents: [],
+            supernovaScenario: createEmptySupernovaScenario(),
             resetToken: 0,
             history: [],
             historyIndex: -1
@@ -791,6 +1151,8 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     loadStarSystem: (systemId: string, mode?: StarSystemMode) => {
         const preset = getPresetById(systemId);
         if (!preset) return;
+        physicsTimeouts.clearAll();
+        useEffectsStore.getState().cleanup();
 
         const bodies = preset.createBodies(mode).map(body => ({
             ...body,
@@ -826,12 +1188,23 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             cameraMode: 'free',
             gpuDataInvalidated: true,
             useRealisticDistances: false,
+            tidallyDisruptedEvents: [],
+            collisionEvents: [],
+            supernovaEvents: [],
+            supernovaScenario: createEmptySupernovaScenario(),
             // Zen Mode
             zenMode: false,
             resetToken: 0,
             history: [],
             historyIndex: -1
         });
+
+        if (preset.scenario?.kind === 'supernova') {
+            const targetStarId = findMostMassiveStar(bodies);
+            if (targetStarId) {
+                get().startSupernovaScenario(targetStarId, true);
+            }
+        }
     },
 
     toggleZenMode: () => set((state) => ({ zenMode: !state.zenMode })),
@@ -850,6 +1223,18 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         }
 
         set({ qualityLevel: actualLevel });
+    },
+
+    setCameraShakeIntensity: (intensity) => {
+        // Clamp intensity to valid range (0.0 - 2.0)
+        const clampedIntensity = Math.max(0, Math.min(2, intensity));
+
+        // Save to localStorage for persistence
+        if (typeof window !== 'undefined') {
+            localStorage.setItem('orbit-simulator-camera-shake', String(clampedIntensity));
+        }
+
+        set({ cameraShakeIntensity: clampedIntensity });
     },
 
     setUserMode: (mode) => {
@@ -887,11 +1272,15 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
 
     reset: () => {
         const { currentSystemId, currentSystemMode, bodies, resetToken } = get();
+        const preset = currentSystemId && currentSystemId !== 'solar-system'
+            ? getPresetById(currentSystemId)
+            : null;
+        physicsTimeouts.clearAll();
+        useEffectsStore.getState().cleanup();
 
         // Determine which bodies to load
         let initialBodies = INITIAL_BODIES;
         if (currentSystemId && currentSystemId !== 'solar-system') {
-            const preset = getPresetById(currentSystemId);
             if (preset) {
                 initialBodies = preset.createBodies(currentSystemMode || undefined).map(body => ({
                     ...body,
@@ -945,6 +1334,10 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             physicsState: null,
             simulationTime: 0,
             gpuDataInvalidated: true,
+            tidallyDisruptedEvents: [],
+            collisionEvents: [],
+            supernovaEvents: [],
+            supernovaScenario: createEmptySupernovaScenario(),
             resetToken: resetToken + 1,
             // Reset visualization states
 
@@ -953,5 +1346,18 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             history: [],
             historyIndex: -1
         });
+
+        if (preset?.scenario?.kind === 'supernova') {
+            const targetStarId = findMostMassiveStar(finalBodies);
+            if (targetStarId) {
+                get().startSupernovaScenario(targetStarId, true);
+            }
+        }
     }
 }));
+
+// Expose physics store to window for cross-store access (effectsStore needs qualityLevel)
+if (typeof window !== 'undefined') {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    (window as any).__physicsStore = usePhysicsStore;
+}

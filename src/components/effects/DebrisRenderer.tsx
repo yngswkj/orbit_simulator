@@ -1,4 +1,4 @@
-/* eslint-disable react-hooks/purity, react-hooks/immutability */
+/* eslint-disable react-hooks/purity */
 /**
  * DebrisRenderer.tsx
  * Efficient rendering of debris particles using instanced mesh
@@ -14,7 +14,6 @@ const MAX_DEBRIS = EFFECT_CONSTANTS.MAX_DEBRIS_PARTICLES;
 
 export const DebrisRenderer: React.FC = () => {
     const debrisClouds = useEffectsStore(state => state.debrisClouds);
-    const updateDebris = useEffectsStore(state => state.updateDebris);
     const removeExpiredDebris = useEffectsStore(state => state.removeExpiredDebris);
 
     const meshRef = useRef<THREE.InstancedMesh>(null);
@@ -22,6 +21,9 @@ export const DebrisRenderer: React.FC = () => {
 
     // Dummy object for matrix calculations
     const dummy = useMemo(() => new THREE.Object3D(), []);
+    const baseColor = useMemo(() => new THREE.Color(), []);
+    const glowColor = useMemo(() => new THREE.Color(), []);
+    const finalColor = useMemo(() => new THREE.Color(), []);
 
     // Create geometry and material
     const geometry = useMemo(() => {
@@ -44,9 +46,13 @@ export const DebrisRenderer: React.FC = () => {
 
     const material = useMemo(() => {
         return new THREE.MeshStandardMaterial({
-            roughness: 0.9,
-            metalness: 0.1,
-            flatShading: true
+            roughness: 0.6,
+            metalness: 0.3,
+            flatShading: true,
+            emissive: new THREE.Color('#ff6600'),
+            emissiveIntensity: 0.0, // Will be set per-instance via color
+            transparent: true,
+            opacity: 1.0
         });
     }, []);
 
@@ -61,42 +67,68 @@ export const DebrisRenderer: React.FC = () => {
 
         const now = performance.now();
 
-        // Update physics
-        updateDebris(delta);
-
         // Periodic cleanup
         if (now - lastCleanup.current > 2000) {
             removeExpiredDebris();
             lastCleanup.current = now;
         }
 
-        // Update instances
-        const count = Math.min(allParticles.length, MAX_DEBRIS);
+        const liveDebrisClouds = useEffectsStore.getState().debrisClouds;
+        let count = 0;
 
-        for (let i = 0; i < count; i++) {
-            const p = allParticles[i];
-            const age = (now - p.createdAt) / p.lifetime;
+        for (const cloud of liveDebrisClouds) {
+            for (const p of cloud.particles) {
+                if (count >= MAX_DEBRIS) break;
 
-            // Position
-            dummy.position.set(p.position.x, p.position.y, p.position.z);
+                const age = (now - p.createdAt) / p.lifetime;
+                if (age >= 1) continue;
 
-            // Rotation (tumbling)
-            dummy.rotation.x += p.rotationSpeed.x * delta;
-            dummy.rotation.y += p.rotationSpeed.y * delta;
-            dummy.rotation.z += p.rotationSpeed.z * delta;
+                // Advance debris in place without store writes on every frame.
+                p.position.x += p.velocity.x * delta;
+                p.position.y += p.velocity.y * delta;
+                p.position.z += p.velocity.z * delta;
+                p.velocity.x *= 0.998;
+                p.velocity.y *= 0.998;
+                p.velocity.z *= 0.998;
+                p.rotation.x += p.rotationSpeed.x * delta;
+                p.rotation.y += p.rotationSpeed.y * delta;
+                p.rotation.z += p.rotationSpeed.z * delta;
 
-            // Scale (shrink as it ages)
-            const scale = p.size * (1 - age * 0.5);
-            dummy.scale.setScalar(Math.max(scale, 0.01));
+                // Position
+                dummy.position.set(p.position.x, p.position.y, p.position.z);
+                dummy.rotation.set(p.rotation.x, p.rotation.y, p.rotation.z);
 
-            dummy.updateMatrix();
-            meshRef.current.setMatrixAt(i, dummy.matrix);
+                // Scale with slight pulsing effect when young
+                const pulseEffect = age < 0.3 ? 1 + Math.sin(age * 30) * 0.1 : 1;
+                const scale = p.size * (1 - age * 0.3) * pulseEffect;
+                dummy.scale.setScalar(Math.max(scale, 0.01));
 
-            // Color with gamma-corrected fade for more natural color transition
-            const color = new THREE.Color(p.color);
-            const fade = Math.pow(1 - age, EFFECT_CONSTANTS.GAMMA_CORRECTION) * 0.7 + 0.3;
-            color.multiplyScalar(fade);
-            meshRef.current.setColorAt(i, color);
+                dummy.updateMatrix();
+                meshRef.current.setMatrixAt(count, dummy.matrix);
+
+                // Enhanced color with hot-to-cool transition
+                baseColor.set(p.color);
+
+                // Emissive glow (hot when young, cools over time)
+                const glowIntensity = Math.pow(1 - age, 2) * 3; // Strong glow when young
+                glowColor.setHSL(
+                    0.05 + age * 0.15, // Hue: orange to red
+                    1.0 - age * 0.3,   // Saturation: decreases with age
+                    0.5 + glowIntensity * 0.2 // Lightness: brighter when glowing
+                );
+
+                // Mix base color with glow
+                finalColor.copy(baseColor).lerp(glowColor, Math.min(glowIntensity * 0.3, 1));
+
+                // Opacity fade (sharp fade at the end)
+                const opacityFade = age < 0.8 ? 1.0 : Math.pow((1 - age) / 0.2, 2);
+                finalColor.multiplyScalar(opacityFade);
+
+                meshRef.current.setColorAt(count, finalColor);
+                count++;
+            }
+
+            if (count >= MAX_DEBRIS) break;
         }
 
         // Hide unused instances

@@ -16,6 +16,7 @@ const getCategoryIcon = (category: string) => {
         case 'classic': return <Sun color="#fcd34d" />;
         case 'multi-star': return <Star color="#60a5fa" fill="#60a5fa" fillOpacity={0.2} />;
         case 'choreography': return <InfinityIcon color="#a78bfa" />;
+        case 'catastrophic': return <Activity color="#ef4444" />;
         default: return <Star color="#94a3b8" />;
     }
 };

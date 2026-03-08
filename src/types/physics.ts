@@ -1,4 +1,5 @@
 import { Vector3 } from 'three';
+import type { SupernovaScenarioPhase } from '../utils/supernova';
 
 export interface AccretionDiskConfig {
   innerRadius: number;  // Multiplier of body radius
@@ -87,4 +88,31 @@ export interface CollisionEvent {
   smallerBodyId: string;
   smallerBodyColor: string;
   smallerBodyRadius: number;
+}
+
+// Supernova explosion event
+export interface SupernovaEvent {
+  id: string;
+  starId: string;
+  position: { x: number; y: number; z: number };
+  mass: number;
+  radius: number;
+  color: string;
+  startTime: number;
+  duration: number; // Total duration of the event
+  explosionEnergy: number; // Energy released
+  remnantType: 'neutron-star' | 'black-hole' | 'none';
+  shockwaveRadius: number; // Maximum shockwave radius
+}
+
+export interface SupernovaScenarioState {
+  active: boolean;
+  phase: SupernovaScenarioPhase;
+  targetStarId: string | null;
+  startedAt: number | null;
+  triggerAt: number | null;
+  remnantBodyId: string | null;
+  remnantType: SupernovaEvent['remnantType'] | null;
+  autoStarted: boolean;
+  countdownRemainingMs: number;
 }

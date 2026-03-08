@@ -1,3 +1,6 @@
+import type { PhysicsState } from '../types/physics';
+import { initializeAccelerations } from '../utils/physics';
+
 export class PhysicsWorkerManager {
     private workers: Worker[] = [];
     private sharedBuffer: SharedArrayBuffer;
@@ -209,6 +212,20 @@ export class PhysicsWorkerManager {
             this.masses[i] = body.mass;
             this.radii[i] = body.radius;
         }
+
+        const initialState: PhysicsState = {
+            count,
+            maxCount: this.maxBodies,
+            positions: this.positions,
+            velocities: this.velocities,
+            accelerations: this.accelerations,
+            masses: this.masses,
+            radii: this.radii,
+            ids: new Array(count),
+            idToIndex: new Map()
+        };
+
+        initializeAccelerations(initialState);
     }
 
     public getPhysicsState(count: number): {

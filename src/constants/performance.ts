@@ -16,6 +16,9 @@ export interface PerformanceConfig {
     trailRecentPoints: number;
     trailCompressedPoints: number;
     trailCompressionRatio: number;
+    maxVisibleLabels: number;
+    maxTrailedBodies: number;
+    maxVisibleStarLabels: number;
 
     // Starfield
     starfieldSegments: [number, number]; // [width, height]
@@ -35,6 +38,11 @@ export interface PerformanceConfig {
     enableStarfield: boolean;
     enableGlow: boolean;
     enablePostProcessing: boolean;
+    supernovaShellLayers: number;
+    supernovaRayCount: number;
+    supernovaDebrisBudget: number;
+    supernovaUseSecondaryGlow: boolean;
+    supernovaUseJets: boolean;
 }
 
 export const PERFORMANCE_CONFIGS: Record<QualityLevel, PerformanceConfig> = {
@@ -49,6 +57,9 @@ export const PERFORMANCE_CONFIGS: Record<QualityLevel, PerformanceConfig> = {
         trailRecentPoints: 30,
         trailCompressedPoints: 60,
         trailCompressionRatio: 6,
+        maxVisibleLabels: 8,
+        maxTrailedBodies: 4,
+        maxVisibleStarLabels: 12,
 
         // Starfield (minimal)
         starfieldSegments: [24, 24],
@@ -68,6 +79,11 @@ export const PERFORMANCE_CONFIGS: Record<QualityLevel, PerformanceConfig> = {
         enableStarfield: true,
         enableGlow: false,
         enablePostProcessing: false,
+        supernovaShellLayers: 2,
+        supernovaRayCount: 8,
+        supernovaDebrisBudget: 450,
+        supernovaUseSecondaryGlow: false,
+        supernovaUseJets: false,
     },
 
     medium: {
@@ -81,6 +97,9 @@ export const PERFORMANCE_CONFIGS: Record<QualityLevel, PerformanceConfig> = {
         trailRecentPoints: 45,
         trailCompressedPoints: 90,
         trailCompressionRatio: 5,
+        maxVisibleLabels: 12,
+        maxTrailedBodies: 8,
+        maxVisibleStarLabels: 20,
 
         // Starfield
         starfieldSegments: [32, 32],
@@ -100,6 +119,11 @@ export const PERFORMANCE_CONFIGS: Record<QualityLevel, PerformanceConfig> = {
         enableStarfield: true,
         enableGlow: true,
         enablePostProcessing: false,
+        supernovaShellLayers: 3,
+        supernovaRayCount: 12,
+        supernovaDebrisBudget: 900,
+        supernovaUseSecondaryGlow: true,
+        supernovaUseJets: true,
     },
 
     high: {
@@ -113,6 +137,9 @@ export const PERFORMANCE_CONFIGS: Record<QualityLevel, PerformanceConfig> = {
         trailRecentPoints: 60,
         trailCompressedPoints: 120,
         trailCompressionRatio: 4,
+        maxVisibleLabels: 20,
+        maxTrailedBodies: 12,
+        maxVisibleStarLabels: 32,
 
         // Starfield
         starfieldSegments: [64, 64],
@@ -132,6 +159,11 @@ export const PERFORMANCE_CONFIGS: Record<QualityLevel, PerformanceConfig> = {
         enableStarfield: true,
         enableGlow: true,
         enablePostProcessing: true,
+        supernovaShellLayers: 4,
+        supernovaRayCount: 16,
+        supernovaDebrisBudget: 1500,
+        supernovaUseSecondaryGlow: true,
+        supernovaUseJets: true,
     },
 
     // Auto will be resolved to one of the above based on device detection
@@ -143,6 +175,9 @@ export const PERFORMANCE_CONFIGS: Record<QualityLevel, PerformanceConfig> = {
         trailRecentPoints: 45,
         trailCompressedPoints: 90,
         trailCompressionRatio: 5,
+        maxVisibleLabels: 12,
+        maxTrailedBodies: 8,
+        maxVisibleStarLabels: 20,
         starfieldSegments: [32, 32],
         starfieldFBMOctaves: 3,
         starfieldRadius: 35000,
@@ -154,6 +189,11 @@ export const PERFORMANCE_CONFIGS: Record<QualityLevel, PerformanceConfig> = {
         enableStarfield: true,
         enableGlow: true,
         enablePostProcessing: false,
+        supernovaShellLayers: 3,
+        supernovaRayCount: 12,
+        supernovaDebrisBudget: 900,
+        supernovaUseSecondaryGlow: true,
+        supernovaUseJets: true,
     },
 };
 

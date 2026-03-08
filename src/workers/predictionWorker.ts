@@ -142,6 +142,8 @@ function runPrediction(bodies: BodyData[], steps: number, dt: number, saveFreque
     const colors: Record<string, string> = {};
     bodies.forEach(b => { colors[b.id] = b.color; });
 
+    calculateAccelerations(state);
+
     // Initialize paths with current positions
     const paths: Record<string, number[][]> = {};
     for (let i = 0; i < state.count; i++) {

@@ -6,18 +6,18 @@ import { Onboarding } from './components/ui/Onboarding';
 import { useTranslation } from './utils/i18n';
 import { usePhysicsStore } from './store/physicsStore';
 import './App.css';
-import { runBenchmark, runGPUBenchmark } from './utils/benchmark';
 import { ToastProvider } from './components/ui/common/Toast';
+import { ErrorBoundary } from './components/ErrorBoundary';
+import { SupernovaScenarioOverlay } from './components/ui/SupernovaScenarioOverlay';
 
-// Expose runBenchmark to window for testing
+type BenchmarkModule = typeof import('./utils/benchmark');
+
 declare global {
   interface Window {
-    runBenchmark: typeof runBenchmark;
-    runGPUBenchmark: typeof runGPUBenchmark;
+    runBenchmark?: BenchmarkModule['runBenchmark'];
+    runGPUBenchmark?: BenchmarkModule['runGPUBenchmark'];
   }
 }
-window.runBenchmark = runBenchmark;
-window.runGPUBenchmark = runGPUBenchmark;
 
 function App() {
   const { t } = useTranslation();
@@ -52,8 +52,26 @@ function App() {
   }, [checkGPUSupport]);
 
   useEffect(() => {
+    if (!import.meta.env.DEV) return;
+
+    let disposed = false;
+
+    void import('./utils/benchmark').then(({ runBenchmark, runGPUBenchmark }) => {
+      if (disposed) return;
+
+      window.runBenchmark = runBenchmark;
+      window.runGPUBenchmark = runGPUBenchmark;
+    });
+
+    return () => {
+      disposed = true;
+      delete window.runBenchmark;
+      delete window.runGPUBenchmark;
+    };
+  }, []);
+
+  useEffect(() => {
     if (followedBodyName) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setOverlayName(followedBodyName);
       setOverlayOpacity(1);
 
@@ -122,9 +140,11 @@ function App() {
   }, [simulationState, setSimulationState, bodies, followingBodyId, setFollowingBody, setCameraMode]);
 
   return (
-    <ToastProvider>
-      <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
-        <Scene />
+    <ErrorBoundary>
+      <ToastProvider>
+        <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
+          <Scene />
+          <SupernovaScenarioOverlay />
 
         <div className="app-header" style={{
           position: 'absolute',
@@ -159,6 +179,7 @@ function App() {
         <Onboarding />
       </div>
     </ToastProvider>
+    </ErrorBoundary>
   );
 }
 

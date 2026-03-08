@@ -22,6 +22,7 @@ import { StarfieldBackground } from './StarfieldBackground';
 import { transitionCamera } from '../../utils/cameraTransitions';
 import { getPerformanceConfig } from '../../constants/performance';
 import { PerformanceStats } from '../ui/PerformanceStats';
+import { SupernovaCinematicController } from './SupernovaCinematicController';
 
 // Helper to find the primary star (most massive star body)
 const findPrimaryStar = (bodies: BodyType[]): BodyType | undefined => {
@@ -45,6 +46,7 @@ const CameraController = () => {
     const cameraMode = usePhysicsStore((state) => state.cameraMode);
     const simulationTime = usePhysicsStore(state => state.simulationTime);
     const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
+    const supernovaScenarioActive = usePhysicsStore((state) => state.supernovaScenario.active);
     const { camera, controls } = useThree();
 
     // Store previous states to calculate deltas
@@ -59,6 +61,11 @@ const CameraController = () => {
         isFirstLockFrame.current = true;
 
         // Handle switching TO lock modes
+        if (supernovaScenarioActive) {
+            lastUsedMode.current = cameraMode;
+            return;
+        }
+
         if (followingBodyId && controls) {
             const body = usePhysicsStore.getState().bodies.find(b => b.id === followingBodyId);
             if (body) {
@@ -146,7 +153,7 @@ const CameraController = () => {
             }
         }
         lastUsedMode.current = cameraMode;
-    }, [followingBodyId, cameraMode, controls, camera]);
+    }, [followingBodyId, cameraMode, controls, camera, supernovaScenarioActive]);
 
     // Handle distance scale changes to prevent camera drift
     React.useEffect(() => {
@@ -361,6 +368,7 @@ const SimulationContent = () => {
     return (
         <>
             <CameraController />
+            <SupernovaCinematicController />
             <ambientLight intensity={0.2} />
             <pointLight position={[0, 0, 0]} intensity={2} decay={0} distance={1000} />
 
@@ -471,6 +479,7 @@ const SceneContent = () => {
     const cameraMode = usePhysicsStore((state) => state.cameraMode);
     const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
     const qualityLevel = usePhysicsStore((state) => state.qualityLevel);
+    const [webglError, setWebglError] = React.useState<string | null>(null);
 
     const isSurfaceLock = cameraMode === 'surface_lock';
 
@@ -483,10 +492,66 @@ const SceneContent = () => {
         ? Math.min(window.devicePixelRatio * perfConfig.pixelRatioMultiplier, 2)
         : 1;
 
+    const handleWebGLError = React.useCallback((error: Error | unknown) => {
+        console.error('WebGL initialization error:', error);
+        const errorMessage = error instanceof Error ? error.message : 'WebGL failed to initialize';
+        setWebglError(errorMessage);
+    }, []);
+
+    if (webglError) {
+        return (
+            <div style={{
+                width: '100%',
+                height: '100%',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                justifyContent: 'center',
+                background: '#0a0a0a',
+                color: 'white',
+                padding: '20px',
+                boxSizing: 'border-box'
+            }}>
+                <h2 style={{ fontSize: '1.5rem', marginBottom: '1rem' }}>⚠️ WebGL Error</h2>
+                <p style={{ opacity: 0.7, textAlign: 'center', maxWidth: '500px' }}>
+                    Your device or browser doesn't support WebGL, which is required for 3D rendering.
+                </p>
+                <p style={{ opacity: 0.5, fontSize: '0.9rem', marginTop: '1rem' }}>
+                    Error: {webglError}
+                </p>
+                <button
+                    onClick={() => window.location.reload()}
+                    style={{
+                        marginTop: '2rem',
+                        padding: '12px 24px',
+                        background: '#3b82f6',
+                        color: 'white',
+                        border: 'none',
+                        borderRadius: '8px',
+                        cursor: 'pointer'
+                    }}
+                >
+                    Retry
+                </button>
+            </div>
+        );
+    }
+
     return (
         <Canvas
             camera={{ position: [0, 25, 50], fov: 45, near: 0.1, far: cameraFar }}
             dpr={pixelRatio}
+            onCreated={({ gl }) => {
+                try {
+                    // Verify WebGL context
+                    if (!gl || !gl.getContext) {
+                        throw new Error('WebGL context not available');
+                    }
+                    console.log('WebGL context created successfully');
+                } catch (error) {
+                    handleWebGLError(error);
+                }
+            }}
         >
             <color attach="background" args={['#000000']} />
             <StarfieldBackground />
@@ -523,7 +588,21 @@ const SceneContent = () => {
 export const Scene = () => {
     return (
         <div style={{ position: 'relative', width: '100%', height: '100%' }}>
-            <SceneContent />
+            <React.Suspense fallback={
+                <div style={{
+                    width: '100%',
+                    height: '100%',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    background: '#0a0a0a',
+                    color: 'white'
+                }}>
+                    Loading...
+                </div>
+            }>
+                <SceneContent />
+            </React.Suspense>
             <DateDisplay />
             {usePhysicsStore(state => state.showPerformance) && <PerformanceStats />}
         </div>

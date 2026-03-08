@@ -12,6 +12,7 @@ export interface DebrisParticle {
     createdAt: number;
     lifetime: number; // ms
     rotationSpeed: { x: number; y: number; z: number };
+    rotation: { x: number; y: number; z: number };
 }
 
 // Collection of debris particles from a single event
@@ -30,6 +31,9 @@ export interface ShockwaveEffect {
     maxRadius: number;
     color: string;
     duration: number;
+    // Asymmetry parameters for realistic supernova remnant shapes
+    asymmetry?: number; // 0.0 - 1.0, default 0 (perfectly symmetric)
+    directionBias?: { x: number; y: number; z: number }; // Normalized direction vector
 }
 
 // Heat glow effect after collision/merger
@@ -79,4 +83,55 @@ export interface CollisionEventData {
     smallerBodyId: string;
     smallerBodyColor: string;
     smallerBodyRadius: number;
+}
+
+// Supernova explosion effect
+export interface SupernovaEffect {
+    id: string;
+    starId: string;
+    position: { x: number; y: number; z: number };
+    startTime: number;
+    duration: number;
+    maxRadius: number;
+    color: string;
+    intensity: number;
+    phase: 'brightening' | 'explosion' | 'fading'; // Current phase of the supernova
+    coreRadius: number;
+    haloRadius: number;
+    shellCount: number;
+    biasDirection: { x: number; y: number; z: number };
+}
+
+// Radial rays effect
+export interface RadialRaysEffect {
+    id: string;
+    position: { x: number; y: number; z: number };
+    startTime: number;
+    duration: number;
+    rayCount: number;
+    maxLength: number;
+    color: string;
+    spread: number;
+    pulseSpeed: number;
+}
+
+// Camera shake effect
+export interface CameraShakeEffect {
+    id: string;
+    startTime: number;
+    duration: number;
+    intensity: number;
+    falloff: 'linear' | 'exponential';
+}
+
+// Gamma-ray burst effect
+export interface GammaRayBurstEffect {
+    id: string;
+    position: { x: number; y: number; z: number };
+    startTime: number;
+    duration: number;
+    length: number;
+    axis: { x: number; y: number; z: number };
+    width: number;
+    coreIntensity: number;
 }

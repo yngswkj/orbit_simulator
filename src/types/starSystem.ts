@@ -2,7 +2,7 @@ import type { CelestialBody } from './physics';
 
 export type StarSystemMode = 'stable' | 'chaotic';
 
-export type StarSystemCategory = 'classic' | 'multi-star' | 'choreography';
+export type StarSystemCategory = 'classic' | 'multi-star' | 'choreography' | 'catastrophic';
 
 export interface StarSystemModeConfig {
     id: StarSystemMode;
@@ -15,6 +15,15 @@ export interface StarSystemModeConfig {
 export interface CameraConfig {
     position: [number, number, number];
     target: [number, number, number];
+}
+
+export interface SupernovaScenarioConfig {
+    kind: 'supernova';
+    autoStartDelayMs: number;
+    countdownMs: number;
+    target: 'primary-star';
+    cinematic: 'full';
+    vfxProfileId: 'cinematic';
 }
 
 export interface StarSystemPreset {
@@ -33,6 +42,9 @@ export interface StarSystemPreset {
 
     // Mode configurations (for systems with multiple modes like Three-Body)
     modes?: StarSystemModeConfig[];
+
+    // Optional preset-specific scripted experience
+    scenario?: SupernovaScenarioConfig;
 
     // Creates body data (without IDs) for the system
     createBodies: (mode?: StarSystemMode) => Omit<CelestialBody, 'id'>[];

@@ -13,16 +13,21 @@ interface ShockwaveEffectProps {
     duration: number;
     maxRadius: number;
     color: string;
+    asymmetry?: number; // 0.0 - 1.0
+    directionBias?: { x: number; y: number; z: number };
     onComplete?: () => void;
 }
 
-// Custom shader for glowing shockwave ring
+// Custom shader for glowing shockwave ring with asymmetric expansion
 const shockwaveShader = {
     vertexShader: `
         varying vec2 vUv;
+        varying vec3 vWorldPosition;
         void main() {
             vUv = uv;
-            gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+            vec4 worldPos = modelMatrix * vec4(position, 1.0);
+            vWorldPosition = worldPos.xyz;
+            gl_Position = projectionMatrix * viewMatrix * worldPos;
         }
     `,
     fragmentShader: `
@@ -30,19 +35,35 @@ const shockwaveShader = {
         uniform float opacity;
         uniform vec3 color;
         uniform float ringWidth;
+        uniform float asymmetry;
+        uniform vec3 directionBias;
+        uniform vec3 centerPosition;
         varying vec2 vUv;
+        varying vec3 vWorldPosition;
 
         void main() {
-            // Distance from center
+            // Direction from center to current fragment
+            vec3 dirFromCenter = normalize(vWorldPosition - centerPosition);
+
+            // Calculate asymmetric bias
+            // Dot product: -1 (opposite direction) to 1 (same direction)
+            float directionDot = dot(dirFromCenter, directionBias);
+
+            // Asymmetric radius modifier
+            // In biased direction: expand more (1.0 + asymmetry)
+            // Opposite direction: expand less (1.0 - asymmetry)
+            float radiusMod = 1.0 + directionDot * asymmetry;
+
+            // Distance from center in UV space
             vec2 centered = vUv - 0.5;
             float dist = length(centered) * 2.0;
 
-            // Ring position based on progress
-            float ringPos = progress;
+            // Adjusted ring position based on asymmetry
+            float ringPos = progress * radiusMod;
             float ringDist = abs(dist - ringPos);
 
             // Ring intensity with soft falloff
-            float ring = smoothstep(ringWidth, 0.0, ringDist);
+            float ring = smoothstep(ringWidth * radiusMod, 0.0, ringDist);
 
             // Inner glow
             float innerGlow = smoothstep(ringPos, 0.0, dist) * 0.3;
@@ -64,6 +85,8 @@ export const ShockwaveEffect: React.FC<ShockwaveEffectProps> = ({
     duration,
     maxRadius,
     color,
+    asymmetry = 0,
+    directionBias = { x: 0, y: 1, z: 0 }, // Default: Y-axis
     onComplete
 }) => {
     const meshRef = useRef<THREE.Mesh>(null);
@@ -74,8 +97,11 @@ export const ShockwaveEffect: React.FC<ShockwaveEffectProps> = ({
         progress: { value: 0 },
         opacity: { value: 1 },
         color: { value: new THREE.Color(color) },
-        ringWidth: { value: 0.15 }
-    }), [color]);
+        ringWidth: { value: 0.15 },
+        asymmetry: { value: asymmetry },
+        directionBias: { value: new THREE.Vector3(directionBias.x, directionBias.y, directionBias.z) },
+        centerPosition: { value: new THREE.Vector3(position.x, position.y, position.z) }
+    }), [color, asymmetry, directionBias, position]);
 
     useFrame(() => {
         if (!materialRef.current || completedRef.current) return;
