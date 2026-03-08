@@ -8,6 +8,7 @@ import { usePhysicsStore } from './store/physicsStore';
 import './App.css';
 import { ToastProvider } from './components/ui/common/Toast';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { SupernovaScenarioOverlay } from './components/ui/SupernovaScenarioOverlay';
 
 type BenchmarkModule = typeof import('./utils/benchmark');
 
@@ -143,6 +144,7 @@ function App() {
       <ToastProvider>
         <div style={{ width: '100vw', height: '100vh', overflow: 'hidden', position: 'relative' }}>
           <Scene />
+          <SupernovaScenarioOverlay />
 
         <div className="app-header" style={{
           position: 'absolute',

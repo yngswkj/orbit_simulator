@@ -23,8 +23,8 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
     const followingBodyId = usePhysicsStore(state => state.followingBodyId);
     const pushHistoryAction = usePhysicsStore(state => state.pushHistoryAction);
     const triggerSupernova = usePhysicsStore(state => state.triggerSupernova);
-
-
+    const supernovaEvents = usePhysicsStore(state => state.supernovaEvents);
+    const supernovaScenario = usePhysicsStore(state => state.supernovaScenario);
 
     const bodies = usePhysicsStore(state => state.bodies);
     const { t } = useTranslation();
@@ -34,6 +34,12 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
     const [showSupernovaModal, setShowSupernovaModal] = useState(false);
 
     const sun = bodies.find(b => b.name === 'Sun');
+    const hasActiveSupernovaEvent = supernovaEvents.some(event => event.starId === selectedBody.id);
+    const isScenarioTarget = supernovaScenario.active && supernovaScenario.targetStarId === selectedBody.id;
+    const isSupernovaLocked = hasActiveSupernovaEvent || isScenarioTarget;
+    const remnantLabel = selectedBody.mass > 200000
+        ? t('supernova_remnant_label_black_hole')
+        : t('supernova_remnant_label_neutron_star');
     const distanceToSun = sun && selectedBody.id !== sun.id
         ? selectedBody.position.distanceTo(sun.position).toFixed(1)
         : '0.0';
@@ -370,14 +376,19 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
                     <div style={{ marginTop: '8px' }}>
                         <button
                             onClick={() => setShowSupernovaModal(true)}
+                            disabled={isSupernovaLocked}
                             style={{
                                 width: '100%',
                                 padding: '10px',
-                                background: 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(147, 51, 234, 0.2))',
-                                border: '1px solid rgba(239, 68, 68, 0.4)',
+                                background: isSupernovaLocked
+                                    ? 'linear-gradient(135deg, rgba(120, 120, 120, 0.15), rgba(80, 80, 80, 0.12))'
+                                    : 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(147, 51, 234, 0.2))',
+                                border: isSupernovaLocked
+                                    ? '1px solid rgba(255, 255, 255, 0.14)'
+                                    : '1px solid rgba(239, 68, 68, 0.4)',
                                 borderRadius: '6px',
-                                color: '#ef4444',
-                                cursor: 'pointer',
+                                color: isSupernovaLocked ? 'rgba(255,255,255,0.5)' : '#ef4444',
+                                cursor: isSupernovaLocked ? 'not-allowed' : 'pointer',
                                 display: 'flex',
                                 alignItems: 'center',
                                 justifyContent: 'center',
@@ -387,16 +398,18 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
                                 transition: 'all 0.2s'
                             }}
                             onMouseEnter={(e) => {
+                                if (isSupernovaLocked) return;
                                 e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.3), rgba(147, 51, 234, 0.3))';
                                 e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.6)';
                             }}
                             onMouseLeave={(e) => {
+                                if (isSupernovaLocked) return;
                                 e.currentTarget.style.background = 'linear-gradient(135deg, rgba(239, 68, 68, 0.2), rgba(147, 51, 234, 0.2))';
                                 e.currentTarget.style.borderColor = 'rgba(239, 68, 68, 0.4)';
                             }}
                         >
                             <Zap size={18} />
-                            Trigger Supernova
+                            {t('supernova_button')}
                         </button>
                     </div>
                 )}
@@ -420,17 +433,19 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
 
             <ConfirmModal
                 isOpen={showSupernovaModal}
-                title="⭐ Trigger Supernova"
-                message={`Are you sure you want to trigger a supernova explosion for ${selectedBody.name}? This will create a spectacular stellar explosion and transform the star into a ${selectedBody.mass > 200000 ? 'black hole' : 'neutron star'}.`}
+                title={`⭐ ${t('supernova_modal_title')}`}
+                message={t('supernova_modal_message')
+                    .replace('{name}', selectedBody.name)
+                    .replace('{remnant}', remnantLabel)}
                 onConfirm={() => {
                     triggerSupernova(selectedBody.id);
-                    showToast(`🌟 Supernova initiated for ${selectedBody.name}!`, 'success');
+                    showToast(t('supernova_toast_triggered').replace('{name}', selectedBody.name), 'success');
                     setShowSupernovaModal(false);
                 }}
                 onCancel={() => setShowSupernovaModal(false)}
                 danger={true}
-                confirmText="Trigger Supernova"
-                cancelText="Cancel"
+                confirmText={t('supernova_modal_confirm')}
+                cancelText={t('supernova_modal_cancel')}
             />
         </div>
     );

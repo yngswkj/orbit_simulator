@@ -1,6 +1,6 @@
 /**
  * CameraShakeEffect.tsx
- * Camera shake effect for dramatic events like supernova explosions
+ * Additive camera shake that composes with follow and cinematic camera motion
  */
 
 import { useEffect, useRef } from 'react';
@@ -23,58 +23,52 @@ export const CameraShakeEffect: React.FC<CameraShakeEffectProps> = ({
     onComplete
 }) => {
     const { camera } = useThree();
-    const originalPosition = useRef<THREE.Vector3>(new THREE.Vector3());
     const completedRef = useRef(false);
-    const shakeOffset = useRef<THREE.Vector3>(new THREE.Vector3());
+    const lastOffsetRef = useRef(new THREE.Vector3());
+    const noiseTimeRef = useRef(startTime * 0.013);
 
-    // Store original camera position
     useEffect(() => {
-        originalPosition.current.copy(camera.position);
-        const initialPosition = originalPosition.current.clone();
-
+        const offsetRef = lastOffsetRef;
         return () => {
-            // Restore original position on cleanup
-            if (!completedRef.current) {
-                camera.position.copy(initialPosition);
-            }
+            camera.position.sub(offsetRef.current);
+            offsetRef.current.set(0, 0, 0);
         };
     }, [camera]);
 
-    useFrame(() => {
-        if (completedRef.current) return;
+    useFrame((_, delta) => {
+        if (completedRef.current) {
+            return;
+        }
 
         const elapsed = performance.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
+        camera.position.sub(lastOffsetRef.current);
+
         if (progress >= 1) {
             completedRef.current = true;
-            // Reset to original position
-            camera.position.copy(originalPosition.current);
+            lastOffsetRef.current.set(0, 0, 0);
             onComplete?.();
             return;
         }
 
-        // Calculate shake intensity based on progress and falloff
-        let currentIntensity: number;
+        noiseTimeRef.current += delta * 8;
 
-        if (falloff === 'exponential') {
-            // Exponential falloff: strong at start, quickly decreases
-            currentIntensity = intensity * Math.pow(1 - progress, 3);
-        } else {
-            // Linear falloff
-            currentIntensity = intensity * (1 - progress);
-        }
+        const currentIntensity = falloff === 'exponential'
+            ? intensity * Math.pow(1 - progress, 2.8)
+            : intensity * (1 - progress);
 
-        // Generate random shake offset
-        shakeOffset.current.set(
-            (Math.random() - 0.5) * currentIntensity,
-            (Math.random() - 0.5) * currentIntensity,
-            (Math.random() - 0.5) * currentIntensity
+        const offset = lastOffsetRef.current;
+        offset.set(
+            Math.sin(noiseTimeRef.current * 1.7) * currentIntensity * 0.5 +
+                Math.cos(noiseTimeRef.current * 3.1) * currentIntensity * 0.2,
+            Math.cos(noiseTimeRef.current * 2.3) * currentIntensity * 0.45 +
+                Math.sin(noiseTimeRef.current * 4.7) * currentIntensity * 0.15,
+            Math.sin(noiseTimeRef.current * 2.9) * currentIntensity * 0.35
         );
 
-        // Apply shake to camera position
-        camera.position.copy(originalPosition.current).add(shakeOffset.current);
+        camera.position.add(offset);
     });
 
-    return null; // This component doesn't render anything visible
+    return null;
 };

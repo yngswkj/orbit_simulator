@@ -22,6 +22,7 @@ import { StarfieldBackground } from './StarfieldBackground';
 import { transitionCamera } from '../../utils/cameraTransitions';
 import { getPerformanceConfig } from '../../constants/performance';
 import { PerformanceStats } from '../ui/PerformanceStats';
+import { SupernovaCinematicController } from './SupernovaCinematicController';
 
 // Helper to find the primary star (most massive star body)
 const findPrimaryStar = (bodies: BodyType[]): BodyType | undefined => {
@@ -45,6 +46,7 @@ const CameraController = () => {
     const cameraMode = usePhysicsStore((state) => state.cameraMode);
     const simulationTime = usePhysicsStore(state => state.simulationTime);
     const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
+    const supernovaScenarioActive = usePhysicsStore((state) => state.supernovaScenario.active);
     const { camera, controls } = useThree();
 
     // Store previous states to calculate deltas
@@ -59,6 +61,11 @@ const CameraController = () => {
         isFirstLockFrame.current = true;
 
         // Handle switching TO lock modes
+        if (supernovaScenarioActive) {
+            lastUsedMode.current = cameraMode;
+            return;
+        }
+
         if (followingBodyId && controls) {
             const body = usePhysicsStore.getState().bodies.find(b => b.id === followingBodyId);
             if (body) {
@@ -146,7 +153,7 @@ const CameraController = () => {
             }
         }
         lastUsedMode.current = cameraMode;
-    }, [followingBodyId, cameraMode, controls, camera]);
+    }, [followingBodyId, cameraMode, controls, camera, supernovaScenarioActive]);
 
     // Handle distance scale changes to prevent camera drift
     React.useEffect(() => {
@@ -361,6 +368,7 @@ const SimulationContent = () => {
     return (
         <>
             <CameraController />
+            <SupernovaCinematicController />
             <ambientLight intensity={0.2} />
             <pointLight position={[0, 0, 0]} intensity={2} decay={0} distance={1000} />
 

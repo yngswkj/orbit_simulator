@@ -464,6 +464,14 @@ export const SUPERNOVA_SYSTEM: StarSystemPreset = {
         position: [0, 50, 120],
         target: [0, 0, 0]
     },
+    scenario: {
+        kind: 'supernova',
+        autoStartDelayMs: 800,
+        countdownMs: 3000,
+        target: 'primary-star',
+        cinematic: 'full',
+        vfxProfileId: 'cinematic'
+    },
     createBodies: () => {
         const SUPERGIANT_MASS = SUN_MASS * 20; // 20 solar masses (Type II supernova candidate)
         const PLANET_MASS = 300; // Gas giant

@@ -1,11 +1,12 @@
 /**
  * SupernovaEffect.tsx
- * Supernova explosion effect with brightening, explosion, and fading phases
+ * Layered supernova effect with photosphere, corona, and expanding ejecta shells
  */
 
-import React, { useRef, useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
+import { SupernovaShellEffect } from './SupernovaShellEffect';
 
 interface SupernovaEffectProps {
     position: { x: number; y: number; z: number };
@@ -14,15 +15,20 @@ interface SupernovaEffectProps {
     maxRadius: number;
     color: string;
     intensity: number;
+    coreRadius: number;
+    haloRadius: number;
+    shellCount: number;
+    biasDirection: { x: number; y: number; z: number };
     onComplete?: () => void;
 }
 
-// Custom shader for supernova core glow with color temperature evolution
-const supernovaShader = {
+const coreShader = {
     vertexShader: `
-        precision mediump float;
+        varying vec3 vNormal;
         varying vec2 vUv;
+
         void main() {
+            vNormal = normalize(normalMatrix * normal);
             vUv = uv;
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
@@ -30,88 +36,74 @@ const supernovaShader = {
     fragmentShader: `
         precision mediump float;
         uniform float progress;
-        uniform float opacity;
-        uniform vec3 color;
         uniform float intensity;
-        uniform float phase;
+        uniform vec3 baseColor;
+        uniform float opacity;
+        varying vec3 vNormal;
         varying vec2 vUv;
 
-        // Convert color temperature to RGB (simplified approximation)
-        vec3 colorTemperature(float temp) {
-            // Blue phase (contraction): temp = 0.0 -> blue-white
-            // Peak (explosion): temp = 1.0 -> extremely hot white
-            // Red phase (expansion): temp = 2.0+ -> red-shifted
-
-            if (temp < 0.5) {
-                // Early phase: blue to bright white
-                return mix(vec3(0.6, 0.7, 1.0), vec3(1.0, 1.0, 1.0), temp * 2.0);
-            } else if (temp < 1.0) {
-                // Peak: stay at white
-                return vec3(1.0, 1.0, 1.0);
-            } else {
-                // Cooling: white to red-orange (redshift from expansion)
-                float coolFactor = (temp - 1.0);
-                return mix(vec3(1.0, 1.0, 1.0), vec3(1.0, 0.5, 0.3), coolFactor);
+        vec3 temperatureColor(float t) {
+            if (t < 0.35) {
+                return mix(vec3(0.55, 0.72, 1.0), vec3(0.9, 0.96, 1.0), t / 0.35);
             }
+
+            if (t < 0.58) {
+                return mix(vec3(0.9, 0.96, 1.0), vec3(1.0, 1.0, 1.0), (t - 0.35) / 0.23);
+            }
+
+            return mix(vec3(1.0, 1.0, 1.0), vec3(1.0, 0.48, 0.24), (t - 0.58) / 0.42);
         }
 
         void main() {
-            // Distance from center
             vec2 centered = vUv - 0.5;
             float dist = length(centered) * 2.0;
+            float radial = smoothstep(1.08, 0.05, dist);
+            float pulse = 0.9 + 0.1 * sin(progress * 45.0);
+            float rim = pow(1.0 - abs(vNormal.z), 2.2);
+            vec3 temp = temperatureColor(progress);
+            vec3 finalColor = mix(baseColor, temp, 0.78) * (1.0 + rim * 0.55) * intensity * pulse;
 
-            // Smooth phase transitions using step functions
-            float brightenMask = step(phase, 0.33);
-            float explosionMask = step(0.33, phase) * step(phase, 0.5);
-            float fadeMask = step(0.5, phase);
-
-            // Calculate phase-specific values
-            float phaseProgress1 = phase / 0.33;
-            float phaseProgress2 = (phase - 0.33) / 0.17;
-            float phaseProgress3 = (phase - 0.5) / 0.5;
-
-            // Brightening phase
-            float alpha1 = smoothstep(1.0, 0.3, dist) * (0.5 + phaseProgress1 * 0.5);
-            float bright1 = 1.0 + phaseProgress1 * intensity * 2.0;
-            float pulse = sin(phase * 30.0) * 0.1 + 0.9;
-            bright1 *= pulse;
-
-            // Explosion phase
-            float alpha2 = smoothstep(1.2, 0.0, dist) * (1.0 - phaseProgress2 * 0.3);
-            float bright2 = intensity * 3.0 * (1.0 - phaseProgress2 * 0.5);
-
-            // Fading phase
-            float alpha3 = smoothstep(0.8, 0.0, dist) * (1.0 - phaseProgress3);
-            float bright3 = intensity * (1.0 - phaseProgress3);
-
-            // Combine phases
-            float alpha = alpha1 * brightenMask + alpha2 * explosionMask + alpha3 * fadeMask;
-            float brightness = bright1 * brightenMask + bright2 * explosionMask + bright3 * fadeMask;
-
-            // Radial gradient for depth
-            float radialGradient = 1.0 - dist * 0.5;
-            alpha *= radialGradient;
-
-            // Calculate color temperature based on phase
-            // 0.0-0.33: heating (0.0 -> 0.5)
-            // 0.33-0.5: peak white (0.5 -> 1.0)
-            // 0.5-1.0: cooling/redshift (1.0 -> 2.0)
-            float tempValue = 0.0;
-            if (phase < 0.33) {
-                tempValue = phase / 0.33 * 0.5; // 0.0 to 0.5
-            } else if (phase < 0.5) {
-                tempValue = 0.5 + (phase - 0.33) / 0.17 * 0.5; // 0.5 to 1.0
-            } else {
-                tempValue = 1.0 + (phase - 0.5) / 0.5; // 1.0 to 2.0
-            }
-
-            vec3 tempColor = colorTemperature(tempValue);
-            vec3 finalColor = mix(color, tempColor, 0.7) * brightness;
-
-            gl_FragColor = vec4(finalColor, alpha * opacity);
+            gl_FragColor = vec4(finalColor, radial * opacity);
         }
     `
 };
+
+const haloShader = {
+    vertexShader: `
+        varying vec3 vWorldPosition;
+        varying vec3 vNormal;
+
+        void main() {
+            vNormal = normalize(normalMatrix * normal);
+            vec4 world = modelMatrix * vec4(position, 1.0);
+            vWorldPosition = world.xyz;
+            gl_Position = projectionMatrix * viewMatrix * world;
+        }
+    `,
+    fragmentShader: `
+        precision mediump float;
+        uniform float progress;
+        uniform float opacity;
+        uniform vec3 color;
+        varying vec3 vWorldPosition;
+        varying vec3 vNormal;
+
+        float hash(vec3 p) {
+            return fract(sin(dot(p, vec3(127.1, 311.7, 74.7))) * 43758.5453);
+        }
+
+        void main() {
+            vec3 viewDir = normalize(cameraPosition - vWorldPosition);
+            float fresnel = pow(1.0 - max(dot(normalize(vNormal), viewDir), 0.0), 1.9);
+            float coronaNoise = hash(vWorldPosition * 0.03 + progress * 4.0);
+            float corona = fresnel * (0.75 + coronaNoise * 0.55);
+            vec3 coronaColor = mix(color, vec3(1.0, 0.68, 0.32), progress * 0.55);
+            gl_FragColor = vec4(coronaColor * (1.2 + fresnel), corona * opacity);
+        }
+    `
+};
+
+const shellColors = ['#dbe8ff', '#ffffff', '#ffbe8b', '#ff874f'];
 
 export const SupernovaEffect: React.FC<SupernovaEffectProps> = ({
     position,
@@ -120,155 +112,124 @@ export const SupernovaEffect: React.FC<SupernovaEffectProps> = ({
     maxRadius,
     color,
     intensity,
+    coreRadius,
+    haloRadius,
+    shellCount,
+    biasDirection,
     onComplete
 }) => {
-    const meshRef = useRef<THREE.Mesh>(null);
-    const materialRef = useRef<THREE.ShaderMaterial>(null);
+    const coreRef = useRef<THREE.Mesh>(null);
+    const haloRef = useRef<THREE.Mesh>(null);
+    const coreMaterialRef = useRef<THREE.ShaderMaterial>(null);
+    const haloMaterialRef = useRef<THREE.ShaderMaterial>(null);
+    const lightRef = useRef<THREE.PointLight>(null);
     const completedRef = useRef(false);
-    const [hasError, setHasError] = React.useState(false);
 
-    const uniforms = useMemo(() => ({
+    const coreUniforms = useMemo(() => ({
         progress: { value: 0 },
-        opacity: { value: 1 },
-        color: { value: new THREE.Color(color) },
         intensity: { value: intensity },
-        phase: { value: 0 }
+        baseColor: { value: new THREE.Color(color) },
+        opacity: { value: 1 }
     }), [color, intensity]);
 
-    const [lightIntensity, setLightIntensity] = React.useState(0);
-
-    // Calculate dynamic light intensity based on phase
-    const getLightIntensity = React.useCallback(() => {
-        const elapsed = performance.now() - startTime;
-        const progress = Math.min(elapsed / duration, 1);
-
-        if (progress < 0.13) {
-            // Contraction: dim
-            return intensity * 50 * (1 - progress / 0.13);
-        } else if (progress < 0.33) {
-            // Brightening: increasing
-            const phaseProgress = (progress - 0.13) / 0.2;
-            return intensity * 50 + phaseProgress * intensity * 150;
-        } else if (progress < 0.5) {
-            // Explosion peak: maximum brightness
-            return intensity * 200;
-        } else {
-            // Fading: exponential decay
-            const fadeProgress = (progress - 0.5) / 0.5;
-            return intensity * 200 * Math.pow(1 - fadeProgress, 2);
-        }
-    }, [startTime, duration, intensity]);
-
-    // Error handling for shader compilation
-    React.useEffect(() => {
-        // WebGL error handling is done at the Canvas level
-        // This effect is kept for future WebGL context checks if needed
-        const handleError = (event: ErrorEvent) => {
-            if (event.message && event.message.includes('WebGL')) {
-                console.warn('SupernovaEffect: WebGL error detected, using fallback');
-                setHasError(true);
-            }
-        };
-
-        window.addEventListener('error', handleError);
-        return () => window.removeEventListener('error', handleError);
-    }, []);
+    const haloUniforms = useMemo(() => ({
+        progress: { value: 0 },
+        opacity: { value: 0.7 },
+        color: { value: new THREE.Color(color) }
+    }), [color]);
 
     useFrame(() => {
-        if (!materialRef.current || completedRef.current) return;
+        if (completedRef.current) {
+            return;
+        }
 
         const elapsed = performance.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
-        if (progress >= 1 && !completedRef.current) {
+        if (progress >= 1) {
             completedRef.current = true;
             onComplete?.();
             return;
         }
 
-        // Update phase (0-1 for full animation)
-        materialRef.current.uniforms.progress.value = progress;
-        materialRef.current.uniforms.phase.value = progress;
+        const contraction = progress < 0.16 ? 1.0 - progress * 0.7 : 0.88;
+        const burst = progress < 0.35 ? 1.0 : 1.0 + (progress - 0.35) * 1.9;
+        const fadeOpacity = progress > 0.72 ? 1 - (progress - 0.72) / 0.28 : 1;
 
-        // Scale changes based on phase
-        if (meshRef.current) {
-            let scale;
-
-            if (progress < 0.13) {
-                // Phase 1: Slight contraction (0-2s)
-                const phaseProgress = progress / 0.13;
-                scale = maxRadius * 0.3 * (1.0 - phaseProgress * 0.2);
-            } else if (progress < 0.33) {
-                // Phase 2: Rapid brightening (2-5s)
-                const phaseProgress = (progress - 0.13) / 0.2;
-                scale = maxRadius * 0.3 * (0.8 + phaseProgress * 0.4);
-            } else if (progress < 0.5) {
-                // Phase 3: Explosive expansion (5-7.5s)
-                const phaseProgress = (progress - 0.33) / 0.17;
-                const easedProgress = 1 - Math.pow(1 - phaseProgress, 3);
-                scale = maxRadius * 0.3 * (1.2 + easedProgress * 4.0);
-            } else {
-                // Phase 4: Continued expansion and fade (7.5-15s)
-                const phaseProgress = (progress - 0.5) / 0.5;
-                const easedProgress = Math.sqrt(phaseProgress);
-                scale = maxRadius * 0.3 * (5.2 + easedProgress * 2.0);
-            }
-
-            meshRef.current.scale.set(scale, scale, scale);
+        if (coreRef.current && coreMaterialRef.current) {
+            const coreScale = coreRadius * contraction * burst;
+            coreRef.current.scale.setScalar(Math.max(0.001, coreScale));
+            coreMaterialRef.current.uniforms.progress.value = progress;
+            coreMaterialRef.current.uniforms.opacity.value = fadeOpacity;
         }
 
-        // Opacity fade in final phase
-        if (progress > 0.7) {
-            const fadeProgress = (progress - 0.7) / 0.3;
-            materialRef.current.uniforms.opacity.value = 1 - fadeProgress;
+        if (haloRef.current && haloMaterialRef.current) {
+            const haloExpansion = 1.15 + Math.pow(progress, 0.7) * 4.2;
+            haloRef.current.scale.setScalar(haloRadius * haloExpansion);
+            haloMaterialRef.current.uniforms.progress.value = progress;
+            haloMaterialRef.current.uniforms.opacity.value = (0.72 + Math.sin(progress * 18.0) * 0.08) * fadeOpacity;
         }
 
-        // Update light intensity
-        setLightIntensity(getLightIntensity());
+        if (lightRef.current) {
+            const peak = progress < 0.35
+                ? intensity * (80 + progress * 280)
+                : intensity * 200 * Math.pow(1 - Math.max(0, progress - 0.35) / 0.65, 1.4);
+            lightRef.current.intensity = peak;
+        }
     });
-
-    // Fallback to simple mesh material if shader fails
-    if (hasError) {
-        return (
-            <mesh
-                ref={meshRef}
-                position={[position.x, position.y, position.z]}
-            >
-                <sphereGeometry args={[1, 16, 16]} />
-                <meshBasicMaterial
-                    color={color}
-                    transparent
-                    opacity={0.8}
-                    blending={THREE.AdditiveBlending}
-                />
-            </mesh>
-        );
-    }
 
     return (
         <group position={[position.x, position.y, position.z]}>
-            {/* Dynamic point light that illuminates nearby objects */}
             <pointLight
+                ref={lightRef}
                 color={color}
-                intensity={lightIntensity}
-                distance={maxRadius * 3}
-                decay={2}
+                intensity={0}
+                distance={maxRadius * 2.4}
+                decay={1.8}
             />
 
-            <mesh ref={meshRef}>
-                {/* Lower poly count for mobile compatibility */}
-                <sphereGeometry args={[1, 16, 16]} />
+            <mesh ref={haloRef}>
+                <sphereGeometry args={[1, 32, 32]} />
                 <shaderMaterial
-                    ref={materialRef}
-                    uniforms={uniforms}
-                    vertexShader={supernovaShader.vertexShader}
-                    fragmentShader={supernovaShader.fragmentShader}
+                    ref={haloMaterialRef}
+                    uniforms={haloUniforms}
+                    vertexShader={haloShader.vertexShader}
+                    fragmentShader={haloShader.fragmentShader}
+                    transparent
+                    depthWrite={false}
+                    blending={THREE.AdditiveBlending}
+                    side={THREE.BackSide}
+                />
+            </mesh>
+
+            <mesh ref={coreRef}>
+                <sphereGeometry args={[1, 24, 24]} />
+                <shaderMaterial
+                    ref={coreMaterialRef}
+                    uniforms={coreUniforms}
+                    vertexShader={coreShader.vertexShader}
+                    fragmentShader={coreShader.fragmentShader}
                     transparent
                     depthWrite={false}
                     blending={THREE.AdditiveBlending}
                     side={THREE.FrontSide}
                 />
             </mesh>
+
+            {Array.from({ length: shellCount }).map((_, index) => (
+                <SupernovaShellEffect
+                    key={index}
+                    position={position}
+                    startTime={startTime}
+                    duration={duration}
+                    delayMs={2400 + index * 950}
+                    maxRadius={maxRadius * (0.45 + index * 0.28)}
+                    color={shellColors[index % shellColors.length]}
+                    biasDirection={biasDirection}
+                    thickness={0.28 - index * 0.04}
+                    opacity={0.45 - index * 0.07}
+                />
+            ))}
         </group>
     );
 };

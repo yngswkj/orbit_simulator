@@ -101,6 +101,10 @@ export const EffectsLayer: React.FC = () => {
                     maxRadius={sn.maxRadius}
                     color={sn.color}
                     intensity={sn.intensity}
+                    coreRadius={sn.coreRadius}
+                    haloRadius={sn.haloRadius}
+                    shellCount={sn.shellCount}
+                    biasDirection={sn.biasDirection}
                     onComplete={() => removeSupernova(sn.id)}
                 />
             ))}
@@ -115,6 +119,8 @@ export const EffectsLayer: React.FC = () => {
                     rayCount={rr.rayCount}
                     maxLength={rr.maxLength}
                     color={rr.color}
+                    spread={rr.spread}
+                    pulseSpeed={rr.pulseSpeed}
                     onComplete={() => removeRadialRays(rr.id)}
                 />
             ))}
@@ -139,6 +145,9 @@ export const EffectsLayer: React.FC = () => {
                     startTime={grb.startTime}
                     duration={grb.duration}
                     length={grb.length}
+                    axis={grb.axis}
+                    width={grb.width}
+                    coreIntensity={grb.coreIntensity}
                     onComplete={() => removeGammaRayBurst(grb.id)}
                 />
             ))}

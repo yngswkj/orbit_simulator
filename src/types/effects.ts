@@ -96,6 +96,10 @@ export interface SupernovaEffect {
     color: string;
     intensity: number;
     phase: 'brightening' | 'explosion' | 'fading'; // Current phase of the supernova
+    coreRadius: number;
+    haloRadius: number;
+    shellCount: number;
+    biasDirection: { x: number; y: number; z: number };
 }
 
 // Radial rays effect
@@ -107,6 +111,8 @@ export interface RadialRaysEffect {
     rayCount: number;
     maxLength: number;
     color: string;
+    spread: number;
+    pulseSpeed: number;
 }
 
 // Camera shake effect
@@ -125,4 +131,7 @@ export interface GammaRayBurstEffect {
     startTime: number;
     duration: number;
     length: number;
+    axis: { x: number; y: number; z: number };
+    width: number;
+    coreIntensity: number;
 }

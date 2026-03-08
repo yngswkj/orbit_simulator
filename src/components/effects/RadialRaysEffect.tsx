@@ -1,10 +1,9 @@
 /**
  * RadialRaysEffect.tsx
- * Radial light rays emanating from supernova explosion
- * Optimized with InstancedMesh for better performance (1 draw call instead of 12)
+ * Instanced radial burst with variable ray lengths and pulsing intensity
  */
 
-import React, { useRef, useMemo } from 'react';
+import React, { useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import * as THREE from 'three';
 
@@ -15,61 +14,44 @@ interface RadialRaysEffectProps {
     rayCount: number;
     maxLength: number;
     color: string;
+    spread: number;
+    pulseSpeed: number;
     onComplete?: () => void;
 }
 
-// Custom shader for radial rays with glow
 const radialRayShader = {
     vertexShader: `
         precision mediump float;
         varying vec2 vUv;
-        varying float vIntensity;
-        varying float vInstanceProgress;
-
+        varying float vSeed;
+        attribute float instanceSeed;
         attribute float instanceProgress;
 
         void main() {
             vUv = uv;
-            vInstanceProgress = instanceProgress;
-
-            // Calculate intensity based on distance from center
-            vec2 center = vec2(0.5, 0.5);
-            float distFromCenter = length(uv - center);
-            vIntensity = 1.0 - smoothstep(0.0, 0.5, distFromCenter);
-
+            vSeed = instanceSeed + instanceProgress;
             gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
         }
     `,
     fragmentShader: `
         precision mediump float;
-        uniform float progress;
         uniform float opacity;
+        uniform float pulseTime;
         uniform vec3 color;
         varying vec2 vUv;
-        varying float vIntensity;
-        varying float vInstanceProgress;
+        varying float vSeed;
 
         void main() {
-            // Create ray pattern
-            vec2 centered = vUv - 0.5;
-            float angle = atan(centered.y, centered.x);
-            float dist = length(centered) * 2.0;
-
-            // Ray intensity with sharp edges
-            float rayPattern = abs(sin(angle * 6.0)); // 12 rays (6 * 2)
-            rayPattern = pow(rayPattern, 3.0); // Sharpen
-
-            // Length mask (rays extend as progress increases)
-            // Use per-instance progress for staggered animation
-            float lengthMask = step(dist, vInstanceProgress);
-
-            // Brightness falloff from center
-            float brightness = (1.0 - dist) * 2.0;
-            brightness *= vIntensity;
-
-            float alpha = rayPattern * lengthMask * brightness * opacity;
-
-            gl_FragColor = vec4(color, alpha);
+            vec2 centered = vUv - vec2(0.5, 0.0);
+            float axis = abs(centered.x);
+            float along = clamp(vUv.y, 0.0, 1.0);
+            float pulse = 0.85 + 0.15 * sin(pulseTime + vSeed * 6.2831);
+            float core = 1.0 - smoothstep(0.0, 0.16, axis);
+            float glow = 1.0 - smoothstep(0.0, 0.46, axis);
+            float taper = smoothstep(0.0, 0.12, along) * (1.0 - smoothstep(0.55, 1.0, along));
+            float alpha = (core * 0.85 + glow * 0.35) * taper * pulse * opacity;
+            vec3 finalColor = mix(color, vec3(1.0), core * 0.6);
+            gl_FragColor = vec4(finalColor, alpha);
         }
     `
 };
@@ -78,32 +60,26 @@ export const RadialRaysEffect: React.FC<RadialRaysEffectProps> = ({
     position,
     startTime,
     duration,
+    rayCount,
     maxLength,
     color,
+    spread,
+    pulseSpeed,
     onComplete
 }) => {
     const groupRef = useRef<THREE.Group>(null);
     const instancedMeshRef = useRef<THREE.InstancedMesh>(null);
     const completedRef = useRef(false);
-    const tempMatrixRef = useRef(new THREE.Matrix4());
-    const tempPosRef = useRef(new THREE.Vector3());
-    const tempQuatRef = useRef(new THREE.Quaternion());
+    const dummyRef = useRef(new THREE.Object3D());
     const tempScaleRef = useRef(new THREE.Vector3());
-    const rotationDummyRef = useRef(new THREE.Object3D());
 
-    const rayCount = 12; // Number of rays
-
-    // Dummy object for matrix calculations
-    const dummy = useMemo(() => new THREE.Object3D(), []);
-
-    // Geometry and material
-    const geometry = useMemo(() => new THREE.PlaneGeometry(maxLength * 2, maxLength * 0.3), [maxLength]);
+    const geometry = useMemo(() => new THREE.PlaneGeometry(1, 1), []);
 
     const material = useMemo(() => {
-        const mat = new THREE.ShaderMaterial({
+        return new THREE.ShaderMaterial({
             uniforms: {
-                progress: { value: 0 },
                 opacity: { value: 1 },
+                pulseTime: { value: 0 },
                 color: { value: new THREE.Color(color) }
             },
             vertexShader: radialRayShader.vertexShader,
@@ -113,101 +89,84 @@ export const RadialRaysEffect: React.FC<RadialRaysEffectProps> = ({
             blending: THREE.AdditiveBlending,
             side: THREE.DoubleSide
         });
-        return mat;
     }, [color]);
 
-    // Initialize instance matrices and custom attribute for per-instance progress
     React.useEffect(() => {
-        if (!instancedMeshRef.current) return;
-
-        const instanceProgressArray = new Float32Array(rayCount);
-
-        for (let i = 0; i < rayCount; i++) {
-            const angle = (i / rayCount) * Math.PI * 2;
-
-            // Set position and rotation
-            dummy.position.set(0, 0, 0);
-            dummy.rotation.set(0, 0, angle);
-            dummy.scale.set(1, 1, 1);
-            dummy.updateMatrix();
-
-            instancedMeshRef.current.setMatrixAt(i, dummy.matrix);
-
-            // Initialize instance progress (will be updated per frame)
-            instanceProgressArray[i] = 0;
+        if (!instancedMeshRef.current) {
+            return;
         }
 
-        // Add custom attribute for per-instance progress
-        const instanceProgress = new THREE.InstancedBufferAttribute(instanceProgressArray, 1);
-        instancedMeshRef.current.geometry.setAttribute('instanceProgress', instanceProgress);
+        const seedAttr = new Float32Array(rayCount);
+        const progressAttr = new Float32Array(rayCount);
 
-        instancedMeshRef.current.instanceMatrix.needsUpdate = true;
-    }, [dummy, rayCount]);
+        for (let i = 0; i < rayCount; i++) {
+            seedAttr[i] = Math.random();
+            progressAttr[i] = 0;
+        }
+
+        instancedMeshRef.current.geometry.setAttribute(
+            'instanceSeed',
+            new THREE.InstancedBufferAttribute(seedAttr, 1)
+        );
+        instancedMeshRef.current.geometry.setAttribute(
+            'instanceProgress',
+            new THREE.InstancedBufferAttribute(progressAttr, 1)
+        );
+    }, [rayCount]);
 
     useFrame(() => {
-        if (completedRef.current || !instancedMeshRef.current) return;
+        if (!instancedMeshRef.current || completedRef.current) {
+            return;
+        }
 
         const elapsed = performance.now() - startTime;
         const progress = Math.min(elapsed / duration, 1);
 
-        if (progress >= 1 && !completedRef.current) {
+        if (progress >= 1) {
             completedRef.current = true;
             onComplete?.();
             return;
         }
 
-        const mat = instancedMeshRef.current.material as THREE.ShaderMaterial;
-
-        // Update per-instance progress for staggered animation
-        const instanceProgressAttr = instancedMeshRef.current.geometry.getAttribute('instanceProgress') as THREE.InstancedBufferAttribute;
+        const mesh = instancedMeshRef.current;
+        const progressAttr = mesh.geometry.getAttribute('instanceProgress') as THREE.InstancedBufferAttribute;
+        const seedAttr = mesh.geometry.getAttribute('instanceSeed') as THREE.InstancedBufferAttribute;
+        const dummy = dummyRef.current;
+        const materialRef = mesh.material as THREE.ShaderMaterial;
 
         for (let i = 0; i < rayCount; i++) {
-            // Staggered progress for each ray
-            const stagger = (i / rayCount) * 0.2;
-            const rayProgress = Math.max(0, Math.min(1, (progress - stagger) * 1.2));
+            const seed = seedAttr.getX(i);
+            const stagger = seed * 0.18;
+            const rayProgress = Math.max(0, Math.min(1, (progress - stagger) / (1 - stagger)));
+            const eased = 1 - Math.pow(1 - rayProgress, 2.5);
+            const angle = (i / rayCount) * Math.PI * 2 + seed * spread;
+            const length = maxLength * (0.5 + seed * 0.75) * eased;
+            const width = maxLength * (0.025 + seed * 0.04 * spread);
+            const sway = (progress * 0.35 + seed) * 0.18;
 
-            // Eased expansion
-            const easedProgress = 1 - Math.pow(1 - rayProgress, 2);
-            instanceProgressAttr.setX(i, easedProgress);
-
-            // Slight rotation animation for each ray
-            const tempMatrix = tempMatrixRef.current;
-            const tempPos = tempPosRef.current;
-            const tempQuat = tempQuatRef.current;
-            const tempScale = tempScaleRef.current;
-            const rotationDummy = rotationDummyRef.current;
-
-            instancedMeshRef.current.getMatrixAt(i, tempMatrix);
-            tempMatrix.decompose(tempPos, tempQuat, tempScale);
-
-            rotationDummy.position.copy(tempPos);
-            rotationDummy.quaternion.copy(tempQuat);
-            rotationDummy.scale.copy(tempScale);
-            rotationDummy.rotation.z += 0.001;
-            rotationDummy.updateMatrix();
-            instancedMeshRef.current.setMatrixAt(i, rotationDummy.matrix);
+            dummy.position.set(0, 0, 0);
+            dummy.rotation.set(0, 0, angle + sway);
+            tempScaleRef.current.set(width, length, 1);
+            dummy.scale.copy(tempScaleRef.current);
+            dummy.position.x = Math.cos(angle) * length * 0.1;
+            dummy.position.y = Math.sin(angle) * length * 0.1;
+            dummy.updateMatrix();
+            mesh.setMatrixAt(i, dummy.matrix);
+            progressAttr.setX(i, eased);
         }
 
-        instanceProgressAttr.needsUpdate = true;
-        instancedMeshRef.current.instanceMatrix.needsUpdate = true;
+        progressAttr.needsUpdate = true;
+        mesh.instanceMatrix.needsUpdate = true;
+        materialRef.uniforms.opacity.value = progress > 0.72 ? 1 - (progress - 0.72) / 0.28 : 1;
+        materialRef.uniforms.pulseTime.value = progress * pulseSpeed * Math.PI * 2;
 
-        // Fade out in the last 30%
-        if (progress > 0.7) {
-            const fadeProgress = (progress - 0.7) / 0.3;
-            mat.uniforms.opacity.value = 1 - fadeProgress;
-        }
-
-        // Rotate entire group
         if (groupRef.current) {
-            groupRef.current.rotation.z += 0.002;
+            groupRef.current.rotation.z += 0.0018;
         }
     });
 
     return (
-        <group
-            ref={groupRef}
-            position={[position.x, position.y, position.z]}
-        >
+        <group ref={groupRef} position={[position.x, position.y, position.z]}>
             <instancedMesh
                 ref={instancedMeshRef}
                 args={[geometry, material, rayCount]}
