@@ -450,6 +450,87 @@ export const BLACK_HOLE_SYSTEM: StarSystemPreset = {
 };
 
 // ============================================
+// TIDAL DISRUPTION SYSTEM
+// ============================================
+
+export const TIDAL_DISRUPTION_SYSTEM: StarSystemPreset = {
+    id: 'tidal-disruption',
+    name: 'Tidal Disruption Event',
+    nameJa: '潮汐破壊イベント',
+    description: 'A black hole tears apart an approaching star while an outer world watches from a safer orbit.',
+    descriptionJa: '接近する恒星がブラックホールに引き裂かれる破局イベント。外縁惑星からその光景を観測する。',
+    category: 'catastrophic',
+    initialCamera: {
+        position: [0, 70, 130],
+        target: [0, 0, 0]
+    },
+    scenario: {
+        kind: 'tidal-disruption',
+        autoStartDelayMs: 1600,
+        primaryBodyName: 'Acheron',
+        targetBodyName: 'Selene',
+        breachDistance: 24,
+        breachFallbackMs: 12000,
+        disruptionDurationMs: 7800,
+        cinematic: 'full',
+        vfxProfileId: 'cinematic'
+    },
+    createBodies: () => {
+        const BLACK_HOLE_MASS = SUN_MASS * 14;
+        const STAR_MASS = SUN_MASS * 1.2;
+        const WITNESS_MASS = 40;
+        const witnessDistance = 180;
+        const witnessSpeed = Math.sqrt(BLACK_HOLE_MASS / witnessDistance) * 0.94;
+
+        return [
+            {
+                name: 'Acheron',
+                mass: BLACK_HOLE_MASS,
+                radius: 2.4,
+                position: new Vector3(0, 0, 0),
+                velocity: new Vector3(0, 0, 0),
+                color: '#000000',
+                isStar: false,
+                isFixed: true,
+                isCompactObject: true,
+                type: 'black_hole',
+                hasAccretionDisk: true,
+                accretionDiskConfig: {
+                    innerRadius: 1.6,
+                    outerRadius: 10,
+                    rotationSpeed: 2.1,
+                    particleCount: 2800,
+                    tilt: 0.18
+                },
+                hasJets: true,
+            },
+            {
+                name: 'Selene',
+                mass: STAR_MASS,
+                radius: 4.8,
+                position: new Vector3(72, 6, 0),
+                velocity: new Vector3(-1.1, 0, -8.5),
+                color: '#d7e8ff',
+                isStar: true,
+                isFixed: false,
+                type: 'star'
+            },
+            {
+                name: 'Witness',
+                mass: WITNESS_MASS,
+                radius: 1.4,
+                position: new Vector3(0, 0, witnessDistance),
+                velocity: new Vector3(witnessSpeed, 0, 0),
+                color: '#7cb0ff',
+                isStar: false,
+                isFixed: false,
+                type: 'planet'
+            }
+        ];
+    }
+};
+
+// ============================================
 // SUPERNOVA SYSTEM
 // ============================================
 
@@ -532,6 +613,7 @@ export const STAR_SYSTEM_PRESETS: StarSystemPreset[] = [
     THREE_BODY_SYSTEM,
     FIGURE_EIGHT,
     BLACK_HOLE_SYSTEM,
+    TIDAL_DISRUPTION_SYSTEM,
     SUPERNOVA_SYSTEM,
 ];
 

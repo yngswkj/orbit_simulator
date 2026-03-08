@@ -26,6 +26,22 @@ export interface SupernovaScenarioConfig {
     vfxProfileId: 'cinematic';
 }
 
+export interface TidalDisruptionScenarioConfig {
+    kind: 'tidal-disruption';
+    autoStartDelayMs: number;
+    primaryBodyName: string;
+    targetBodyName: string;
+    breachDistance: number;
+    breachFallbackMs: number;
+    disruptionDurationMs: number;
+    cinematic: 'full';
+    vfxProfileId: 'cinematic';
+}
+
+export type ScriptedScenarioConfig =
+    | SupernovaScenarioConfig
+    | TidalDisruptionScenarioConfig;
+
 export interface StarSystemPreset {
     id: string;
     name: string;
@@ -44,7 +60,7 @@ export interface StarSystemPreset {
     modes?: StarSystemModeConfig[];
 
     // Optional preset-specific scripted experience
-    scenario?: SupernovaScenarioConfig;
+    scenario?: ScriptedScenarioConfig;
 
     // Creates body data (without IDs) for the system
     createBodies: (mode?: StarSystemMode) => Omit<CelestialBody, 'id'>[];

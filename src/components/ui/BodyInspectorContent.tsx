@@ -24,7 +24,7 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
     const pushHistoryAction = usePhysicsStore(state => state.pushHistoryAction);
     const triggerSupernova = usePhysicsStore(state => state.triggerSupernova);
     const supernovaEvents = usePhysicsStore(state => state.supernovaEvents);
-    const supernovaScenario = usePhysicsStore(state => state.supernovaScenario);
+    const scriptedScenario = usePhysicsStore(state => state.scriptedScenario);
 
     const bodies = usePhysicsStore(state => state.bodies);
     const { t } = useTranslation();
@@ -35,8 +35,11 @@ export const BodyInspectorContent: React.FC<BodyInspectorContentProps> = ({ body
 
     const sun = bodies.find(b => b.name === 'Sun');
     const hasActiveSupernovaEvent = supernovaEvents.some(event => event.starId === selectedBody.id);
-    const isScenarioTarget = supernovaScenario.active && supernovaScenario.targetStarId === selectedBody.id;
-    const isSupernovaLocked = hasActiveSupernovaEvent || isScenarioTarget;
+    const isScenarioActor = scriptedScenario.active && (
+        scriptedScenario.primaryBodyId === selectedBody.id ||
+        scriptedScenario.targetBodyId === selectedBody.id
+    );
+    const isSupernovaLocked = hasActiveSupernovaEvent || isScenarioActor;
     const remnantLabel = selectedBody.mass > 200000
         ? t('supernova_remnant_label_black_hole')
         : t('supernova_remnant_label_neutron_star');

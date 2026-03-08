@@ -9,6 +9,8 @@ import { RelativisticJet } from '../effects/RelativisticJet';
 import { ProceduralPlanet } from './ProceduralPlanet';
 import { getPerformanceConfig } from '../../constants/performance';
 import type { Line2 } from 'three-stdlib';
+import { getPresetById } from '../../utils/starSystems';
+import { getTidalStretchAmount } from '../../utils/scriptedScenarios';
 
 interface CelestialBodyProps {
     body: BodyType;
@@ -134,12 +136,40 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
     const followingBodyId = usePhysicsStore(state => state.followingBodyId);
     const selectBody = usePhysicsStore(state => state.selectBody);
     const cameraMode = usePhysicsStore(state => state.cameraMode);
+    const currentSystemId = usePhysicsStore(state => state.currentSystemId);
+    const scriptedScenario = usePhysicsStore(state => state.scriptedScenario);
+    const tidalDisruptedEvents = usePhysicsStore(state => state.tidallyDisruptedEvents);
 
     const groupRef = React.useRef<Group>(null);
+    const visualGroupRef = React.useRef<Group>(null);
     const meshRef = React.useRef<Mesh>(null);
     const perfConfig = getPerformanceConfig(qualityLevel);
+    const stretchAxis = React.useMemo(() => new Vector3(1, 0, 0), []);
+    const defaultScale = React.useMemo(() => new Vector3(1, 1, 1), []);
+    const targetColor = React.useMemo(() => new Vector3(), []);
+    const tidalHighlightColor = React.useMemo(() => new Vector3(0.95, 0.98, 1.05), []);
+    const diskProgressBucketRef = React.useRef(-1);
+    const [diskVisualProgress, setDiskVisualProgress] = React.useState(0);
+    const tidalEvent = useMemo(
+        () => tidalDisruptedEvents.find(event => event.bodyId === body.id) ?? null,
+        [body.id, tidalDisruptedEvents]
+    );
+    const tidalScenarioConfig = useMemo(() => {
+        if (!currentSystemId) {
+            return null;
+        }
 
-    const positionVector = useMemo(() => new Vector3(body.position.x, body.position.y, body.position.z), [body.position]);
+        const config = getPresetById(currentSystemId)?.scenario;
+        return config?.kind === 'tidal-disruption' ? config : null;
+    }, [currentSystemId]);
+    const displaySource = tidalEvent
+        ? tidalEvent.position
+        : { x: body.position.x, y: body.position.y, z: body.position.z };
+
+    const positionVector = useMemo(
+        () => new Vector3(displaySource.x, displaySource.y, displaySource.z),
+        [displaySource.x, displaySource.y, displaySource.z]
+    );
 
     const tiltRadians = useMemo(() => {
         return (body.axialTilt || 0) * (Math.PI / 180);
@@ -185,6 +215,104 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
             const EARTH_YEAR_RAD = 2300;
             meshRef.current.rotation.y = (body.rotationSpeed * simulationTime * EARTH_YEAR_RAD);
         }
+
+        const material = meshRef.current?.material;
+        const phaseElapsedMs = scriptedScenario.phaseStartedAt === null
+            ? 0
+            : Math.max(0, performance.now() - scriptedScenario.phaseStartedAt);
+        const isTidalTarget = (
+            scriptedScenario.kind === 'tidal-disruption' &&
+            scriptedScenario.targetBodyId === body.id &&
+            !!tidalScenarioConfig
+        );
+
+        if (visualGroupRef.current) {
+            if (isTidalTarget && tidalScenarioConfig) {
+                const stretchAmount = getTidalStretchAmount(
+                    scriptedScenario.phase,
+                    scriptedScenario.metricValue,
+                    phaseElapsedMs,
+                    tidalScenarioConfig.disruptionDurationMs
+                );
+                const restoredRadiusScale = tidalEvent
+                    ? tidalEvent.bodyRadius / Math.max(body.radius, 0.001)
+                    : 1;
+                const longitudinalScale = restoredRadiusScale * (1 + 1.35 * stretchAmount);
+                const transverseScale = restoredRadiusScale * Math.max(0.72, 1 - 0.28 * stretchAmount);
+                const bodies = usePhysicsStore.getState().bodies;
+                const primary = scriptedScenario.primaryBodyId
+                    ? bodies.find(candidate => candidate.id === scriptedScenario.primaryBodyId)
+                    : null;
+
+                visualGroupRef.current.scale.set(longitudinalScale, transverseScale, transverseScale);
+
+                if (primary) {
+                    const tidalAxis = primary.position.clone().sub(positionVector);
+                    if (tidalAxis.lengthSq() > 0.0001) {
+                        tidalAxis.normalize();
+                        visualGroupRef.current.quaternion.setFromUnitVectors(stretchAxis, tidalAxis);
+                    }
+                }
+            } else {
+                visualGroupRef.current.scale.copy(defaultScale);
+                visualGroupRef.current.quaternion.identity();
+            }
+        }
+
+        if (material && 'color' in material && 'emissive' in material && 'emissiveIntensity' in material) {
+            const standardMaterial = material as unknown as {
+                color: { setRGB: (r: number, g: number, b: number) => void };
+                emissive: { setRGB: (r: number, g: number, b: number) => void };
+                emissiveIntensity: number;
+            };
+            const baseColor = new Vector3(
+                parseInt(body.color.slice(1, 3), 16) / 255,
+                parseInt(body.color.slice(3, 5), 16) / 255,
+                parseInt(body.color.slice(5, 7), 16) / 255
+            );
+
+            if (isTidalTarget && tidalScenarioConfig) {
+                const stretchAmount = getTidalStretchAmount(
+                    scriptedScenario.phase,
+                    scriptedScenario.metricValue,
+                    phaseElapsedMs,
+                    tidalScenarioConfig.disruptionDurationMs
+                );
+                targetColor.copy(baseColor).lerp(tidalHighlightColor, stretchAmount * 0.55);
+                standardMaterial.color.setRGB(targetColor.x, targetColor.y, targetColor.z);
+                standardMaterial.emissive.setRGB(targetColor.x, targetColor.y, targetColor.z);
+                standardMaterial.emissiveIntensity = 2 + stretchAmount * 2.5;
+            } else {
+                standardMaterial.color.setRGB(baseColor.x, baseColor.y, baseColor.z);
+                standardMaterial.emissive.setRGB(baseColor.x, baseColor.y, baseColor.z);
+                standardMaterial.emissiveIntensity = body.isStar || body.isCompactObject ? 2.0 : 0;
+            }
+        }
+
+        const isTidalPrimary = (
+            scriptedScenario.kind === 'tidal-disruption' &&
+            scriptedScenario.primaryBodyId === body.id &&
+            !!tidalScenarioConfig
+        );
+
+        if (isTidalPrimary && tidalScenarioConfig) {
+            let nextProgress = 0;
+
+            if (scriptedScenario.phase === 'debris-capture') {
+                nextProgress = Math.max(0, Math.min(1, phaseElapsedMs / tidalScenarioConfig.disruptionDurationMs));
+            } else if (scriptedScenario.phase === 'aftermath' || scriptedScenario.phase === 'complete') {
+                nextProgress = 1;
+            }
+
+            const nextBucket = Math.round(nextProgress * 6);
+            if (nextBucket !== diskProgressBucketRef.current) {
+                diskProgressBucketRef.current = nextBucket;
+                setDiskVisualProgress(nextProgress);
+            }
+        } else if (diskProgressBucketRef.current !== 0 || diskVisualProgress !== 0) {
+            diskProgressBucketRef.current = 0;
+            setDiskVisualProgress(0);
+        }
     });
 
     const isSurfaceView = cameraMode === 'surface_lock';
@@ -195,7 +323,7 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
         bodyCount <= perfConfig.maxVisibleLabels ||
         (body.isStar && bodyCount <= perfConfig.maxVisibleStarLabels)
     );
-    const shouldShowTrail = !isSelf && (
+    const shouldShowTrail = !isSelf && !tidalEvent && (
         isFocusedBody ||
         bodyCount <= perfConfig.maxTrailedBodies
     );
@@ -213,6 +341,32 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
 
         return () => clearTimeout(timer);
     }, [shouldShowTrail]);
+
+    const renderedDiskConfig = useMemo(() => {
+        if (!body.hasAccretionDisk || !body.accretionDiskConfig) {
+            return body.accretionDiskConfig;
+        }
+
+        if (
+            scriptedScenario.kind !== 'tidal-disruption' ||
+            scriptedScenario.primaryBodyId !== body.id ||
+            diskVisualProgress <= 0
+        ) {
+            return body.accretionDiskConfig;
+        }
+
+        const baseParticleCount = body.accretionDiskConfig.particleCount ?? 2400;
+        const boostedParticleCount = Math.max(baseParticleCount, 4200);
+
+        return {
+            ...body.accretionDiskConfig,
+            outerRadius: body.accretionDiskConfig.outerRadius + (20 - body.accretionDiskConfig.outerRadius) * diskVisualProgress,
+            rotationSpeed: body.accretionDiskConfig.rotationSpeed + (2.75 - body.accretionDiskConfig.rotationSpeed) * diskVisualProgress,
+            particleCount: Math.round(
+                (baseParticleCount + (boostedParticleCount - baseParticleCount) * diskVisualProgress) / 200
+            ) * 200
+        };
+    }, [body.accretionDiskConfig, body.hasAccretionDisk, body.id, diskVisualProgress, scriptedScenario.kind, scriptedScenario.primaryBodyId]);
 
     const handleClick = (e: ThreeEvent<MouseEvent>) => {
         if (isSurfaceView) return;
@@ -234,36 +388,38 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                 onClick={handleClick}
             >
                 <group rotation={[0, 0, tiltRadians]}>
-                    {shouldUseTexture ? (
-                        <Sphere ref={meshRef} args={[body.radius, 32, 32]}>
-                            <React.Suspense fallback={<meshStandardMaterial color={body.color} />}>
-                                <TextureOrb body={body} />
-                            </React.Suspense>
-                        </Sphere>
-                    ) : (
-                        /* Fallback to Procedual / Simple Shader */
-                        body.isStar || body.isCompactObject ? (
-                            /* Star/Compact Shader (Simple Emissive for now, could be procedural later) */
+                    <group ref={visualGroupRef}>
+                        {shouldUseTexture ? (
                             <Sphere ref={meshRef} args={[body.radius, 32, 32]}>
-                                <meshStandardMaterial
-                                    color={body.color}
-                                    emissive={body.color}
-                                    emissiveIntensity={2.0}
-                                />
+                                <React.Suspense fallback={<meshStandardMaterial color={body.color} />}>
+                                    <TextureOrb body={body} />
+                                </React.Suspense>
                             </Sphere>
                         ) : (
-                            /* Planet Shader */
-                            /* Note: ProceduralPlanet does not use meshRef for rotation from parent logic yet. 
-                               It handles rotation internally via uniforms but we might want to sync it.
-                               For now, we just render it. */
-                            <ProceduralPlanet
-                                radius={body.radius}
-                                color={body.color}
-                                type={planetType}
-                                rotationSpeed={body.rotationSpeed}
-                            />
-                        )
-                    )}
+                            /* Fallback to Procedual / Simple Shader */
+                            body.isStar || body.isCompactObject ? (
+                                /* Star/Compact Shader (Simple Emissive for now, could be procedural later) */
+                                <Sphere ref={meshRef} args={[body.radius, 32, 32]}>
+                                    <meshStandardMaterial
+                                        color={body.color}
+                                        emissive={body.color}
+                                        emissiveIntensity={2.0}
+                                    />
+                                </Sphere>
+                            ) : (
+                                /* Planet Shader */
+                                /* Note: ProceduralPlanet does not use meshRef for rotation from parent logic yet. 
+                                   It handles rotation internally via uniforms but we might want to sync it.
+                                   For now, we just render it. */
+                                <ProceduralPlanet
+                                    radius={body.radius}
+                                    color={body.color}
+                                    type={planetType}
+                                    rotationSpeed={body.rotationSpeed}
+                                />
+                            )
+                        )}
+                    </group>
 
                     {showGrid && !isSelf && (
                         <Line
@@ -306,20 +462,20 @@ export const CelestialBody: React.FC<CelestialBodyProps> = ({ body }) => {
                 />
             )}
 
-            {body.hasAccretionDisk && body.accretionDiskConfig && (
+            {body.hasAccretionDisk && renderedDiskConfig && (
                 <AccretionDisk
-                    position={body.position}
-                    innerRadius={body.radius * body.accretionDiskConfig.innerRadius}
-                    outerRadius={body.radius * body.accretionDiskConfig.outerRadius}
-                    rotationSpeed={body.accretionDiskConfig.rotationSpeed}
-                    particleCount={body.accretionDiskConfig.particleCount}
-                    tilt={body.accretionDiskConfig.tilt}
+                    position={displaySource}
+                    innerRadius={body.radius * renderedDiskConfig.innerRadius}
+                    outerRadius={body.radius * renderedDiskConfig.outerRadius}
+                    rotationSpeed={renderedDiskConfig.rotationSpeed}
+                    particleCount={renderedDiskConfig.particleCount}
+                    tilt={renderedDiskConfig.tilt}
                 />
             )}
 
             {body.hasJets && (
                 <RelativisticJet
-                    position={body.position}
+                    position={displaySource}
                     length={body.radius * 15}
                     baseWidth={body.radius * 2}
                     speed={1.5}

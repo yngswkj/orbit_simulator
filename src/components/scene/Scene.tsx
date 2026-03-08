@@ -20,6 +20,7 @@ import { TidalDisruptionEffect } from '../effects/TidalDisruptionEffect';
 import { ShockwaveEffect } from '../effects/ShockwaveEffect';
 import { StarfieldBackground } from './StarfieldBackground';
 import { transitionCamera } from '../../utils/cameraTransitions';
+import { computeCollisionCloseUpFrame } from '../../utils/collisionCamera';
 import { getPerformanceConfig } from '../../constants/performance';
 import { PerformanceStats } from '../ui/PerformanceStats';
 import { SupernovaCinematicController } from './SupernovaCinematicController';
@@ -46,7 +47,7 @@ const CameraController = () => {
     const cameraMode = usePhysicsStore((state) => state.cameraMode);
     const simulationTime = usePhysicsStore(state => state.simulationTime);
     const useRealisticDistances = usePhysicsStore((state) => state.useRealisticDistances);
-    const supernovaScenarioActive = usePhysicsStore((state) => state.supernovaScenario.active);
+    const scriptedScenarioActive = usePhysicsStore((state) => state.scriptedScenario.active);
     const { camera, controls } = useThree();
 
     // Store previous states to calculate deltas
@@ -61,7 +62,7 @@ const CameraController = () => {
         isFirstLockFrame.current = true;
 
         // Handle switching TO lock modes
-        if (supernovaScenarioActive) {
+        if (scriptedScenarioActive) {
             lastUsedMode.current = cameraMode;
             return;
         }
@@ -153,7 +154,7 @@ const CameraController = () => {
             }
         }
         lastUsedMode.current = cameraMode;
-    }, [followingBodyId, cameraMode, controls, camera, supernovaScenarioActive]);
+    }, [followingBodyId, cameraMode, controls, camera, scriptedScenarioActive]);
 
     // Handle distance scale changes to prevent camera drift
     React.useEffect(() => {
@@ -309,10 +310,60 @@ const CameraScaleAdjuster = () => {
     return null;
 };
 
+const CollisionCinematicController = () => {
+    const bodies = usePhysicsStore((state) => state.bodies);
+    const collisionEvents = usePhysicsStore((state) => state.collisionEvents);
+    const cameraMode = usePhysicsStore((state) => state.cameraMode);
+    const scriptedScenarioActive = usePhysicsStore((state) => state.scriptedScenario.active);
+    const { camera, controls } = useThree();
+    const lastCollisionIdRef = React.useRef<string | null>(null);
+
+    React.useEffect(() => {
+        if (!controls || scriptedScenarioActive || cameraMode !== 'free' || collisionEvents.length === 0) {
+            return;
+        }
+
+        const latestEvent = collisionEvents[collisionEvents.length - 1];
+        if (lastCollisionIdRef.current === latestEvent.id) {
+            return;
+        }
+
+        lastCollisionIdRef.current = latestEvent.id;
+
+        const focusBody = latestEvent.focusBodyId
+            ? bodies.find(body => body.id === latestEvent.focusBodyId) ?? null
+            : null;
+        const collisionPoint = new Vector3(latestEvent.position.x, latestEvent.position.y, latestEvent.position.z);
+        const focusPosition = focusBody
+            ? focusBody.position.clone()
+            : null;
+        const frame = computeCollisionCloseUpFrame({
+            collisionPoint,
+            currentCameraPosition: camera.position.clone(),
+            impactRadius: latestEvent.impactRadius ?? 1,
+            focusPosition
+        });
+        const orbitControls = controls as unknown as { target: THREE.Vector3; update: () => void };
+
+        transitionCamera(camera, orbitControls, frame.cameraPosition, frame.lookAt, {
+            duration: 0.45,
+            ease: 'power2.out',
+            dynamicTarget: latestEvent.focusBodyId
+                ? () => {
+                    const currentBody = usePhysicsStore.getState().bodies.find(body => body.id === latestEvent.focusBodyId);
+                    return currentBody?.position.clone() ?? frame.lookAt.clone();
+                }
+                : undefined
+        });
+    }, [bodies, camera, cameraMode, collisionEvents, controls, scriptedScenarioActive]);
+
+    return null;
+};
+
 // Gravitational lens post-processing wrapper (always enabled for compact objects)
 const GravitationalLensPostProcess = () => {
     const bodies = usePhysicsStore((state) => state.bodies);
-    const { camera } = useThree();
+    const { camera, size } = useThree();
 
     // Find compact objects (black holes)
     const compactObjects = useMemo(() => bodies.filter(b => b.isCompactObject), [bodies]);
@@ -335,6 +386,7 @@ const GravitationalLensPostProcess = () => {
                 strength={1.5}
                 camera={camera}
                 enabled={true}
+                viewportSize={size}
             />
             <BrightnessContrast brightness={-0.2} contrast={0.1} />
         </EffectComposer>
@@ -368,6 +420,7 @@ const SimulationContent = () => {
     return (
         <>
             <CameraController />
+            <CollisionCinematicController />
             <SupernovaCinematicController />
             <ambientLight intensity={0.2} />
             <pointLight position={[0, 0, 0]} intensity={2} decay={0} distance={1000} />
@@ -391,11 +444,12 @@ const SimulationContent = () => {
             {/* Legacy: Tidal Disruption & Shockwave rendered directly here for Week 1 compatibility */}
             {tidallyDisruptedEvents.map(event => {
                 const primary = bodies.find(b => b.id === event.primaryId);
-                const body = bodies.find(b => b.id === event.bodyId);
-                const primaryPos = primary ? primary.position : new THREE.Vector3(0, 0, 0);
+                const primaryPos = primary
+                    ? primary.position
+                    : new THREE.Vector3(event.primaryPosition.x, event.primaryPosition.y, event.primaryPosition.z);
                 const primaryMass = primary ? primary.mass : 1000;
-                const radius = body ? body.radius : 10;
-                const color = body ? body.color : '#aaaaaa';
+                const radius = event.bodyRadius;
+                const color = event.bodyColor;
 
                 return (
                     <TidalDisruptionEffect

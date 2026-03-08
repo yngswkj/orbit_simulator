@@ -1,48 +1,105 @@
-import React, { useMemo } from 'react';
-import { usePhysicsStore } from '../../store/physicsStore';
-import { useTranslation } from '../../utils/i18n';
+import React, { useMemo } from 'react'
+import { usePhysicsStore } from '../../store/physicsStore'
+import { useTranslation } from '../../utils/i18n'
+import { isLateTidalApproach } from '../../utils/scriptedScenarios'
 
-const getPhaseTextKey = (phase: string) => {
+const getPhaseTextKey = (kind: string | null, phase: string, ratio: number | null) => {
+    if (kind === 'tidal-disruption') {
+        switch (phase) {
+            case 'intro':
+                return 'scenario_tidal_phase_intro'
+            case 'approach':
+                return isLateTidalApproach(ratio)
+                    ? 'scenario_tidal_phase_spaghettification'
+                    : 'scenario_tidal_phase_approach'
+            case 'breach':
+                return 'scenario_tidal_phase_breach'
+            case 'debris-capture':
+                return 'scenario_tidal_phase_capture'
+            case 'aftermath':
+                return 'scenario_tidal_phase_aftermath'
+            case 'complete':
+                return 'scenario_tidal_phase_complete'
+            default:
+                return 'scenario_tidal_phase_intro'
+        }
+    }
+
     switch (phase) {
         case 'intro':
-            return 'supernova_phase_intro';
+            return 'scenario_supernova_phase_intro'
         case 'countdown':
-            return 'supernova_phase_countdown';
+            return 'scenario_supernova_phase_countdown'
         case 'shock-breakout':
-            return 'supernova_phase_breakout';
+            return 'scenario_supernova_phase_breakout'
         case 'ejecta':
-            return 'supernova_phase_ejecta';
+            return 'scenario_supernova_phase_ejecta'
         case 'remnant':
-            return 'supernova_phase_remnant';
+            return 'scenario_supernova_phase_remnant'
         case 'complete':
-            return 'supernova_phase_complete';
+            return 'scenario_supernova_phase_complete'
         default:
-            return 'supernova_phase_intro';
+            return 'scenario_supernova_phase_intro'
     }
-};
+}
+
+const getCompletionTextKey = (kind: string | null, outcomeBody?: { type?: string; isCompactObject?: boolean } | null) => {
+    if (kind === 'tidal-disruption') {
+        return outcomeBody ? 'scenario_tidal_outcome_captured' : 'scenario_tidal_outcome_none'
+    }
+
+    if (!outcomeBody) {
+        return 'scenario_supernova_outcome_none'
+    }
+
+    if (outcomeBody.type === 'black_hole') {
+        return 'scenario_supernova_outcome_black_hole'
+    }
+
+    if (outcomeBody.isCompactObject) {
+        return 'scenario_supernova_outcome_neutron_star'
+    }
+
+    return 'scenario_supernova_outcome_none'
+}
 
 export const SupernovaScenarioOverlay: React.FC = () => {
-    const scenario = usePhysicsStore(state => state.supernovaScenario);
-    const loadStarSystem = usePhysicsStore(state => state.loadStarSystem);
-    const selectBody = usePhysicsStore(state => state.selectBody);
-    const setFollowingBody = usePhysicsStore(state => state.setFollowingBody);
-    const setCameraMode = usePhysicsStore(state => state.setCameraMode);
-    const clearSupernovaScenario = usePhysicsStore(state => state.clearSupernovaScenario);
-    const { t } = useTranslation();
+    const scenario = usePhysicsStore(state => state.scriptedScenario)
+    const bodies = usePhysicsStore(state => state.bodies)
+    const currentSystemId = usePhysicsStore(state => state.currentSystemId)
+    const currentSystemMode = usePhysicsStore(state => state.currentSystemMode)
+    const loadStarSystem = usePhysicsStore(state => state.loadStarSystem)
+    const selectBody = usePhysicsStore(state => state.selectBody)
+    const setFollowingBody = usePhysicsStore(state => state.setFollowingBody)
+    const setCameraMode = usePhysicsStore(state => state.setCameraMode)
+    const clearScriptedScenario = usePhysicsStore(state => state.clearScriptedScenario)
+    const { t } = useTranslation()
 
     const countdown = useMemo(() => {
-        if (scenario.phase !== 'countdown') {
-            return null;
+        if (scenario.metricKind !== 'countdown' || scenario.phase !== 'countdown') {
+            return null
         }
 
-        return Math.max(1, Math.ceil(scenario.countdownRemainingMs / 1000));
-    }, [scenario.countdownRemainingMs, scenario.phase]);
+        return Math.max(1, Math.ceil(scenario.countdownRemainingMs / 1000))
+    }, [scenario.countdownRemainingMs, scenario.metricKind, scenario.phase])
+
+    const distanceRatio = useMemo(() => {
+        if (scenario.metricKind !== 'distance-ratio' || scenario.metricValue === null) {
+            return null
+        }
+
+        return scenario.metricValue.toFixed(2)
+    }, [scenario.metricKind, scenario.metricValue])
+
+    const outcomeBody = scenario.outcomeBodyId
+        ? bodies.find(body => body.id === scenario.outcomeBodyId) ?? null
+        : null
 
     if (!scenario.active) {
-        return null;
+        return null
     }
 
-    const canInspectRemnant = scenario.phase === 'complete' && !!scenario.remnantBodyId;
+    const canInspectOutcome = scenario.phase === 'complete' && !!outcomeBody
 
     return (
         <div style={{
@@ -74,7 +131,7 @@ export const SupernovaScenarioOverlay: React.FC = () => {
                     color: '#9fb9ff',
                     marginBottom: '8px'
                 }}>
-                    {t('supernova_overlay_kicker')}
+                    {t('scenario_overlay_kicker')}
                 </div>
 
                 <div style={{
@@ -82,7 +139,7 @@ export const SupernovaScenarioOverlay: React.FC = () => {
                     fontWeight: 600,
                     letterSpacing: '-0.02em'
                 }}>
-                    {t(getPhaseTextKey(scenario.phase))}
+                    {t(getPhaseTextKey(scenario.kind, scenario.phase, scenario.metricValue))}
                 </div>
 
                 {countdown !== null && (
@@ -98,15 +155,39 @@ export const SupernovaScenarioOverlay: React.FC = () => {
                     </div>
                 )}
 
+                {distanceRatio !== null && (
+                    <div style={{
+                        marginTop: '14px',
+                        display: 'grid',
+                        gap: '4px'
+                    }}>
+                        <div style={{
+                            fontSize: '0.78rem',
+                            letterSpacing: '0.12em',
+                            textTransform: 'uppercase',
+                            color: '#9fb9ff'
+                        }}>
+                            {t('scenario_metric_distance_ratio')}
+                        </div>
+                        <div style={{
+                            fontSize: '2.4rem',
+                            fontWeight: 700,
+                            lineHeight: 1,
+                            color: '#f8fbff',
+                            textShadow: '0 0 18px rgba(186, 221, 255, 0.25)'
+                        }}>
+                            {distanceRatio}x
+                        </div>
+                    </div>
+                )}
+
                 {scenario.phase === 'complete' && (
                     <div style={{
                         marginTop: '12px',
                         fontSize: '0.95rem',
                         color: '#d7e0f7'
                     }}>
-                        {scenario.remnantType === 'black-hole' && t('supernova_remnant_black_hole')}
-                        {scenario.remnantType === 'neutron-star' && t('supernova_remnant_neutron_star')}
-                        {scenario.remnantType === 'none' && t('supernova_remnant_none')}
+                        {t(getCompletionTextKey(scenario.kind, outcomeBody))}
                     </div>
                 )}
 
@@ -119,7 +200,13 @@ export const SupernovaScenarioOverlay: React.FC = () => {
                         marginTop: '18px'
                     }}>
                         <button
-                            onClick={() => loadStarSystem('supernova')}
+                            onClick={() => {
+                                if (!currentSystemId) {
+                                    return
+                                }
+
+                                loadStarSystem(currentSystemId, currentSystemMode ?? undefined)
+                            }}
                             style={{
                                 padding: '10px 16px',
                                 borderRadius: '999px',
@@ -129,20 +216,20 @@ export const SupernovaScenarioOverlay: React.FC = () => {
                                 cursor: 'pointer'
                             }}
                         >
-                            {t('supernova_action_replay')}
+                            {t('scenario_action_replay')}
                         </button>
 
-                        {canInspectRemnant && (
+                        {canInspectOutcome && (
                             <button
                                 onClick={() => {
-                                    if (!scenario.remnantBodyId) {
-                                        return;
+                                    if (!outcomeBody) {
+                                        return
                                     }
 
-                                    selectBody(scenario.remnantBodyId);
-                                    setFollowingBody(scenario.remnantBodyId);
-                                    setCameraMode('sun_lock');
-                                    clearSupernovaScenario();
+                                    selectBody(outcomeBody.id)
+                                    setFollowingBody(outcomeBody.id)
+                                    setCameraMode('sun_lock')
+                                    clearScriptedScenario()
                                 }}
                                 style={{
                                     padding: '10px 16px',
@@ -153,15 +240,15 @@ export const SupernovaScenarioOverlay: React.FC = () => {
                                     cursor: 'pointer'
                                 }}
                             >
-                                {t('supernova_action_inspect')}
+                                {t('scenario_action_inspect')}
                             </button>
                         )}
 
                         <button
                             onClick={() => {
-                                setFollowingBody(null);
-                                setCameraMode('free');
-                                clearSupernovaScenario();
+                                setFollowingBody(null)
+                                setCameraMode('free')
+                                clearScriptedScenario()
                             }}
                             style={{
                                 padding: '10px 16px',
@@ -172,11 +259,11 @@ export const SupernovaScenarioOverlay: React.FC = () => {
                                 cursor: 'pointer'
                             }}
                         >
-                            {t('supernova_action_free_camera')}
+                            {t('scenario_action_free_camera')}
                         </button>
                     </div>
                 )}
             </div>
         </div>
-    );
-};
+    )
+}

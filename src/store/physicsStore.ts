@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import type { CelestialBody, SimulationState, CameraMode, PhysicsState, TidalDisruptionEvent, LegacyCollisionEvent, CollisionEvent, SupernovaEvent, SupernovaScenarioState } from '../types/physics';
-import type { StarSystemMode, StarSystemPreset } from '../types/starSystem';
+import type { CelestialBody, SimulationState, CameraMode, PhysicsState, TidalDisruptionEvent, LegacyCollisionEvent, CollisionEvent, SupernovaEvent, ScriptedScenarioState } from '../types/physics';
+import type { StarSystemMode } from '../types/starSystem';
 import { updatePhysicsSoA, createPhysicsState, syncStateToBodies, getSimulationStepDt, calculateTotalEnergy, applyCollisions } from '../utils/physics';
 import { Vector3 } from 'three';
 import { v4 as uuidv4 } from 'uuid';
@@ -11,12 +11,18 @@ import { GPUPhysicsEngine } from '../gpu/GPUPhysicsEngine';
 import { useEffectsStore } from './effectsStore';
 
 import { BUFFER_LIMITS } from '../constants/physics';
+import { getPerformanceConfig } from '../constants/performance';
 import { DISTANCE_SCALE_FACTOR } from '../utils/solarSystem';
 import type { QualityLevel } from '../utils/deviceDetection';
 import { recommendQualityLevel } from '../utils/deviceDetection';
 import { createTimeoutRegistry } from '../utils/timeoutRegistry';
-import { SUPERNOVA_SCENARIO_TIMINGS, findMostMassiveStar, getSupernovaRemnantType } from '../utils/supernova';
-import type { SupernovaScenarioPhase } from '../utils/supernova';
+import { getSupernovaRemnantType } from '../utils/supernova';
+import {
+    createEmptyScriptedScenario,
+    resolveScriptedScenarioActors,
+    type ScriptedScenarioKind,
+    type ScriptedScenarioPhase
+} from '../utils/scriptedScenarios';
 
 // Helper to trigger visual effects for collisions
 const triggerCollisionEffects = (events: CollisionEvent[]) => {
@@ -72,23 +78,6 @@ export const physicsStats = {
 
 const MAX_STABLE_DT = 0.02; // Threshold to split steps
 const physicsTimeouts = createTimeoutRegistry();
-
-const createEmptySupernovaScenario = (): SupernovaScenarioState => ({
-    active: false,
-    phase: 'idle',
-    targetStarId: null,
-    startedAt: null,
-    triggerAt: null,
-    remnantBodyId: null,
-    remnantType: null,
-    autoStarted: false,
-    countdownRemainingMs: 0
-});
-
-const getScenarioConfig = (preset?: StarSystemPreset | null) => ({
-    autoStartDelayMs: preset?.scenario?.autoStartDelayMs ?? SUPERNOVA_SCENARIO_TIMINGS.introMs,
-    countdownMs: preset?.scenario?.countdownMs ?? SUPERNOVA_SCENARIO_TIMINGS.countdownMs
-});
 
 export type HistoryAction =
     | { type: 'ADD'; body: CelestialBody }
@@ -167,16 +156,24 @@ interface PhysicsStore {
     tidallyDisruptedEvents: TidalDisruptionEvent[];
     collisionEvents: LegacyCollisionEvent[];
     supernovaEvents: SupernovaEvent[];
-    supernovaScenario: SupernovaScenarioState;
+    scriptedScenario: ScriptedScenarioState;
     addTidalDisruptionEvent: (event: TidalDisruptionEvent) => void;
     removeTidalDisruptionEvent: (bodyId: string) => void;
     addCollisionEvent: (event: LegacyCollisionEvent) => void;
     removeCollisionEvent: (eventId: string) => void;
     triggerSupernova: (starId: string) => void;
-    startSupernovaScenario: (starId: string, autoStarted?: boolean) => void;
-    advanceSupernovaScenario: (phase: SupernovaScenarioPhase, updates?: Partial<SupernovaScenarioState>) => void;
-    completeSupernovaScenario: (remnantBodyId?: string | null, remnantType?: SupernovaEvent['remnantType'] | null) => void;
-    clearSupernovaScenario: () => void;
+    startScriptedScenario: (params: {
+        kind: ScriptedScenarioKind;
+        primaryBodyId?: string | null;
+        targetBodyId?: string | null;
+        focusBodyId?: string | null;
+        autoStarted?: boolean;
+    }) => void;
+    advanceScriptedScenario: (phase: ScriptedScenarioPhase, updates?: Partial<ScriptedScenarioState>) => void;
+    completeScriptedScenario: (outcomeBodyId?: string | null, updates?: Partial<ScriptedScenarioState>) => void;
+    clearScriptedScenario: () => void;
+    triggerScriptedTidalDisruption: (primaryBodyId: string, targetBodyId: string, duration: number) => void;
+    finalizeScriptedTidalDisruption: (primaryBodyId: string, targetBodyId: string) => void;
 
     updateBodies: () => void;
     loadSolarSystem: () => void;
@@ -218,7 +215,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
     tidallyDisruptedEvents: [],
     collisionEvents: [],
     supernovaEvents: [],
-    supernovaScenario: createEmptySupernovaScenario(),
+    scriptedScenario: createEmptyScriptedScenario(),
 
     // Star System
     currentSystemId: 'solar-system',
@@ -255,77 +252,222 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         set({ isGPUSupported: supported });
     },
 
-    startSupernovaScenario: (starId, autoStarted = true) => {
-        const preset = getPresetById(get().currentSystemId ?? '');
-        const { autoStartDelayMs, countdownMs } = getScenarioConfig(preset);
+    startScriptedScenario: ({
+        kind,
+        primaryBodyId = null,
+        targetBodyId = null,
+        focusBodyId = null,
+        autoStarted = true
+    }) => {
+        physicsTimeouts.clearAll();
         const now = performance.now();
 
-        physicsTimeouts.clearAll();
-
         set({
-            supernovaScenario: {
+            scriptedScenario: {
                 active: true,
+                kind,
                 phase: 'intro',
-                targetStarId: starId,
                 startedAt: now,
-                triggerAt: now + autoStartDelayMs + countdownMs,
-                remnantBodyId: null,
-                remnantType: null,
+                phaseStartedAt: now,
                 autoStarted,
-                countdownRemainingMs: countdownMs
+                primaryBodyId,
+                targetBodyId,
+                focusBodyId: focusBodyId ?? targetBodyId ?? primaryBodyId,
+                outcomeBodyId: null,
+                countdownRemainingMs: 0,
+                metricValue: null,
+                metricKind: null
             }
         });
-
-        physicsTimeouts.schedule(() => {
-            get().advanceSupernovaScenario('countdown', {
-                triggerAt: performance.now() + countdownMs,
-                countdownRemainingMs: countdownMs
-            });
-        }, autoStartDelayMs);
-
-        physicsTimeouts.schedule(() => {
-            get().advanceSupernovaScenario('shock-breakout', {
-                countdownRemainingMs: 0
-            });
-            get().triggerSupernova(starId);
-        }, autoStartDelayMs + countdownMs);
-
-        physicsTimeouts.schedule(() => {
-            get().advanceSupernovaScenario('ejecta');
-        }, autoStartDelayMs + countdownMs + SUPERNOVA_SCENARIO_TIMINGS.shockBreakoutMs);
-
-        physicsTimeouts.schedule(() => {
-            get().advanceSupernovaScenario('remnant');
-        }, autoStartDelayMs + countdownMs + SUPERNOVA_SCENARIO_TIMINGS.ejectaMs);
-
-        physicsTimeouts.schedule(() => {
-            get().advanceSupernovaScenario('complete');
-        }, autoStartDelayMs + countdownMs + SUPERNOVA_SCENARIO_TIMINGS.ejectaMs + SUPERNOVA_SCENARIO_TIMINGS.remnantHoldMs);
     },
 
-    advanceSupernovaScenario: (phase, updates = {}) => set((state) => ({
-        supernovaScenario: {
-            ...state.supernovaScenario,
-            ...updates,
-            active: phase !== 'idle',
-            phase
-        }
-    })),
+    advanceScriptedScenario: (phase, updates = {}) => set((state) => {
+        const phaseChanged = state.scriptedScenario.phase !== phase;
 
-    completeSupernovaScenario: (remnantBodyId = null, remnantType = null) => set((state) => ({
-        supernovaScenario: {
-            ...state.supernovaScenario,
+        return {
+            scriptedScenario: {
+                ...state.scriptedScenario,
+                ...updates,
+                active: phase !== 'idle',
+                phase,
+                phaseStartedAt: phaseChanged
+                    ? performance.now()
+                    : (updates.phaseStartedAt ?? state.scriptedScenario.phaseStartedAt)
+            }
+        }
+    }),
+
+    completeScriptedScenario: (outcomeBodyId = null, updates = {}) => set((state) => ({
+        scriptedScenario: {
+            ...state.scriptedScenario,
+            ...updates,
             active: true,
             phase: 'complete',
-            remnantBodyId,
-            remnantType,
-            countdownRemainingMs: 0
+            phaseStartedAt: performance.now(),
+            focusBodyId: outcomeBodyId ?? state.scriptedScenario.focusBodyId,
+            outcomeBodyId,
+            countdownRemainingMs: 0,
+            metricValue: null,
+            metricKind: null
         }
     })),
 
-    clearSupernovaScenario: () => {
+    clearScriptedScenario: () => {
         physicsTimeouts.clearAll();
-        set({ supernovaScenario: createEmptySupernovaScenario() });
+        set({ scriptedScenario: createEmptyScriptedScenario() });
+    },
+
+    triggerScriptedTidalDisruption: (primaryBodyId, targetBodyId, duration) => {
+        const { bodies, tidallyDisruptedEvents, qualityLevel } = get();
+        const primary = bodies.find(body => body.id === primaryBodyId);
+        const target = bodies.find(body => body.id === targetBodyId);
+
+        if (!primary || !target || tidallyDisruptedEvents.some(event => event.bodyId === targetBodyId)) {
+            return;
+        }
+
+        const effectsStore = useEffectsStore.getState();
+        const now = performance.now();
+        const performanceConfig = getPerformanceConfig(qualityLevel);
+        const disruptionAxis = primary.position.clone().sub(target.position);
+        if (disruptionAxis.lengthSq() > 0.0001) {
+            disruptionAxis.normalize();
+        } else {
+            disruptionAxis.set(1, 0, 0);
+        }
+
+        set((state) => ({
+            bodies: state.bodies.map(body =>
+                body.id === targetBodyId
+                    ? {
+                        ...body,
+                        radius: Math.max(body.radius * 0.28, 1.1),
+                        velocity: new Vector3(0, 0, 0),
+                        isBeingDestroyed: true,
+                        destructionProgress: 0,
+                        destructionStartTime: now
+                    }
+                    : body
+            ),
+            tidallyDisruptedEvents: [
+                ...state.tidallyDisruptedEvents,
+                {
+                    bodyId: target.id,
+                    primaryId: primary.id,
+                    position: { x: target.position.x, y: target.position.y, z: target.position.z },
+                    primaryPosition: { x: primary.position.x, y: primary.position.y, z: primary.position.z },
+                    bodyRadius: target.radius,
+                    bodyColor: target.color,
+                    primaryMass: primary.mass,
+                    startTime: now,
+                    duration
+                }
+            ],
+            scriptedScenario: {
+                ...state.scriptedScenario,
+                focusBodyId: target.id
+            }
+        }));
+
+        effectsStore.addCameraShake(1.45, 2800, 'exponential');
+        effectsStore.addExplosion(
+            { x: target.position.x, y: target.position.y, z: target.position.z },
+            target.radius * 5.8,
+            '#ffffff',
+            Math.min(480, Math.max(220, performanceConfig.maxExplosionParticles * 2)),
+            950
+        );
+        effectsStore.addShockwave(
+            { x: target.position.x, y: target.position.y, z: target.position.z },
+            target.radius * 10.5,
+            '#dcecff',
+            2400,
+            0.55,
+            { x: disruptionAxis.x, y: disruptionAxis.y, z: disruptionAxis.z }
+        );
+        effectsStore.addHeatGlow(
+            primary.id,
+            { x: primary.position.x, y: primary.position.y, z: primary.position.z },
+            primary.radius * 6.5,
+            1.25,
+            duration + 1800
+        );
+        physicsTimeouts.schedule(() => {
+            effectsStore.addExplosion(
+                { x: target.position.x, y: target.position.y, z: target.position.z },
+                target.radius * 4.5,
+                '#dbe8ff',
+                Math.min(260, Math.max(120, performanceConfig.maxExplosionParticles + 80)),
+                1800
+            );
+        }, 180);
+        physicsTimeouts.schedule(() => {
+            const debrisVelocity = disruptionAxis.clone().multiplyScalar(target.radius * 1.4);
+            effectsStore.addDebrisCloud(
+                target.id,
+                { x: target.position.x, y: target.position.y, z: target.position.z },
+                { x: debrisVelocity.x, y: debrisVelocity.y, z: debrisVelocity.z },
+                '#f4dcc7',
+                Math.min(performanceConfig.maxDebrisParticles, Math.max(180, Math.floor(performanceConfig.maxDebrisParticles * 0.34))),
+                target.radius * 0.08,
+                target.radius * 2.4
+            );
+        }, 420);
+    },
+
+    finalizeScriptedTidalDisruption: (primaryBodyId, targetBodyId) => {
+        const primary = get().bodies.find(body => body.id === primaryBodyId);
+        const effectsStore = useEffectsStore.getState();
+
+        if (primary) {
+            effectsStore.addHeatGlow(
+                primary.id,
+                { x: primary.position.x, y: primary.position.y, z: primary.position.z },
+                primary.radius * 7,
+                1.3,
+                3800
+            );
+        }
+
+        set((state) => ({
+            bodies: state.bodies
+                .filter(body => body.id !== targetBodyId)
+                .map(body => {
+                    if (body.id !== primaryBodyId) {
+                        return body;
+                    }
+
+                    return {
+                        ...body,
+                        hasAccretionDisk: true,
+                        accretionDiskConfig: body.accretionDiskConfig
+                            ? {
+                                ...body.accretionDiskConfig,
+                                outerRadius: Math.max(body.accretionDiskConfig.outerRadius, 20),
+                                particleCount: Math.max(body.accretionDiskConfig.particleCount ?? 0, 4200),
+                                rotationSpeed: Math.max(body.accretionDiskConfig.rotationSpeed, 2.75)
+                            }
+                            : {
+                                innerRadius: 3,
+                                outerRadius: 20,
+                                rotationSpeed: 2.75,
+                                particleCount: 4200,
+                                tilt: 0.2
+                            }
+                    };
+                }),
+            physicsState: null,
+            gpuDataInvalidated: true,
+            selectedBodyId: state.selectedBodyId === targetBodyId ? null : state.selectedBodyId,
+            followingBodyId: state.followingBodyId === targetBodyId ? null : state.followingBodyId,
+            scriptedScenario: {
+                ...state.scriptedScenario,
+                focusBodyId: primaryBodyId,
+                outcomeBodyId: primaryBodyId,
+                metricKind: null,
+                metricValue: null
+            }
+        }));
     },
 
     cleanup: () => {
@@ -341,7 +483,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         }
         set({
             supernovaEvents: [],
-            supernovaScenario: createEmptySupernovaScenario(),
+            scriptedScenario: createEmptyScriptedScenario(),
             collisionEvents: [],
             tidallyDisruptedEvents: []
         });
@@ -553,13 +695,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
         };
 
         set((state) => ({
-            supernovaEvents: [...state.supernovaEvents, supernovaEvent],
-            supernovaScenario: state.supernovaScenario.targetStarId === starId
-                ? {
-                    ...state.supernovaScenario,
-                    remnantType: supernovaEvent.remnantType
-                }
-                : state.supernovaScenario
+            supernovaEvents: [...state.supernovaEvents, supernovaEvent]
         }));
 
         // After explosion animation (15s), transform star into remnant
@@ -642,13 +778,13 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                     physicsState: null,
                     gpuDataInvalidated: true,
                     supernovaEvents: state.supernovaEvents.filter(event => event.id !== supernovaEvent.id),
-                    supernovaScenario: state.supernovaScenario.targetStarId === starId
+                    scriptedScenario: state.scriptedScenario.kind === 'supernova' && state.scriptedScenario.targetBodyId === starId
                         ? {
-                            ...state.supernovaScenario,
-                            remnantBodyId: starId,
-                            remnantType: supernovaEvent.remnantType
+                            ...state.scriptedScenario,
+                            focusBodyId: starId,
+                            outcomeBodyId: starId
                         }
-                        : state.supernovaScenario
+                        : state.scriptedScenario
                 }));
                 return;
             } else if (supernovaEvent.remnantType === 'neutron-star') {
@@ -669,13 +805,13 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                     selectedBodyId: state.selectedBodyId === starId ? null : state.selectedBodyId,
                     followingBodyId: state.followingBodyId === starId ? null : state.followingBodyId,
                     supernovaEvents: state.supernovaEvents.filter(event => event.id !== supernovaEvent.id),
-                    supernovaScenario: state.supernovaScenario.targetStarId === starId
+                    scriptedScenario: state.scriptedScenario.kind === 'supernova' && state.scriptedScenario.targetBodyId === starId
                         ? {
-                            ...state.supernovaScenario,
-                            remnantBodyId: null,
-                            remnantType: supernovaEvent.remnantType
+                            ...state.scriptedScenario,
+                            focusBodyId: null,
+                            outcomeBodyId: null
                         }
-                        : state.supernovaScenario
+                        : state.scriptedScenario
                 }));
                 return;
             }
@@ -690,13 +826,13 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                 physicsState: null,
                 gpuDataInvalidated: true,
                 supernovaEvents: state.supernovaEvents.filter(event => event.id !== supernovaEvent.id),
-                supernovaScenario: state.supernovaScenario.targetStarId === starId
+                scriptedScenario: state.scriptedScenario.kind === 'supernova' && state.scriptedScenario.targetBodyId === starId
                     ? {
-                        ...state.supernovaScenario,
-                        remnantBodyId: starId,
-                        remnantType: supernovaEvent.remnantType
+                        ...state.scriptedScenario,
+                        focusBodyId: starId,
+                        outcomeBodyId: starId
                     }
-                    : state.supernovaScenario
+                    : state.scriptedScenario
             }));
         }, 15000);
     },
@@ -953,7 +1089,9 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                                     id: uuidv4(),
                                     position: e.collisionPoint,
                                     color: e.smallerBodyColor,
-                                    startTime: performance.now()
+                                    startTime: performance.now(),
+                                    impactRadius: e.smallerBodyRadius,
+                                    focusBodyId: e.largerBodyId
                                 });
                             });
 
@@ -1015,7 +1153,9 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                                 id: uuidv4(),
                                 position: e.collisionPoint,
                                 color: e.smallerBodyColor,
-                                startTime: performance.now()
+                                startTime: performance.now(),
+                                impactRadius: e.smallerBodyRadius,
+                                focusBodyId: e.largerBodyId
                             });
                         });
 
@@ -1094,7 +1234,9 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
                             id: uuidv4(),
                             position: e.collisionPoint,
                             color: e.smallerBodyColor,
-                            startTime: performance.now()
+                            startTime: performance.now(),
+                            impactRadius: e.smallerBodyRadius,
+                            focusBodyId: e.largerBodyId
                         });
                     });
 
@@ -1141,7 +1283,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             tidallyDisruptedEvents: [],
             collisionEvents: [],
             supernovaEvents: [],
-            supernovaScenario: createEmptySupernovaScenario(),
+            scriptedScenario: createEmptyScriptedScenario(),
             resetToken: 0,
             history: [],
             historyIndex: -1
@@ -1191,7 +1333,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             tidallyDisruptedEvents: [],
             collisionEvents: [],
             supernovaEvents: [],
-            supernovaScenario: createEmptySupernovaScenario(),
+            scriptedScenario: createEmptyScriptedScenario(),
             // Zen Mode
             zenMode: false,
             resetToken: 0,
@@ -1199,10 +1341,14 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             historyIndex: -1
         });
 
-        if (preset.scenario?.kind === 'supernova') {
-            const targetStarId = findMostMassiveStar(bodies);
-            if (targetStarId) {
-                get().startSupernovaScenario(targetStarId, true);
+        if (preset.scenario) {
+            const actors = resolveScriptedScenarioActors(preset.scenario, bodies);
+            if (actors.primaryBodyId || actors.targetBodyId) {
+                get().startScriptedScenario({
+                    kind: preset.scenario.kind,
+                    ...actors,
+                    autoStarted: true
+                });
             }
         }
     },
@@ -1337,7 +1483,7 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             tidallyDisruptedEvents: [],
             collisionEvents: [],
             supernovaEvents: [],
-            supernovaScenario: createEmptySupernovaScenario(),
+            scriptedScenario: createEmptyScriptedScenario(),
             resetToken: resetToken + 1,
             // Reset visualization states
 
@@ -1347,10 +1493,14 @@ export const usePhysicsStore = create<PhysicsStore>((set, get) => ({
             historyIndex: -1
         });
 
-        if (preset?.scenario?.kind === 'supernova') {
-            const targetStarId = findMostMassiveStar(finalBodies);
-            if (targetStarId) {
-                get().startSupernovaScenario(targetStarId, true);
+        if (preset?.scenario) {
+            const actors = resolveScriptedScenarioActors(preset.scenario, finalBodies);
+            if (actors.primaryBodyId || actors.targetBodyId) {
+                get().startScriptedScenario({
+                    kind: preset.scenario.kind,
+                    ...actors,
+                    autoStarted: true
+                });
             }
         }
     }

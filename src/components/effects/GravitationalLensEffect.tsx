@@ -7,7 +7,8 @@
 import { forwardRef, useMemo, useImperativeHandle } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Effect, EffectAttribute } from 'postprocessing';
-import { Uniform, Vector2, Vector3, Camera } from 'three';
+import { Uniform, Vector2, Vector3, Camera, PerspectiveCamera } from 'three';
+import { projectGravitationalLens, type LensViewportSize } from '../../utils/gravitationalLens';
 
 // Custom shader for gravitational lensing
 const fragmentShader = `
@@ -156,13 +157,14 @@ interface GravitationalLensEffectProps {
     strength?: number;
     camera: Camera;
     enabled?: boolean;
+    viewportSize: LensViewportSize;
 }
 
 // React component wrapper
 export const GravitationalLensEffect = forwardRef<
     GravitationalLensEffectImpl,
     GravitationalLensEffectProps
->(({ blackHolePosition, schwarzschildRadius, strength = 1.0, camera, enabled = true }, ref) => {
+>(({ blackHolePosition, schwarzschildRadius, strength = 1.0, camera, enabled = true, viewportSize }, ref) => {
     // Safe access to camera properties
     const cam = camera as unknown as { near?: number; far?: number };
     const near = cam.near ?? 0.1;
@@ -180,8 +182,11 @@ export const GravitationalLensEffect = forwardRef<
     useFrame(() => {
         if (!camera) return;
 
+        const lensStrengthUniform = effect.uniforms.get('lensStrength')!
+        const radiusUniform = effect.uniforms.get('schwarzschildRadius')!
+
         // Always set lensStrength based on enabled state
-        effect.uniforms.get('lensStrength')!.value = enabled ? strength : 0;
+        lensStrengthUniform.value = enabled ? strength : 0;
 
         // Update simple camera parameters (though specific projection matrices might vary, near/far is used for linearizing)
         // Check for near/far properties safely without using 'any'
@@ -190,28 +195,27 @@ export const GravitationalLensEffect = forwardRef<
         if (cam.far !== undefined) effect.uniforms.get('cameraFar')!.value = cam.far;
 
         // Skip calculations if disabled
-        if (!enabled) return;
+        if (!enabled || !(camera instanceof PerspectiveCamera)) {
+            lensStrengthUniform.value = 0;
+            radiusUniform.value = 0;
+            return;
+        }
 
-        // Project 3D position to screen space (0-1)
-        const screenPos = blackHolePosition.clone().project(camera);
+        camera.updateMatrixWorld()
+        camera.updateProjectionMatrix()
 
-        // Convert from NDC (-1 to 1) to UV (0 to 1)
-        const screenUV = new Vector2(
-            (screenPos.x + 1) / 2,
-            (screenPos.y + 1) / 2
-        );
+        const projection = projectGravitationalLens(
+            camera,
+            blackHolePosition,
+            schwarzschildRadius,
+            viewportSize
+        )
 
-        // Calculate screen-space radius based on distance
-        const distance = camera.position.distanceTo(blackHolePosition);
-        const screenRadius = Math.min(0.3, schwarzschildRadius / distance * 2);
-
-        // Get aspect ratio
-        const aspect = window.innerWidth / window.innerHeight;
-
-        effect.uniforms.get('blackHoleScreen')!.value = screenUV;
-        effect.uniforms.get('schwarzschildRadius')!.value = screenRadius;
-        effect.uniforms.get('aspectRatio')!.value = aspect;
-        effect.uniforms.get('blackHoleDistance')!.value = distance;
+        effect.uniforms.get('blackHoleScreen')!.value = projection.screenUV
+        radiusUniform.value = projection.visible ? projection.screenRadius : 0
+        effect.uniforms.get('aspectRatio')!.value = viewportSize.width / viewportSize.height
+        effect.uniforms.get('blackHoleDistance')!.value = projection.distance
+        lensStrengthUniform.value = projection.visible ? strength : 0
     });
 
     // Expose the effect instance via ref
